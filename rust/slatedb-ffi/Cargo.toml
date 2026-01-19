@@ -1,0 +1,25 @@
+[package]
+name = "slatedb-csharp-ffi"
+version = "0.1.0"
+edition = "2021"
+authors = ["Sylvain Le Gouellec <sylvain.legouellec@gmail.com>"]
+description = "C# FFI bindings for Slatedb (cdylib for P/Invoke)"
+license = "Apache-2.0"
+repository = "https://github.com/dotstream/slatedb-csharp-binding"
+readme = "../../README.md"
+keywords = ["slatedb", "ffi", "csharp", "bindings"]
+build = "build.rs"
+
+[lib]
+name = "slatedb_csharp_ffi"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies] 
+bytes = "1.11.0"
+slatedb = "0.10.1"
+once_cell = "1.21.3"
+object_store = "0.13.0"
+tokio = { version = "1.49.0", features = ["full"] }
+
+[build-dependencies]
+csbindgen = "1.9.7"

@@ -1,0 +1,5 @@
+{
+    "rust-analyzer.linkedProjects": [
+        "rust/slatedb-ffi/Cargo.toml"
+    ]
+}

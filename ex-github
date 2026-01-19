@@ -1,0 +1,140 @@
+name: Build & Publish NuGet
+
+on:
+  push:
+    tags:
+      - "v*.*.*"   # Publie uniquement quand tu pushes un tag versionné
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Build Rust FFI
+        working-directory: rust/slatedb-ffi
+        run: cargo build --release
+
+      - name: Copy native library to C# runtimes folder
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            RID="win-x64"
+            LIB=$(find rust/slatedb-ffi/target/release -name "slatedbffi.dll")
+          elif [[ "$RUNNER_OS" == "Linux" ]]; then
+            RID="linux-x64"
+            LIB=$(find rust/slatedb-ffi/target/release -name "libslatedbffi.so")
+          else
+            RID="osx-x64"
+            LIB=$(find rust/slatedb-ffi/target/release -name "libslatedbffi.dylib")
+          fi
+
+          echo "Copying $LIB to src/SlateDB/runtimes/$RID/native/"
+          mkdir -p src/SlateDB/runtimes/$RID/native
+          cp "$LIB" src/SlateDB/runtimes/$RID/native/
+
+      - name: Upload native libs artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-libs-${{ matrix.os }}
+          path: src/SlateDB/runtimes
+          retention-days: 1
+
+  pack:
+    name: Pack NuGet
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download native libs
+        uses: actions/download-artifact@v4
+        with:
+          pattern: native-libs-*
+          merge-multiple: true
+          path: src/SlateDB/runtimes
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Pack NuGet
+        working-directory: src/SlateDB
+        run: dotnet pack -c Release -o ../../artifacts
+
+      - name: Upload NuGet package
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-package
+          path: artifacts/*.nupkg
+
+  publish:
+    name: Publish to NuGet
+    runs-on: ubuntu-latest
+    needs: pack
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Download NuGet package
+        uses: actions/download-artifact@v4
+        with:
+          name: nuget-package
+          path: .
+
+      - name: Publish to NuGet
+        run: dotnet nuget push *.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
+
+
+<Project>
+  <PropertyGroup>
+    <!-- Version du package -->
+    <Version>0.1.0</Version>
+
+    <!-- Activer le packaging -->
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+
+    <!-- Framework cible -->
+    <TargetFramework>net8.0</TargetFramework>
+
+    <!-- Infos NuGet -->
+    <Authors>TonNom</Authors>
+    <Company>TonOrganisation</Company>
+    <PackageId>SlateDB</PackageId>
+    <Description>Binding C# multi-plateforme pour SlateDB (Rust)</Description>
+    <PackageTags>slatedb;database;rust;ffi</PackageTags>
+    <RepositoryUrl>https://github.com/tonrepo/slatedb-csharp</RepositoryUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+  </PropertyGroup>
+
+  <!-- Inclure les libs natives dans le package -->
+  <ItemGroup>
+    <NativeLib Include="runtimes\win-x64\native\slatedbffi.dll" />
+    <NativeLib Include="runtimes\linux-x64\native\libslatedbffi.so" />
+    <NativeLib Include="runtimes\osx-x64\native\libslatedbffi.dylib" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="@(NativeLib)" Pack="true" PackagePath="%(NativeLib.Identity)" />
+  </ItemGroup>
+</Project>
