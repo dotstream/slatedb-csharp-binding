@@ -1,0 +1,23 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <SignAssembly>true</SignAssembly>
+        <AssemblyOriginatorKeyFile>..\SlateDb\slate-db.snk</AssemblyOriginatorKeyFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\SlateDb\SlateDb.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Include="..\SlateDb\slate-db.snk">
+        <Link>slate-db.snk</Link>
+      </None>
+    </ItemGroup>
+
+</Project>

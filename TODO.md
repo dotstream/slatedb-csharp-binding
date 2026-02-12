@@ -1,0 +1,4 @@
+- script to generate bindings
+- test
+- CI/CD
+- publish nuget packages

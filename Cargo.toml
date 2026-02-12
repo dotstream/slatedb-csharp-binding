@@ -1,0 +1,17 @@
+[workspace]
+resolver = "2"
+members = [
+    "rust/slatedb-ffi"
+]
+
+[profile.dev]
+debug = true
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["Sylvain Le Gouellec <sylvain.legouellec@gmail.com>"]
+description = "C# FFI bindings for Slatedb (cdylib for P/Invoke)"
+license = "Apache-2.0"
+repository = "https://github.com/dotstream/slatedb-csharp-binding"
+readme = "README.md"
