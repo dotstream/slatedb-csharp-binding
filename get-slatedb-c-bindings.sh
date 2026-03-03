@@ -2,7 +2,7 @@
 
 version="${1:-0.10.1}"
 
-rm -rf rust/slatedb-ffi/src/*
+rm -rf rust/slatedb-ffi/src/*.rs
 mkdir -p slatedb-c
 rm -rf slatedb-c/*
 curl -sL https://github.com/slatedb/slatedb/archive/refs/tags/v${version}.tar.gz | tar xz -C slatedb-c --strip-components=3 slatedb-${version}/slatedb-go/src

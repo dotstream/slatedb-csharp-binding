@@ -1,4 +1,4 @@
 - script to generate bindings
-- test
+- unit test
 - CI/CD
 - publish nuget packages

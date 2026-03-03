@@ -149,6 +149,9 @@ namespace SlateDb.Interop
         [DllImport(__DllName, EntryPoint = "slatedb_reader_close", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
         internal static extern CSdbResult slatedb_reader_close(CSdbReaderHandle handle);
 
+        [DllImport(__DllName, EntryPoint = "slatedb_reader_open_with_object_builder", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern CSdbReaderHandleResult slatedb_reader_open_with_object_builder(byte* path, ObjectStoreBuilder* object_store_builder, byte* checkpoint_id, CSdbReaderOptions* reader_options);
+
         [DllImport(__DllName, EntryPoint = "slatedb_open", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
         internal static extern CSdbHandleResult slatedb_open(byte* path, byte* url, byte* env_file);
 
@@ -306,6 +309,15 @@ namespace SlateDb.Interop
         /// </summary>
         [DllImport(__DllName, EntryPoint = "slatedb_iterator_close", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
         internal static extern CSdbResult slatedb_iterator_close(CSdbIterator* iter);
+
+        /// <summary>
+        ///  # Safety
+        ///
+        ///  - `iter` must be a valid pointer to a CSdbIterator
+        ///  - `key` must point to valid memory of at least `key_len` bytes
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_iterator_seek_from_beginning", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern CSdbResult slatedb_iterator_seek_from_beginning(CSdbIterator* iter);
 
         [DllImport(__DllName, EntryPoint = "slatedb_free_result", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
         internal static extern void slatedb_free_result(CSdbResult result);

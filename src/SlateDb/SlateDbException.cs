@@ -7,7 +7,7 @@ public sealed class SlateDbException : Exception
     private CSdbResult result;
     
     internal SlateDbException(CSdbResult result, String message)
-        :base(message)
+        : base(message)
     {
         this.result = result;
     }   
