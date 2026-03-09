@@ -28,7 +28,7 @@ public sealed partial class SlateDb<K, V>
                 CSdbWriteBatch** batch = stackalloc CSdbWriteBatch*[1];
                 var result = NativeMethods.slatedb_write_batch_new(batch);
                 ThrowOnError(result);
-                _batch = (nuint)batch;
+                _batch = (nuint)(*batch);
                 _slateDb = slateDb;
             }
         }
@@ -71,6 +71,7 @@ public sealed partial class SlateDb<K, V>
             {
                 fixed (byte* keyPtr = key)
                 {
+                   // nuint l = (nuint)key.Length;
                     var result = NativeMethods.slatedb_write_batch_delete(
                         NativeHandle, keyPtr, (nuint)key.Length);
                     ThrowOnError(result);
@@ -83,13 +84,12 @@ public sealed partial class SlateDb<K, V>
         public void Dispose()
         {
             if (_disposed) return;
-            _disposed = true;
-
             unsafe
             {
                 if (_batch != nuint.Zero)
                 {
                     NativeMethods.slatedb_write_batch_close(NativeHandle);
+                    _disposed = true;
                     _batch = nuint.Zero;
                 }
             }

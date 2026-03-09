@@ -5,10 +5,11 @@ using var db = SlateDb.SlateDb
     .WithObjectConfiguration(new MemoryStoreConfig())
     .Build();
 
-db.Put("key", "value");
-var v = db.Get("key");
+using var batch = db.NewWriteBatch();
 
-var items = db.ScanPrefix("k").ToList();
+batch.Put("user:sylvain", "value");
+batch.Delete("key");
+db.Write(batch);
 
-Console.ReadLine();
-// db.Put("key", "value");
+foreach (var kv in db.ScanPrefix("user:"))
+    Console.WriteLine($"{kv.Key} = {kv.Value}");

@@ -6,7 +6,7 @@ namespace SlateDb;
 
 public sealed partial class SlateDb<K,V>
 {
-    public void Put<T>(K key, V value, PutOptions putOptions, WriteOptions writeOptions)
+    public void Put(K key, V value, PutOptions putOptions, WriteOptions writeOptions)
         => Put(ConvertKeyToBytes(key), ConvertValueToBytes(value), putOptions,  writeOptions);
 
     public void Put(K key, V value) 

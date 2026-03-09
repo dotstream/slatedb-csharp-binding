@@ -5,6 +5,7 @@ namespace SlateDb.Configuration;
 
 public class LocalStoreConfig(string localPath) : AbstractSlateDbConfig
 {
+
     internal override ObjectStoreType StoreType => ObjectStoreType.Local;
 
     [JsonPropertyName("local_path")]

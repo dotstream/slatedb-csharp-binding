@@ -7,7 +7,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SlateDb", "src\SlateDb\Slat
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SlateDbLauncher", "src\SlateDbLauncher\SlateDbLauncher.csproj", "{1E5261E6-96E3-44D2-8D43-AC0ADEA5F8E8}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SlateDbUnitTests", "src\SlateDbUnitTests\SlateDbUnitTests.csproj", "{F4468954-7B15-4EA1-AEC5-D9065AA7260B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SlateDbUnitTests", "src\SlateDbUnitTests\SlateDbUnitTests.csproj", "{19987700-942B-4D1C-8DB6-05C97710966C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -26,9 +26,9 @@ Global
 		{1E5261E6-96E3-44D2-8D43-AC0ADEA5F8E8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1E5261E6-96E3-44D2-8D43-AC0ADEA5F8E8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1E5261E6-96E3-44D2-8D43-AC0ADEA5F8E8}.Release|Any CPU.Build.0 = Release|Any CPU
-		{F4468954-7B15-4EA1-AEC5-D9065AA7260B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{F4468954-7B15-4EA1-AEC5-D9065AA7260B}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{F4468954-7B15-4EA1-AEC5-D9065AA7260B}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{F4468954-7B15-4EA1-AEC5-D9065AA7260B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{19987700-942B-4D1C-8DB6-05C97710966C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{19987700-942B-4D1C-8DB6-05C97710966C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{19987700-942B-4D1C-8DB6-05C97710966C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{19987700-942B-4D1C-8DB6-05C97710966C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

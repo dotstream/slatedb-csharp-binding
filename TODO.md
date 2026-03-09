@@ -1,4 +1,3 @@
 - script to generate bindings
-- unit test
 - CI/CD
-- publish nuget packages
+- publish nuget packages => 0.10.1.1
