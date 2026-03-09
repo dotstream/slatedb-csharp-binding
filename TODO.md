@@ -1,3 +1,2 @@
-- script to generate bindings
 - CI/CD
 - publish nuget packages => 0.10.1.1
