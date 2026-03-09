@@ -7,44 +7,17 @@ on:
     branches: [main]
 
 jobs:
-  build:
-    name: Build on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-
+  build-and-test:
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
+      - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@nightly
-      - uses: goto-bus-stop/setup-zig@v2
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+      - run: ./generate-binding.sh 0.10.1
+      - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: "10.0.x"
-
-      - name: Make script executable
-        run: |
-          chmod +x ./generate-binding.sh && chmod +x ./get-slatedb-c-bindings.sh
-
-      - run: cargo install cargo-zigbuild
-
-      - name: Generate bindings
-        shell: bash
-        run: ./generate-binding.sh 0.10.1 all
-
+          dotnet-version: '10.0.x'
       - name: Run dotnet tests
         shell: bash
         run: |
           cd src/SlateDbUnitTests
           dotnet test --verbosity normal
-
-      - name: Upload native libs artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: native-libs-${{ matrix.os }}
-          path: src/SlateDb/runtimes
-          retention-days: 1
