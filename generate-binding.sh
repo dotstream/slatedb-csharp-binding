@@ -6,7 +6,9 @@ set -e
 
 cargo build
 
-SRC_DIR="./target/debug"
+kind="${2:-debug}"
+
+SRC_DIR="./target/$kind"
 DEST_DIR="./src/SlateDb/runtimes"
 LIB_NAME="slatedb_csharp_ffi"
 
