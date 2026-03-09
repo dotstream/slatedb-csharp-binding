@@ -1,0 +1,49 @@
+name: Release to NuGet
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  build-native:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Make script executable
+        run: |
+          chmod +x ./generate-binding.sh && chmod +x ./get-slatedb-c-bindings.sh
+
+      - name: Generate bindings
+        shell: bash
+        run: ./generate-binding.sh 0.10.1 all
+
+      - name: Run dotnet tests
+        shell: bash
+        run: |
+          cd src/SlateDbUnitTests
+          dotnet test --verbosity normal
+
+      - name: Upload native libs artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-libs-${{ matrix.os }}
+          path: src/SlateDb/runtimes
+          retention-days: 1
