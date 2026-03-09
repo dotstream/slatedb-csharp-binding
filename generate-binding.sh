@@ -3,10 +3,9 @@
 set -e 
 
 ./get-slatedb-c-bindings.sh "$@"
-
-cargo build
-
 kind="${2:-debug}"
+
+cargo build --$kind
 
 SRC_DIR="./target/$kind"
 DEST_DIR="./src/SlateDb/runtimes"
