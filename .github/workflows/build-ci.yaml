@@ -33,7 +33,7 @@ jobs:
 
       - name: Generate bindings
         shell: bash
-        run: ./generate-bindings.sh 0.10.1 release
+        run: ./generate-binding.sh 0.10.1 release
 
       - name: Run dotnet tests
         shell: bash
