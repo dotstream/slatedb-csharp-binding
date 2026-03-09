@@ -52,6 +52,7 @@ case "$OS" in
         ;;
 esac
 
+ls -l "$SRC_DIR"
 SRC_FILE="$SRC_DIR/${LIB_NAME}"
 DEST_FILE="$DEST_DIR/$RID/native/${LIB_NAME}"
 
