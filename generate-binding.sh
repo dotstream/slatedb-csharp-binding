@@ -77,10 +77,15 @@ for i in "${!RIDS[@]}"; do
                 continue
             fi ;;
         win-*)
-            if [ "$(uname -s)" != "MINGW*" ] && [ "$(uname -s)" != "MSYS*" ] && [ "$(uname -s)" != "CYGWIN*" ]; then
-                echo "  Skipping $RID (requires Windows host)"
-                continue
-            fi ;;
+            case "$(uname -s)" in
+                MINGW*|MSYS*|CYGWIN*)
+                    # OK, on est sur Windows
+                    ;;
+                *)
+                    echo "  Skipping $RID (requires Windows host)"
+                    continue
+                    ;;
+            esac
     esac
 
     echo ""
