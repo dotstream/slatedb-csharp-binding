@@ -58,7 +58,7 @@ dotnet test
 
 | SlateDb Version (Rust) | Binding Version (C#) | Status |
 | --- | --- | --- |
-| [0.10.1](https://github.com/slatedb/slatedb/releases/tag/v0.10.0) | 0.10.1 | **DONE** |
+| [0.10.1](https://github.com/slatedb/slatedb/releases/tag/v0.10.1) | 0.10.1 | **DONE** |
 | 0.11.1 | 0.11.1 | **IN PROGRESS** |
 
 ## License
