@@ -11,9 +11,23 @@ RUNTIMES_DIR="src/SlateDb/runtimes"
 mkdir -p "$RUNTIMES_DIR"
 rm -rf "$RUNTIMES_DIR"
 
-RIDS=(                   osx-arm64                       osx-x64                        linux-arm64                 linux-x64                   win-arm64                    win-x64               )
-RUST_TARGETS=(           aarch64-apple-darwin            x86_64-apple-darwin            aarch64-unknown-linux-gnu   x86_64-unknown-linux-gnu    aarch64-pc-windows-msvc      x86_64-pc-windows-msvc  )
-LIB_NAMES=(              libslatedb_csharp_ffi.dylib     libslatedb_csharp_ffi.dylib    libslatedb_csharp_ffi.so    libslatedb_csharp_ffi.so    slatedb_csharp_ffi.dll       slatedb_csharp_ffi.dll  )
+RIDS=(
+    osx-arm64  osx-x64
+    linux-arm64 linux-x64
+    win-arm64 win-x64
+)
+
+RUST_TARGETS=(
+    aarch64-apple-darwin x86_64-apple-darwin
+    aarch64-unknown-linux-gnu x86_64-unknown-linux-gnu
+    aarch64-pc-windows-msvc x86_64-pc-windows-msvc
+)
+
+LIB_NAMES=(
+    libslatedb_csharp_ffi.dylib libslatedb_csharp_ffi.dylib
+    libslatedb_csharp_ffi.so libslatedb_csharp_ffi.so
+    slatedb_csharp_ffi.dll slatedb_csharp_ffi.dll
+)
 
 # Force nightly toolchain via PATH (Homebrew cargo/rustc ignores RUSTUP_TOOLCHAIN)
 NIGHTLY_BIN="$(dirname "$(rustup which cargo --toolchain nightly)")"
@@ -21,23 +35,41 @@ export PATH="$NIGHTLY_BIN:$PATH"
 echo "Using: $(cargo --version), $(rustc --version)"
 echo "Running on uname -s=$(uname -s), uname -m=$(uname -m)"
 
-# Detect native platform RID
+# -----------------------------
+#  PLATFORM DETECTION (ROBUST)
+# -----------------------------
+OS="$(uname -s)"
+
+is_windows=false
+is_macos=false
+is_linux=false
+
+case "$OS" in
+    MINGW*|MSYS*|CYGWIN*) is_windows=true ;;
+    Darwin)               is_macos=true ;;
+    Linux)                is_linux=true ;;
+esac
+
+# Detect native RID
 detect_native_rid() {
     local arch
     case "$(uname -m)" in
         arm64|aarch64) arch="arm64" ;;
         *)             arch="x64" ;;
     esac
-    case "$(uname -s)" in
-        Darwin)              echo "osx-$arch" ;;
-        Linux)               echo "linux-$arch" ;;
-        MINGW*|MSYS*|CYGWIN*) echo "win-$arch" ;;
-        *)                   echo "linux-$arch" ;;
-    esac
+
+    if $is_macos; then
+        echo "osx-$arch"
+    elif $is_linux; then
+        echo "linux-$arch"
+    elif $is_windows; then
+        echo "win-$arch"
+    else
+        echo "linux-$arch"
+    fi
 }
 
 NATIVE_RID="$(detect_native_rid)"
-
 
 # Check zigbuild for cross builds
 HAS_ZIGBUILD=false
@@ -64,29 +96,22 @@ for i in "${!RIDS[@]}"; do
         continue
     fi
 
-    # macOS targets require a macOS host (no SDK available on Linux)
-    case "$RID" in
-        osx-*)
-            if [ "$(uname -s)" != "Darwin" ]; then
-                echo "  Skipping $RID (requires macOS host)"
-                continue
-            fi ;;
-        linux-*)
-            if [ "$(uname -s)" != "Linux" ]; then
-                echo "  Skipping $RID (requires Linux host)"
-                continue
-            fi ;;
-        win-*)
-            case "$(uname -s)" in
-                MINGW*|MSYS*|CYGWIN*)
-                    # OK, on est sur Windows
-                    ;;
-                *)
-                    echo "  Skipping $RID (requires Windows host)"
-                    continue
-                    ;;
-            esac
-    esac
+    # macOS targets require macOS host
+    if [[ "$RID" == osx-* ]] && ! $is_macos; then
+        echo "  Skipping $RID (requires macOS host)"
+        continue
+    fi
+
+    # Linux + Windows targets require Linux or Windows host
+    if [[ "$RID" == linux-* ]] && ! $is_linux; then
+        echo "  Skipping $RID (requires Linux host)"
+        continue
+    fi
+
+    if [[ "$RID" == win-* ]] && ! $is_windows; then
+        echo "  Skipping $RID (requires Windows host)"
+        continue
+    fi
 
     echo ""
     echo "=== Building $RID ($TARGET) ==="
@@ -95,10 +120,11 @@ for i in "${!RIDS[@]}"; do
     mkdir -p "$OUT_DIR"
 
     # Use zigbuild for cross-compilation, plain cargo for native
-    if [ "$RID" = "$NATIVE_RID" ]; then
-        BUILD_CMD="cargo build"
-    else
+    # Cross-compilation only on Linux
+    if $is_linux && [ "$RID" != "$NATIVE_RID" ]; then
         BUILD_CMD="cargo zigbuild"
+    else
+        BUILD_CMD="cargo build"
     fi
 
     if $BUILD_CMD --release -p slatedb-csharp-ffi --target "$TARGET" \
