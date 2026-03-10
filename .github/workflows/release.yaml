@@ -1,11 +1,11 @@
-name: Release to NuGet
+name: Release
 
 on:
   push:
     tags: ['v*']
 
 jobs:
-  build-native:
+  build:
     name: Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -16,11 +16,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          override: true
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+      
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: goto-bus-stop/setup-zig@v2
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -31,9 +32,11 @@ jobs:
         run: |
           chmod +x ./generate-binding.sh && chmod +x ./get-slatedb-c-bindings.sh
 
+      - run: cargo install cargo-zigbuild
+
       - name: Generate bindings
         shell: bash
-        run: ./generate-binding.sh 0.10.1 all
+        run: ./generate-binding.sh ${{ steps.version.outputs.VERSION }} all
 
       - name: Run dotnet tests
         shell: bash
@@ -47,3 +50,34 @@ jobs:
           name: native-libs-${{ matrix.os }}
           path: src/SlateDb/runtimes
           retention-days: 1
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: src/SlateDb/runtimes/
+          pattern: native-*
+          merge-multiple: true
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - run: dotnet build slatedb-csharp-binding.sln -c Release
+
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+
+      - run: dotnet pack src/SlateDb/SlateDb.csproj -c Release -p:PackageVersion=${{ steps.version.outputs.VERSION }} -o ./artifacts
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nupkg
+          path: ./artifacts/*.nupkg
+
+      - run: dotnet nuget push ./artifacts/*.nupkg -k ${{ secrets.NUGET_API_KEY }} -s https://api.nuget.org/v3/index.json

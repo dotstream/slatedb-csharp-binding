@@ -4,6 +4,7 @@
         <TargetFramework>net10.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <PackageId>SlateDb.Net</PackageId>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <AssemblyName>SlateDb</AssemblyName>
         <RootNamespace>SlateDb</RootNamespace>

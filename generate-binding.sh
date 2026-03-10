@@ -65,9 +65,14 @@ for i in "${!RIDS[@]}"; do
                 echo "  Skipping $RID (requires macOS host)"
                 continue
             fi ;;
-        linux-*|win-*)
-            if [ "$(uname -s)" = "Darwin" ]; then
+        linux-*)
+            if [ "$(uname -s)" != "Linux" ]; then
                 echo "  Skipping $RID (built on Linux host)"
+                continue
+            fi ;;
+        win-*)
+            if [ "$(uname -s)" != "MINGW"* ] && [ "$(uname -s)" != "MSYS"* ] && [ "$(uname -s)" != "CYGWIN"* ]; then
+                echo "  Skipping $RID (built on Windows host)"
                 continue
             fi ;;
     esac
