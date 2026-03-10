@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@nightly
-      - run: ./generate-binding.sh 0.10.1
+      - run: ./generate-binding.sh
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
