@@ -19,6 +19,7 @@ LIB_NAMES=(              libslatedb_csharp_ffi.dylib     libslatedb_csharp_ffi.d
 NIGHTLY_BIN="$(dirname "$(rustup which cargo --toolchain nightly)")"
 export PATH="$NIGHTLY_BIN:$PATH"
 echo "Using: $(cargo --version), $(rustc --version)"
+echo "Running on uname -s=$(uname -s), uname -m=$(uname -m)"
 
 # Detect native platform RID
 detect_native_rid() {
