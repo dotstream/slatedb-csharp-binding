@@ -7,7 +7,7 @@ all="${2:-false}"
 
 RUNTIMES_DIR="src/SlateDb/runtimes"
 RIDS=(                   osx-arm64                       osx-x64                        linux-arm64                 linux-x64                   win-arm64                    win-x64               )
-RUST_TARGETS=(           aarch64-apple-darwin            x86_64-apple-darwin            aarch64-unknown-linux-gnu   x86_64-unknown-linux-gnu    aarch64-pc-windows-gnullvm   x86_64-pc-windows-gnu  )
+RUST_TARGETS=(           aarch64-apple-darwin            x86_64-apple-darwin            aarch64-unknown-linux-gnu   x86_64-unknown-linux-gnu    aarch64-pc-windows-gnu       x86_64-pc-windows-gnu  )
 LIB_NAMES=(              libslatedb_csharp_ffi.dylib     libslatedb_csharp_ffi.dylib    libslatedb_csharp_ffi.so    libslatedb_csharp_ffi.so    slatedb_csharp_ffi.dll       slatedb_csharp_ffi.dll  )
 
 # Force nightly toolchain via PATH (Homebrew cargo/rustc ignores RUSTUP_TOOLCHAIN)
