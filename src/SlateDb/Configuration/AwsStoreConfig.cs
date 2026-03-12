@@ -20,7 +20,7 @@ public enum S3ConditionalPut
 public enum ChecksumAlgorithm
 {
     [PropertyConverter("sha256")]
-    SHA256
+    Sha256
 }
 
 public enum S3EncryptionType

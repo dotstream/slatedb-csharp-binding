@@ -5,19 +5,19 @@ namespace SlateDb.Handle.Internal;
 
 internal sealed unsafe class SlateDbReaderHandle : SafeHandle
 {
-    private readonly CSdbReaderHandle _slateDbPtr;
+    private readonly slatedb_db_reader_t* _slateDbPtr;
     
-    public SlateDbReaderHandle(CSdbReaderHandle cSdbReaderHandle) 
-        : base((IntPtr)cSdbReaderHandle.Item1, true) {
-        _slateDbPtr = cSdbReaderHandle;
+    public SlateDbReaderHandle(slatedb_db_reader_t* sdbReaderT) 
+        : base((IntPtr)sdbReaderT, true) {
+        _slateDbPtr = sdbReaderT;
     }
     
-    internal CSdbReaderHandle GetCSdbHandle() => _slateDbPtr;
+    internal slatedb_db_reader_t* GetCSdbHandle() => _slateDbPtr;
 
     protected override bool ReleaseHandle()
     {
-        var result = NativeMethods.slatedb_reader_close(_slateDbPtr);
-        if (result.error != CSdbError.Success)
+        var result = NativeMethods.slatedb_db_reader_close(_slateDbPtr);
+        if (result.kind != slatedb_error_kind_t.SLATEDB_ERROR_KIND_NONE)
         {
             var message = Marshal.PtrToStringUTF8((IntPtr)result.message);
             throw new SlateDbException(result, message);

@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Text;
 using SlateDb.Configuration;
 using SlateDb.Converter;
 using SlateDb.Handle;
@@ -11,14 +12,21 @@ using SlateDb.Options;
 
 namespace SlateDb;
 
-public enum SlateDbMode
+internal enum SlateDbMode
 {
-    READONLY,
-    READWRITE
+    Readonly,
+    Readwrite
 }
 
 public static class SlateDb
 {
+    private static Action<LogLevel, string, string, string, string, uint> logCallback;
+    
+    static SlateDb() 
+    {
+        InitLogging(LogLevel.Info);
+    }
+    
     public static SlateDbBuilder<K, V> Create<K, V>(string path) 
         where V : class
         where K : class
@@ -33,6 +41,73 @@ public static class SlateDb
         where V : class
         where K : class
         => new(path, checkpointId);
+    
+    public static void InitLogging(LogLevel level)
+    {
+        
+#if DEBUG
+        NativeMethods.LoadDebugNativeLibrary();
+#endif
+        
+        NativeMethods.slatedb_logging_init((byte)level)
+            .ThrowOnError();
+    }
+
+    public static void SetLoggingLevel(LogLevel level)
+    {
+#if DEBUG
+        NativeMethods.LoadDebugNativeLibrary();
+#endif
+        
+        NativeMethods.slatedb_logging_set_level((byte)level)
+            .ThrowOnError();
+    }
+
+    /// <summary>
+    /// Logging callback used by `slatedb_logging_set_callback`.
+    /// </summary>
+    /// <param name="callback">Call with the actual context (LogLevel, Target, Module, Message, File, LineNumber)</param>
+    public static void SetLoggingCallback(Action<LogLevel, string, string, string, string, uint> callback)
+    {
+#if DEBUG
+        NativeMethods.LoadDebugNativeLibrary();
+#endif
+        
+        unsafe
+        {
+            delegate* unmanaged[Cdecl]<byte, byte*, nuint, byte*, nuint, byte*, nuint, byte*, nuint, uint, void*, void> cbPtr
+                = &LogCallback;
+            
+            logCallback = callback;
+            NativeMethods.slatedb_logging_set_callback(cbPtr, null, null)
+                .ThrowOnError();
+        }
+    }
+    
+    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    private static unsafe void LogCallback(
+        byte level,
+        byte* target, nuint targetLen,
+        byte* message, nuint messageLen,
+        byte* modulePath, nuint modulePathLen,
+        byte* file, nuint fileLen,
+        uint line,
+        void* context )
+    {
+        string targetStr = Encoding.UTF8.GetString(target, (int)targetLen);
+        string msgStr = Encoding.UTF8.GetString(message, (int)messageLen);
+        string moduleStr = Encoding.UTF8.GetString(modulePath, (int)modulePathLen);
+        string fileStr = Encoding.UTF8.GetString(file, (int)fileLen);
+        
+        logCallback?.Invoke((LogLevel)level, targetStr, moduleStr, msgStr, fileStr, line);
+    }
+    
+    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    private static unsafe void FreeContext(void* ctx)
+    {
+        var handle = GCHandle.FromIntPtr((IntPtr)ctx);
+        handle.Free();
+    }
 }
 
 public sealed partial class SlateDb<K,V> : IDisposable
@@ -53,7 +128,7 @@ public sealed partial class SlateDb<K,V> : IDisposable
         ISlateDbConverter<K>? keyConverter = null,
         ISlateDbConverter<V>? valueConverter = null)
     {
-        _mode = SlateDbMode.READWRITE;
+        _mode = SlateDbMode.Readwrite;
         _keyConverter = keyConverter;
         _valueConverter = valueConverter;
         
@@ -83,35 +158,39 @@ public sealed partial class SlateDb<K,V> : IDisposable
             
             if (!options.NeedSlateDbBuilderUsage)
             {
-                var result = NativeMethods.slatedb_open_with_object_builder(
-                    path.ToPtr(), objectStoreBuilder);
-                ThrowOnError(result);
-                _handle = new SlateDbHandle(result.handle);
+                slatedb_db_t** db = stackalloc slatedb_db_t*[1];
+                NativeMethods.slatedb_open_with_object_builder(
+                    path.ToPtr(), objectStoreBuilder, db).ThrowOnError();
+                _handle = new SlateDbHandle(*db);
             }
             else
             {
-                var slateDbBuilder = NativeMethods.slatedb_builder_new_with_object_builder(path.ToPtr(), objectStoreBuilder);
-                if (slateDbBuilder == null)
-                    throw new SlateDbException(new CSdbResult() { error = CSdbError.InternalError }, "Internal error when trying to create a new slatedb builder");
+                slatedb_db_builder_t** dbBuilder = stackalloc slatedb_db_builder_t*[1];
+                NativeMethods.slatedb_builder_new_with_object_builder(path.ToPtr(), objectStoreBuilder, dbBuilder)
+                    .ThrowOnError();
+                
                 try
                 {
                     if (options.SlateDbSettings != null)
                     {
                         var jsonSettings = SlateDbSettingsSerializer.ToJson(options.SlateDbSettings);
-                        if (!NativeMethods.slatedb_builder_with_settings(slateDbBuilder, jsonSettings.ToPtr()))
-                            throw new SlateDbException(new CSdbResult() { error = CSdbError.InternalError }, "Internal error when setting the settings to the slatedb builder");
+                        slatedb_settings_t** settings = stackalloc slatedb_settings_t*[1];
+                        NativeMethods.slatedb_settings_from_json(jsonSettings.ToPtr(), settings)
+                            .ThrowOnError();
                     }
 
                     if (options.SstBlockSize != null)
-                        if(!NativeMethods.slatedb_builder_with_sst_block_size(slateDbBuilder, (byte)options.SstBlockSize))
-                            throw new SlateDbException(new CSdbResult() { error = CSdbError.InternalError }, "Internal error when setting the sst block size to the slatedb builder");
-
-                    var result = NativeMethods.slatedb_builder_build(slateDbBuilder);
-                    _handle = new SlateDbHandle(result);
+                    {
+                            NativeMethods.slatedb_db_builder_with_sst_block_size(*dbBuilder,
+                                (byte)options.SstBlockSize).ThrowOnError();
+                    }
+                    
+                    slatedb_db_t** db = stackalloc slatedb_db_t*[1];
+                    NativeMethods.slatedb_db_builder_build(*dbBuilder, db).ThrowOnError();
+                    _handle = new SlateDbHandle(*db);
                 }
-                catch (Exception ex)
-                {
-                    NativeMethods.slatedb_builder_free(slateDbBuilder);
+                catch{
+                    NativeMethods.slatedb_db_builder_close(*dbBuilder).ThrowOnError();
                 }
             }
             
@@ -128,7 +207,7 @@ public sealed partial class SlateDb<K,V> : IDisposable
         ISlateDbConverter<V>? valueConverter = null,
         ReaderOptions? readerOptions = null)
     {
-        _mode = SlateDbMode.READONLY;
+        _mode = SlateDbMode.Readonly;
         _keyConverter = keyConverter;
         _valueConverter = valueConverter;
         
@@ -157,19 +236,20 @@ public sealed partial class SlateDb<K,V> : IDisposable
                 objectStoreBuilderConfig);
 
             readerOptions ??= ReaderOptions.Default;
-            var nativeOpts = new CSdbReaderOptions
+            var nativeOpts = new slatedb_db_reader_options_t
             {
                 manifest_poll_interval_ms = (ulong)readerOptions.ManifestPollInterval.TotalMilliseconds,
                 checkpoint_lifetime_ms = (ulong)readerOptions.CheckpointLifetime.TotalMilliseconds,
                 max_memtable_bytes = readerOptions.MaxMemtableBytes
             };
 
-            var status = NativeMethods.slatedb_reader_open_with_object_builder(
-                path.ToPtr(), objectStoreBuilder, checkpointId.ToPtr(), &nativeOpts);
+            slatedb_db_reader_t** dbreader = stackalloc slatedb_db_reader_t*[1];
 
-            ThrowOnError(status);
+            NativeMethods.slatedb_reader_open_with_object_builder(
+                path.ToPtr(), objectStoreBuilder, checkpointId.ToPtr(), &nativeOpts, dbreader)
+                .ThrowOnError();
 
-            _handle = new SlateDbReaderHandle(status.handle);
+            _handle = new SlateDbReaderHandle(*dbreader);
 
             NativeMethods.slatedb_object_store_builder_config_free(objectStoreBuilderConfig);
         }
@@ -192,8 +272,10 @@ public sealed partial class SlateDb<K,V> : IDisposable
         CheckSlateDbMode(true);
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        var result = NativeMethods.slatedb_flush(_handle.GetCSdbHandle<CSdbHandle>());
-        ThrowOnError(result);
+        unsafe
+        {
+            NativeMethods.slatedb_db_flush(_handle.GetCSdbHandle<slatedb_db_t>()).ThrowOnError();
+        }
     }
     
     internal byte[] ConvertKeyToBytes(K key)
@@ -228,62 +310,23 @@ public sealed partial class SlateDb<K,V> : IDisposable
         return SlateDbConvert.FromBytes<K>(bytes);
     }
     
-    private static byte[] ConsumeValue(CSdbValue nativeValue)
+    private static unsafe byte[] ConsumeValue(byte* value, int valueLength)
     {
-        unsafe
-        {
-            var managed = new byte[(int)nativeValue.len];
-            Marshal.Copy((nint)nativeValue.data, managed, 0, (int)nativeValue.len);
-            NativeMethods.slatedb_free_value(nativeValue);
-            return managed;
-        }
+        var managed = new byte[valueLength];
+        Marshal.Copy((IntPtr)value, managed, 0, valueLength);
+        NativeMethods.slatedb_bytes_free(value, (nuint)valueLength);
+        return managed;
     }
     
-    private static void ThrowOnError(CSdbHandleResult result)
-    {
-        if (result.result.error == CSdbError.Success)
-            return;
-
-        unsafe
-        {
-            var message = Marshal.PtrToStringUTF8((IntPtr)result.result.message);
-            throw new SlateDbException(result.result, message);
-        }
-    }
-    
-    private static void ThrowOnError(CSdbReaderHandleResult result)
-    {
-        if (result.result.error == CSdbError.Success)
-            return;
-
-        unsafe
-        {
-            var message = Marshal.PtrToStringUTF8((IntPtr)result.result.message);
-            throw new SlateDbException(result.result, message);
-        }
-    }
-    
-    internal static void ThrowOnError(CSdbResult result)
-    {
-        if (result.error == CSdbError.Success)
-            return;
-
-        unsafe
-        {
-            var message = Marshal.PtrToStringUTF8((IntPtr)result.message);
-            throw new SlateDbException(result, message);
-        }
-    }
-
     private void CheckSlateDbMode(bool writeOp)
     {
-        if (_mode == SlateDbMode.READONLY && writeOp)
+        if (_mode == SlateDbMode.Readonly && writeOp)
         {
             unsafe
             {
                 String errorMessage = "SlateDb is in READONLY mode whereas you attempt to use write operations"; 
                 byte* message = errorMessage.ToPtr();
-                throw new SlateDbException(new CSdbResult { error = CSdbError.InternalError, message = message },
+                throw new SlateDbException(new slatedb_result_t{kind = slatedb_error_kind_t.SLATEDB_ERROR_KIND_INTERNAL, message = message},
                     errorMessage);
             }
         }

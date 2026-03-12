@@ -26,23 +26,22 @@ public sealed partial class SlateDb<K,V>
                 putOptions ??= PutOptions.NoExpiry;
                 writeOptions ??= WriteOptions.Default;
 
-                var nativePut = new CSdbPutOptions {
-                    ttl_type = (uint)putOptions.TtlType,
+                var nativePut = new slatedb_put_options_t() {
+                    ttl_type = (byte)putOptions.TtlType,
                     ttl_value = (ulong)putOptions.TtlValue.TotalMilliseconds
                 };
-                var nativeWrite = new CSdbWriteOptions {
+                var nativeWrite = new slatedb_write_options_t() {
                     await_durable = writeOptions.AwaitDurable
                 };
                 
-                var status = NativeMethods.slatedb_put_with_options(
-                    _handle.GetCSdbHandle<CSdbHandle>(),
+                NativeMethods.slatedb_db_put_with_options(
+                    _handle.GetCSdbHandle<slatedb_db_t>(),
                     keyPtr,
                     (nuint)key.Length,
                     valuePtr,
                     (nuint)value.Length,
-                    &nativePut, &nativeWrite);
-                
-                ThrowOnError(status);
+                    &nativePut, &nativeWrite, 
+                    null).ThrowOnError();
             }
         }
     }

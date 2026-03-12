@@ -89,10 +89,10 @@ public class SlateDbBuilder<K, V>
     public virtual SlateDb<K, V> Build()
     {
         if (string.IsNullOrWhiteSpace(path))
-            throw new SlateDbException(new CSdbResult(), "Path is empty");
+            throw new SlateDbException(new slatedb_result_t(), "Path is empty");
 
         if (configuration == null)
-            throw new SlateDbException(new CSdbResult(), "Configuration is null");
+            throw new SlateDbException(new slatedb_result_t(), "Configuration is null");
 
         return new SlateDb<K, V>(
             path,
@@ -127,10 +127,10 @@ public class SlateDbReaderBuilder<K, V> : SlateDbBuilder<K, V>
     public override SlateDb<K, V> Build()
     {
         if (string.IsNullOrWhiteSpace(path))
-            throw new SlateDbException(new CSdbResult(), "Path is empty");
+            throw new SlateDbException(new slatedb_result_t(), "Path is empty");
 
         if (configuration == null)
-            throw new SlateDbException(new CSdbResult(), "Configuration is null");
+            throw new SlateDbException(new slatedb_result_t(), "Configuration is null");
 
         return new SlateDb<K, V>(
             path,

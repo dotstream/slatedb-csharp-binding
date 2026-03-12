@@ -2,67 +2,80 @@
 // Alternative Open Functions with Builder
 // ============================================================================
 use crate::object_store::ObjectStoreBuilder;
+use crate::slatedb_db_builder_t;
 
 // Create a new Db using a custom ObjectStoreBuilder
 #[no_mangle]
-pub extern "C" fn slatedb_open_with_object_builder(
-    path: *const c_char,
-    object_store_builder: *const ObjectStoreBuilder
-) -> CSdbHandleResult {
+pub unsafe extern "C" fn slatedb_open_with_object_builder(
+    path: *const std::os::raw::c_char,
+    object_store_builder: *const ObjectStoreBuilder,
+    out_db: *mut *mut slatedb_db_t
+) -> slatedb_result_t {
     
-    let path_str = match safe_str_from_ptr(path) {
-        Ok(s) => s,
-        Err(err) => return create_handle_error_result(err, "Invalid path"),
+    if let Err(err) = require_out_ptr(out_db, "out_db") {
+        return err;
+    }
+        
+    let path = match cstr_to_string(path, "path") {
+        Ok(path) => path,
+        Err(err) => return err,
     };
 
-    let rt = match Builder::new_multi_thread().enable_all().build() {
-        Ok(rt) => rt,
-        Err(err) => return create_handle_error_result(CSdbError::InternalError, &err.to_string()),
+    let runtime = match create_runtime() {
+        Ok(runtime) => runtime,
+        Err(err) => return err,
     };
 
     let builder = unsafe {object_store_builder.as_ref().unwrap()};
     let object_store = match builder.build() {
         Ok(store) => store,
         Err(err) => {
-            return CSdbHandleResult {
-                handle: CSdbHandle::null(),
-                result: CSdbResult {
-                    error: err.error,
-                    message: err.message,
-                },
-            }
+             return error_result(
+                slatedb_error_kind_t::SLATEDB_ERROR_KIND_INTERNAL,
+                &format!("Failed to build object store: {:?}", err.message),
+            );
         }
     };
 
-    match rt.block_on(async {
-        Db::builder(path_str, object_store).build().await
-    }) {
+     match runtime.block_on(Db::open(path, object_store)) {
         Ok(db) => {
-            let ffi = Box::new(SlateDbFFI { rt, db });
-            create_handle_success_result(CSdbHandle(Box::into_raw(ffi)))
+            let handle = Box::new(slatedb_db_t { runtime, db });
+            *out_db = Box::into_raw(handle);
+            success_result()
         }
-        Err(err) => create_handle_error_result(CSdbError::InternalError, &err.to_string()),
+        Err(err) => error_from_slate_error(&err),
     }
 }
 
 /// Create a new DbBuilder with custom ObjectStoreBuilder
 #[no_mangle]
-pub extern "C" fn slatedb_builder_new_with_object_builder(
-    path: *const c_char,
+pub unsafe extern "C" fn slatedb_builder_new_with_object_builder(
+    path: *const std::os::raw::c_char,
     object_store_builder: *const ObjectStoreBuilder,
-) -> *mut slatedb::DbBuilder<String> {
+    out_builder: *mut *mut slatedb_db_builder_t,
+) -> slatedb_result_t {
     
-    let path_str = match safe_str_from_ptr(path) {
-        Ok(s) => s.to_string(),
-        Err(_) => return std::ptr::null_mut(),
+    if let Err(err) = require_out_ptr(out_builder, "out_builder") {
+        return err;
+    }
+
+    let path = match cstr_to_string(path, "path") {
+        Ok(path) => path,
+        Err(err) => return err,
     };
 
-    let builder = unsafe {object_store_builder.as_ref().unwrap()};
-    let object_store = match builder.build() {
+    let objectBuilder = unsafe {object_store_builder.as_ref().unwrap()};
+
+    let object_store = match objectBuilder.build() {
         Ok(store) => store,
-        Err(_) => return std::ptr::null_mut(),
+        Err(err) => return error_result(slatedb_error_kind_t::SLATEDB_ERROR_KIND_INTERNAL, &format!("Failed to build object store: {:?}", err.message)),
     };
 
-    let builder = Db::builder(path_str, object_store);
-    Box::into_raw(Box::new(builder))
+    let builder = Db::builder(path, object_store);
+
+    let handle = Box::new(slatedb_db_builder_t {
+        builder: Some(builder),
+    });
+    *out_builder = Box::into_raw(handle);
+    success_result()
 }

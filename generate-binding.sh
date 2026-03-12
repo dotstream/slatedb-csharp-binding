@@ -2,8 +2,9 @@
 
 set -e 
 
-./get-slatedb-c-bindings.sh "$@"
-all="${2:-false}"
+./get-slatedb-c-bindings.sh
+
+all="${1:-false}"
 
 RUNTIMES_DIR="src/SlateDb/runtimes"
 

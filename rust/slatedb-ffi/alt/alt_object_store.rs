@@ -1,14 +1,13 @@
 // ============================================================================
 // Alternative Open Functions with Builder
 // ============================================================================
-use crate::error::{CSdbResult};
 use object_store::aws::{AmazonS3ConfigKey, S3ConditionalPut};
 use object_store::azure::{AzureConfigKey, MicrosoftAzureBuilder};
 use object_store::gcp::{GoogleCloudStorageBuilder, GoogleConfigKey};
 use object_store::local::LocalFileSystem;
 use object_store::memory::InMemory;
 use object_store::ObjectStore;
-use std::ffi::c_char;
+use std::sync::Arc;
 use std::str::FromStr;
 
 #[repr(C)]
@@ -58,7 +57,7 @@ impl ObjectStoreBuilder {
         }
     }
 
-    pub fn build(&self) -> Result<Arc<dyn ObjectStore>, CSdbResult> {
+    pub fn build(&self) -> Result<Arc<dyn ObjectStore>, slatedb_result_t> {
         
         match self.object_store_type {
             ObjectStoreType::Azure => self.build_azure(),
@@ -69,74 +68,74 @@ impl ObjectStoreBuilder {
         }
     }
 
-    fn build_azure(&self) -> Result<Arc<dyn ObjectStore>, CSdbResult> {
+    fn build_azure(&self) -> Result<Arc<dyn ObjectStore>, slatedb_result_t> {
         let mut builder = MicrosoftAzureBuilder::new();
         
         self.config_map.iter().try_for_each(|(key, value)| {
            let mut b = builder.clone();
            let azure_key = AzureConfigKey::from_str(key)
-            .map_err(|_| create_error_result(CSdbError::InternalError, &format!("Invalid Azure config key: {}", key)))?;
+            .map_err(|_| error_result(slatedb_error_kind_t::SLATEDB_ERROR_KIND_INTERNAL, &format!("Invalid Azure config key: {}", key)))?;
             b = b.with_config(azure_key, value);
             builder = b;
-            Ok::<(), CSdbResult>(())
+            Ok::<(), slatedb_result_t>(())
         })?;
 
         let store = builder.build()
-        .map_err(|e| create_error_result(CSdbError::InternalError, &format!("Failed to build Azure object store: {}", e)))?;
+        .map_err(|e| error_result(slatedb_error_kind_t::SLATEDB_ERROR_KIND_INTERNAL, &format!("Failed to build Azure object store: {}", e)))?;
 
         Ok(Arc::new(store) as Arc<dyn ObjectStore>)
     }
     
-    fn build_in_memory(&self) -> Result<Arc<dyn ObjectStore>, CSdbResult> {
+    fn build_in_memory(&self) -> Result<Arc<dyn ObjectStore>, slatedb_result_t> {
         let object_store = Arc::new(InMemory::new());
         Ok(object_store)
     }
     
-    fn build_s3(&self) -> Result<Arc<dyn ObjectStore>, CSdbResult> {
+    fn build_s3(&self) -> Result<Arc<dyn ObjectStore>, slatedb_result_t> {
 
         let mut builder = object_store::aws::AmazonS3Builder::new();
 
         self.config_map.iter().try_for_each(|(key, value)| {
            let mut b = builder.clone();
            let aws_key = AmazonS3ConfigKey::from_str(key)
-            .map_err(|_| create_error_result(CSdbError::InternalError, &format!("Invalid AWS config key: {}", key)))?;
+            .map_err(|_| error_result(slatedb_error_kind_t::SLATEDB_ERROR_KIND_INTERNAL, &format!("Invalid S3 config key: {}", key)))?;
             b = b.with_config(aws_key, value);
             builder = b;
-            Ok::<(), CSdbResult>(())
+            Ok::<(), slatedb_result_t>(())
         })?;
 
         builder = builder.with_conditional_put(S3ConditionalPut::ETagMatch);
 
         let store = builder.build()
-        .map_err(|e| create_error_result(CSdbError::InternalError, &format!("Failed to build S3 object store: {}", e)))?;
+        .map_err(|e| error_result(slatedb_error_kind_t::SLATEDB_ERROR_KIND_INTERNAL, &format!("Failed to build S3 object store: {}", e)))?;
 
         Ok(Arc::new(store) as Arc<dyn ObjectStore>)
     }
     
-    fn build_gcs(&self) -> Result<Arc<dyn ObjectStore>, CSdbResult> {
+    fn build_gcs(&self) -> Result<Arc<dyn ObjectStore>, slatedb_result_t> {
         let mut builder = GoogleCloudStorageBuilder::new();
 
         self.config_map.iter().try_for_each(|(key, value)| {
            let mut b = builder.clone();
            let google_key = GoogleConfigKey::from_str(key)
-            .map_err(|_| create_error_result(CSdbError::InternalError, &format!("Invalid Google config key: {}", key)))?;
+            .map_err(|_| error_result(slatedb_error_kind_t::SLATEDB_ERROR_KIND_INTERNAL, &format!("Invalid Google config key: {}", key)))?;
             b = b.with_config(google_key, value);
             builder = b;
-            Ok::<(), CSdbResult>(())
+            Ok::<(), slatedb_result_t>(())
         })?;
 
         let store = builder.build()
-        .map_err(|e| create_error_result(CSdbError::InternalError, &format!("Failed to build GCS object store: {}", e)))?;
+        .map_err(|e| error_result(slatedb_error_kind_t::SLATEDB_ERROR_KIND_INTERNAL, &format!("Failed to build GCS object store: {}", e)))?;
 
         Ok(Arc::new(store) as Arc<dyn ObjectStore>)
     }
     
-    fn build_local(&self) -> Result<Arc<dyn ObjectStore>, CSdbResult> {
+    fn build_local(&self) -> Result<Arc<dyn ObjectStore>, slatedb_result_t> {
         let local_path = self.config_map.get("local_path")
-            .ok_or_else(|| create_error_result(CSdbError::InternalError, "Missing local_path configuration for Local object store"))?;
+            .ok_or_else(|| error_result(slatedb_error_kind_t::SLATEDB_ERROR_KIND_INTERNAL, "Missing local_path configuration for Local object store"))?;
         
         let lfs = LocalFileSystem::new_with_prefix(local_path)
-            .map_err(|e| create_error_result(CSdbError::InternalError, &format!("Failed to build Local object store: {}", e)))?;
+            .map_err(|e| error_result(slatedb_error_kind_t::SLATEDB_ERROR_KIND_INTERNAL, &format!("Failed to build Local object store: {}", e)))?;
 
         Ok(Arc::new(lfs) as Arc<dyn ObjectStore>)
     }
@@ -161,7 +160,6 @@ pub extern "C" fn slatedb_object_store_builder_config_new()
     -> *mut ObjectStoreConfig {
     Box::into_raw(Box::new(ObjectStoreConfig { config_map: std::collections::HashMap::new() }))
 }
-
 
 #[no_mangle]
 pub extern "C" fn slatedb_object_store_builder_config_set(

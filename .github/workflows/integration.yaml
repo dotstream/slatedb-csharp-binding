@@ -41,7 +41,7 @@ jobs:
 
       - name: Generate bindings
         shell: bash
-        run: ./generate-binding.sh 0.10.1 all
+        run: ./generate-binding.sh all
 
       - name: Run dotnet tests
         shell: bash

@@ -39,7 +39,7 @@ jobs:
 
       - name: Generate bindings
         shell: bash
-        run: ./generate-binding.sh ${{ steps.version.outputs.VERSION }} all
+        run: ./generate-binding.sh all
 
       - name: Run dotnet tests
         shell: bash

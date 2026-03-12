@@ -25,15 +25,14 @@ public sealed partial class SlateDb<K,V>
         unsafe
         {
             options ??= WriteOptions.Default;
-            var nativeWrite = new CSdbWriteOptions {
+            var nativeWrite = new slatedb_write_options_t() {
                 await_durable = options.AwaitDurable,
             };
             
             fixed (byte* keyPtr = key)
             {
-                var result = NativeMethods.slatedb_delete_with_options(
-                    _handle.GetCSdbHandle<CSdbHandle>(), keyPtr, (nuint)key.Length, &nativeWrite);
-                ThrowOnError(result);
+                NativeMethods.slatedb_db_delete_with_options(
+                    _handle.GetCSdbHandle<slatedb_db_t>(), keyPtr, (nuint)key.Length, &nativeWrite, null).ThrowOnError();
             }
         }
     }

@@ -4,67 +4,77 @@
 use crate::object_store::ObjectStoreBuilder;
 
 #[no_mangle]
-pub extern "C" fn slatedb_reader_open_with_object_builder(
-    path: *const c_char,
+pub unsafe extern "C" fn slatedb_reader_open_with_object_builder(
+    path: *const std::os::raw::c_char,
     object_store_builder: *const ObjectStoreBuilder,
-    checkpoint_id: *const c_char, // Nullable - use null for latest
-    reader_options: *const CSdbReaderOptions,
-) -> CSdbReaderHandleResult {
+    checkpoint_id: *const std::os::raw::c_char,
+    reader_options: *const slatedb_db_reader_options_t,
+    out_reader: *mut *mut slatedb_db_reader_t,
+) -> slatedb_result_t {
     
-    let path_str = match safe_str_from_ptr(path) {
-        Ok(s) => s,
-        Err(err) => return create_reader_handle_error_result(err, "Invalid path"),
+    if let Err(err) = require_out_ptr(out_reader, "out_reader") {
+        return err;
+    }
+
+    *out_reader = std::ptr::null_mut();
+
+    let path = match cstr_to_string(path, "path") {
+        Ok(path) => path,
+        Err(err) => return err,
     };
 
     // Parse checkpoint ID if provided
-    let checkpoint_uuid = if checkpoint_id.is_null() {
+    let checkpoint_id = if checkpoint_id.is_null() {
         None
     } else {
-        match safe_str_from_ptr(checkpoint_id) {
-            Ok(id_str) => match Uuid::parse_str(id_str) {
-                Ok(uuid) => Some(uuid),
+        let checkpoint_id = match cstr_to_string(checkpoint_id, "checkpoint_id") {
+            Ok(checkpoint_id) => checkpoint_id,
+            Err(err) => return err,
+        };
+        if checkpoint_id.is_empty() {
+            None
+        } else {
+            match Uuid::parse_str(&checkpoint_id) {
+                Ok(checkpoint_id) => Some(checkpoint_id),
                 Err(err) => {
-                    return create_reader_handle_error_result(
-                        CSdbError::InvalidArgument,
-                        &format!("Invalid checkpoint_id format '{id_str}': {err}"),
-                    )
+                    return error_result(
+                        slatedb_error_kind_t::SLATEDB_ERROR_KIND_INVALID,
+                        &format!("invalid checkpoint_id UUID: {err}"),
+                    );
                 }
-            },
-            Err(err) => return create_reader_handle_error_result(err, "Invalid checkpoint_id"),
+            }
         }
     };
 
-    // Parse reader options
-    let opts = convert_reader_options(reader_options);
+    let reader_options = db_reader_options_from_ptr(reader_options);
 
-    // Create a dedicated runtime for this DbReader instance
-    let rt = match Builder::new_multi_thread().enable_all().build() {
-        Ok(rt) => rt,
-        Err(err) => {
-            return create_reader_handle_error_result(CSdbError::InternalError, &err.to_string())
-        }
+    let runtime = match create_runtime() {
+        Ok(runtime) => runtime,
+        Err(err) => return err,
     };
 
     let builder = unsafe {object_store_builder.as_ref().unwrap()};
     let object_store = match builder.build() {
         Ok(store) => store,
         Err(err) => {
-            return CSdbReaderHandleResult {
-                handle: CSdbReaderHandle::null(),
-                result: CSdbResult {
-                    error: err.error,
-                    message: err.message,
-                },
-            }
+            return error_result(
+                slatedb_error_kind_t::SLATEDB_ERROR_KIND_INTERNAL,
+                &format!("Failed to build object store: {:?}", err.message),
+            );
         }
     };
 
-    match rt.block_on(async { DbReader::open(path_str, object_store, checkpoint_uuid, opts).await })
-    {
+    match runtime.block_on(DbReader::open(
+        path,
+        object_store,
+        checkpoint_id,
+        reader_options,
+    )) {
         Ok(reader) => {
-            let ffi = Box::new(SlateDbReaderFFI { rt, reader });
-            create_reader_handle_success_result(CSdbReaderHandle(Box::into_raw(ffi)))
+            let handle = Box::new(slatedb_db_reader_t { runtime, reader });
+            *out_reader = Box::into_raw(handle);
+            success_result()
         }
-        Err(err) => create_reader_handle_error_result(CSdbError::InternalError, &err.to_string()),
+        Err(err) => error_from_slate_error(&err),
     }
 }

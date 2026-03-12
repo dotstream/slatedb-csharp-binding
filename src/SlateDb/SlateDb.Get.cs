@@ -27,37 +27,35 @@ public sealed partial class SlateDb<K,V>
         ObjectDisposedException.ThrowIf(_disposed, this);
         ObjectDisposedException.ThrowIf(_handle == null, this);
 
-        var nativeOpts = new CSdbReadOptions
+        var nativeOpts = new slatedb_read_options_t()
         {
-            durability_filter = (uint)options.DurabilityFilter,
+            durability_filter = (byte)options.DurabilityFilter,
             dirty = options.Dirty,
             cache_blocks =  options.CacheBlocks
         };
 
         unsafe
         {
-            CSdbValue nativeValue;
-            CSdbResult result;
-            
+            bool foundValue = false;
+            byte** value = stackalloc byte*[1];
+            nuint valueLength = 0;
+
             fixed (byte* keyPtr = key)
             {
-                if(_mode == SlateDbMode.READWRITE)
-                    result = NativeMethods.slatedb_get_with_options(
-                        _handle.GetCSdbHandle<CSdbHandle>(), keyPtr, (nuint)key.Length, &nativeOpts, &nativeValue);
+                if (_mode == SlateDbMode.Readwrite)
+                    NativeMethods.slatedb_db_get_with_options(
+                        _handle.GetCSdbHandle<slatedb_db_t>(), keyPtr, (nuint)key.Length, &nativeOpts,
+                        &foundValue, value, &valueLength).ThrowOnError();
                 else
-                    result = NativeMethods.slatedb_reader_get_with_options(
-                        _handle.GetCSdbHandle<CSdbReaderHandle>(), keyPtr, (nuint)key.Length, &nativeOpts, &nativeValue);
+                    NativeMethods.slatedb_db_reader_get_with_options(
+                        _handle.GetCSdbHandle<slatedb_db_reader_t>(), keyPtr, (nuint)key.Length, &nativeOpts,
+                        &foundValue, value, &valueLength).ThrowOnError();
             }
-            
-            if (result.error == CSdbError.NotFound)
-            {
-                NativeMethods.slatedb_free_result(result);
+
+            if (!foundValue)
                 return null;
-            }
             
-            ThrowOnError(result);
-            
-            return ConsumeValue(nativeValue);
+            return ConsumeValue(*value, (int)valueLength);
         }
     }
 }

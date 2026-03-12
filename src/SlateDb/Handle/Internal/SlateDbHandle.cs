@@ -5,22 +5,22 @@ namespace SlateDb.Handle.Internal;
 
 internal sealed unsafe class SlateDbHandle : SafeHandle
 {
-    private readonly CSdbHandle _slateDbPtr;
+    private readonly slatedb_db_t* _slateDbPtr;
 
-    public SlateDbHandle(CSdbHandle cSdbHandle)
-        : base((IntPtr)cSdbHandle.Item1, true)
+    public SlateDbHandle(slatedb_db_t* sdbHandleT)
+        : base((IntPtr)sdbHandleT, true)
     {
-        _slateDbPtr = cSdbHandle;
+        _slateDbPtr = sdbHandleT;
     }
 
-    internal CSdbHandle GetCSdbHandle() => _slateDbPtr;
+    internal slatedb_db_t* GetCSdbHandle() => _slateDbPtr;
 
     public override bool IsInvalid => handle == IntPtr.Zero;
 
     protected override bool ReleaseHandle()
     {
-        var result = NativeMethods.slatedb_close(_slateDbPtr);
-        if (result.error != CSdbError.Success)
+        var result = NativeMethods.slatedb_db_close(_slateDbPtr);
+        if (result.kind != slatedb_error_kind_t.SLATEDB_ERROR_KIND_NONE)
         {
             var message = Marshal.PtrToStringUTF8((IntPtr)result.message);
             throw new SlateDbException(result, message);

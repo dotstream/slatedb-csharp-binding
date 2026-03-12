@@ -12,12 +12,12 @@ public sealed partial class SlateDb<K, V>
         private bool _disposed;
         private readonly SlateDb<K, V> _slateDb;
 
-        internal unsafe CSdbWriteBatch* NativeHandle
+        internal unsafe slatedb_write_batch_t* NativeHandle
         {
             get
             {
                 ObjectDisposedException.ThrowIf(_disposed, this);
-                return (CSdbWriteBatch*)_batch;
+                return (slatedb_write_batch_t*)_batch;
             }
         }
 
@@ -25,9 +25,8 @@ public sealed partial class SlateDb<K, V>
         {
             unsafe
             {
-                CSdbWriteBatch** batch = stackalloc CSdbWriteBatch*[1];
-                var result = NativeMethods.slatedb_write_batch_new(batch);
-                ThrowOnError(result);
+                slatedb_write_batch_t** batch = stackalloc slatedb_write_batch_t*[1];
+                NativeMethods.slatedb_write_batch_new(batch).ThrowOnError();
                 _batch = (nuint)(*batch);
                 _slateDb = slateDb;
             }
@@ -44,9 +43,9 @@ public sealed partial class SlateDb<K, V>
             ObjectDisposedException.ThrowIf(_disposed, this);
 
             options ??= PutOptions.NoExpiry;
-            var nativeOpts = new CSdbPutOptions
+            var nativeOpts = new slatedb_put_options_t()
             {
-                ttl_type = (uint)options.TtlType,
+                ttl_type = (byte)options.TtlType,
                 ttl_value = (ulong)options.TtlValue.TotalMilliseconds,
             };
 
@@ -55,10 +54,9 @@ public sealed partial class SlateDb<K, V>
                 fixed (byte* keyPtr = key)
                 fixed (byte* valuePtr = value)
                 {
-                    var result = NativeMethods.slatedb_write_batch_put_with_options(
+                    NativeMethods.slatedb_write_batch_put_with_options(
                         NativeHandle, keyPtr, (nuint)key.Length,
-                        valuePtr, (nuint)value.Length, &nativeOpts);
-                    ThrowOnError(result);
+                        valuePtr, (nuint)value.Length, &nativeOpts).ThrowOnError();
                 }
             }
         }
@@ -71,10 +69,8 @@ public sealed partial class SlateDb<K, V>
             {
                 fixed (byte* keyPtr = key)
                 {
-                   // nuint l = (nuint)key.Length;
-                    var result = NativeMethods.slatedb_write_batch_delete(
-                        NativeHandle, keyPtr, (nuint)key.Length);
-                    ThrowOnError(result);
+                    NativeMethods.slatedb_write_batch_delete(
+                        NativeHandle, keyPtr, (nuint)key.Length).ThrowOnError();
                 }
             }
         }
@@ -114,15 +110,18 @@ public sealed partial class SlateDb<K, V>
 
         options ??= WriteOptions.Default;
         
-        var nativeWrite = new CSdbWriteOptions
+        var nativeWrite = new slatedb_write_options_t()
         {
             await_durable = options.AwaitDurable,
         };
 
         unsafe
         {
-            var result = NativeMethods.slatedb_write_batch_write(_handle.GetCSdbHandle<CSdbHandle>(), batch.NativeHandle, &nativeWrite);
-            ThrowOnError(result);
+            NativeMethods.slatedb_db_write_with_options(
+                _handle.GetCSdbHandle<slatedb_db_t>(),
+                batch.NativeHandle,
+                &nativeWrite,
+                null).ThrowOnError();
         }
     }
 }
