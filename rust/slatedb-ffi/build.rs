@@ -23,12 +23,12 @@ fn main() {
     let generated = out_dir.join("NativeMethods.g.cs");
 
     let mut builder = csbindgen::Builder::default();
-    let pathRs = Path::new("./src");
+    let path_rs = Path::new("./src");
 
-    match list_files_with_pattern(pathRs, ".rs") {
+    match list_files_with_pattern(path_rs, ".rs") {
         Ok(files) => {
             for file in files {
-                builder = builder.input_extern_file(pathRs.join(file));
+                builder = builder.input_extern_file(path_rs.join(file));
             }
         }
         Err(e) => eprintln!("Error listing files: {}", e),

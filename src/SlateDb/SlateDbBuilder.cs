@@ -93,8 +93,8 @@ public class SlateDbBuilder<K, V>
     
     public SlateDbBuilder<K, V> WithMergeOperator(SlatedbMergeOperatorFn mergeOperator, SlateDbFreeMergeResultFn? freeMergeResultFn)
     {
-        this._mergeOperator = mergeOperator;
-        this._freeMergeResultFn = freeMergeResultFn;
+        _mergeOperator = mergeOperator;
+        _freeMergeResultFn = freeMergeResultFn;
         return this;
     }
 

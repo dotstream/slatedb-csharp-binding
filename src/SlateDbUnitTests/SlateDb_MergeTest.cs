@@ -3,6 +3,7 @@ using SlateDb.Configuration;
 
 namespace SlateDbUnitTests;
 
+[NonParallelizable]
 public class SlateDb_MergeTest
 {
     [Test]
