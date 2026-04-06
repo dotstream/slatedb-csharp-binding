@@ -1,3 +1,4 @@
+using SlateDb.Converter;
 using SlateDb.Handle;
 using SlateDb.Interop;
 using SlateDb.Options;
@@ -10,12 +11,12 @@ public sealed partial class SlateDb<K,V>
         => Delete(key, null);
     
     public void Delete(K key, WriteOptions? options) 
-        => Delete(ConvertKeyToBytes(key), options);
+        => Delete(_keyConverter.ConvertClassToBytes(key), options);
 
     public void Delete(byte[] key)
         => Delete(key, null);
     
-    public void Delete(byte[] key, WriteOptions? options)
+    public void Delete(byte[]? key, WriteOptions? options)
     {
         if (_handle == null) return;
         
@@ -25,15 +26,14 @@ public sealed partial class SlateDb<K,V>
         unsafe
         {
             options ??= WriteOptions.Default;
-            var nativeWrite = new CSdbWriteOptions {
+            var nativeWrite = new slatedb_write_options_t() {
                 await_durable = options.AwaitDurable,
             };
             
             fixed (byte* keyPtr = key)
             {
-                var result = NativeMethods.slatedb_delete_with_options(
-                    _handle.GetCSdbHandle<CSdbHandle>(), keyPtr, (nuint)key.Length, &nativeWrite);
-                ThrowOnError(result);
+                NativeMethods.slatedb_db_delete_with_options(
+                    _handle.GetCSdbHandle<slatedb_db_t>(), keyPtr, (nuint)key.Length, &nativeWrite, null).ThrowOnError();
             }
         }
     }

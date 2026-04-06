@@ -31,15 +31,26 @@ internal static class SlateDbSettingsSerializer
 
      private static unsafe string GetDefaultsJson()
      {
-         var ptr = (IntPtr)NativeMethods.slatedb_settings_default();
-         if (ptr == IntPtr.Zero)
-             throw new SlateDbException(new CSdbResult {error = CSdbError.InternalError}, "Failed to get default settings from native library");
+         slatedb_settings_t** settingsPtr = stackalloc slatedb_settings_t*[1];
+         NativeMethods
+             .slatedb_settings_default(settingsPtr)
+             .ThrowOnError();
 
-         var json = Marshal.PtrToStringUTF8(ptr) ?? "";
-         NativeMemory.Free(ptr.ToPointer());
+         byte** jsonSettings = stackalloc byte*[1];
+         nuint jsonLength = 0;
+         
+         NativeMethods
+             .slatedb_settings_to_json(*settingsPtr, jsonSettings, &jsonLength)
+             .ThrowOnError();
+             
+         byte* buffer = jsonSettings[0];
+         var json = System.Text.Encoding.UTF8.GetString(buffer, (int)jsonLength);
+         
+         NativeMethods.slatedb_bytes_free(*jsonSettings, jsonLength);
+         
          return json;
      }
-
+     
      private static string SerializeOverrides(SlateDbSettings s)
      {
          var dto = new SettingsDto

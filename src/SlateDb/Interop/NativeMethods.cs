@@ -56,4 +56,18 @@ internal static partial class NativeMethods
 
         return IntPtr.Zero;
     }
+    
+    [DllImport(__DllName, EntryPoint = "slatedb_db_builder_with_merge_operator", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern unsafe int slatedb_db_builder_with_merge_operator(
+        slatedb_db_builder_t* builder,
+        SlatedbMergeOperatorFn merge_operator,
+        SlateDbFreeMergeResultFn free_merge_result);
+    
+    
+    [DllImport(__DllName, EntryPoint = "slatedb_wal_reader_list", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+    internal static extern unsafe slatedb_result_t slatedb_wal_reader_list(
+        slatedb_wal_reader_t* reader,
+        slatedb_range_t range,
+        slatedb_wal_file_t*** out_files,
+        ulong* out_count);
 }

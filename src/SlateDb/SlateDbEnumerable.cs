@@ -1,4 +1,5 @@
 using System.Collections;
+using SlateDb.Converter;
 
 namespace SlateDb;
 
@@ -9,16 +10,18 @@ internal class SlateDbEnumerable<K, V> : IEnumerable<SlateDbKeyValue<K, V>>
     where K : class
 {
     private readonly IntPtr _iterator;
-    private readonly SlateDb<K, V> _slateDb;
+    private readonly ISlateDbConverter<K>? _keyConverter;
+    private readonly ISlateDbConverter<V>? _valueConverter;
 
-    internal SlateDbEnumerable(IntPtr iterator, SlateDb<K, V> slateDb)
+    internal SlateDbEnumerable(IntPtr iterator, ISlateDbConverter<K>? keyConverter, ISlateDbConverter<V>? valueConverter)
     {
         _iterator = iterator;
-        _slateDb = slateDb;
+        _keyConverter = keyConverter;
+        _valueConverter = valueConverter;
     }
 
     public IEnumerator<SlateDbKeyValue<K, V>> GetEnumerator()
-        => new SlateDbEnumerator<K, V>(_iterator, _slateDb);
+        => new SlateDbEnumerator<K, V>(_iterator, _keyConverter, _valueConverter);
 
     IEnumerator IEnumerable.GetEnumerator()
     {

@@ -4,9 +4,9 @@ namespace SlateDb;
 
 public sealed class SlateDbException : Exception
 {
-    private CSdbResult result;
+    private slatedb_result_t result;
     
-    internal SlateDbException(CSdbResult result, String message)
+    internal SlateDbException(slatedb_result_t result, String message)
         : base(message)
     {
         this.result = result;

@@ -1,3 +1,4 @@
+using SlateDb.Converter;
 using SlateDb.Handle;
 using SlateDb.Interop;
 using SlateDb.Options;
@@ -7,12 +8,12 @@ namespace SlateDb;
 public sealed partial class SlateDb<K,V>
 {
     public void Put(K key, V value, PutOptions putOptions, WriteOptions writeOptions)
-        => Put(ConvertKeyToBytes(key), ConvertValueToBytes(value), putOptions,  writeOptions);
+        => Put(_keyConverter.ConvertClassToBytes(key), _valueConverter.ConvertClassToBytes(value), putOptions,  writeOptions);
 
     public void Put(K key, V value) 
-        => Put(ConvertKeyToBytes(key), ConvertValueToBytes(value), null, null);
+        => Put(_keyConverter.ConvertClassToBytes(key), _valueConverter.ConvertClassToBytes(value), null, null);
 
-    public void Put(byte[] key, byte[] value, PutOptions? putOptions, WriteOptions? writeOptions)
+    public void Put(byte[]? key, byte[]? value, PutOptions? putOptions, WriteOptions? writeOptions)
     {
         CheckSlateDbMode(true);
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -26,23 +27,22 @@ public sealed partial class SlateDb<K,V>
                 putOptions ??= PutOptions.NoExpiry;
                 writeOptions ??= WriteOptions.Default;
 
-                var nativePut = new CSdbPutOptions {
-                    ttl_type = (uint)putOptions.TtlType,
+                var nativePut = new slatedb_put_options_t() {
+                    ttl_type = (byte)putOptions.TtlType,
                     ttl_value = (ulong)putOptions.TtlValue.TotalMilliseconds
                 };
-                var nativeWrite = new CSdbWriteOptions {
+                var nativeWrite = new slatedb_write_options_t() {
                     await_durable = writeOptions.AwaitDurable
                 };
                 
-                var status = NativeMethods.slatedb_put_with_options(
-                    _handle.GetCSdbHandle<CSdbHandle>(),
+                NativeMethods.slatedb_db_put_with_options(
+                    _handle.GetCSdbHandle<slatedb_db_t>(),
                     keyPtr,
-                    (nuint)key.Length,
+                    key != null ? (nuint)key.Length : 0,
                     valuePtr,
-                    (nuint)value.Length,
-                    &nativePut, &nativeWrite);
-                
-                ThrowOnError(status);
+                    value != null ? (nuint)value.Length : 0,
+                    &nativePut, &nativeWrite, 
+                    null).ThrowOnError();
             }
         }
     }

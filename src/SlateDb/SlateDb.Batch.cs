@@ -1,3 +1,4 @@
+using SlateDb.Converter;
 using SlateDb.Handle;
 using SlateDb.Interop;
 using SlateDb.Options;
@@ -8,45 +9,47 @@ public sealed partial class SlateDb<K, V>
 {
     public class SlateDbWriteBatch : IDisposable
     {
+        private readonly ISlateDbConverter<K>? _keyConverter;
+        private readonly ISlateDbConverter<V>? _valueConverter;
         private nuint _batch;
         private bool _disposed;
-        private readonly SlateDb<K, V> _slateDb;
 
-        internal unsafe CSdbWriteBatch* NativeHandle
+        internal unsafe slatedb_write_batch_t* NativeHandle
         {
             get
             {
                 ObjectDisposedException.ThrowIf(_disposed, this);
-                return (CSdbWriteBatch*)_batch;
+                return (slatedb_write_batch_t*)_batch;
             }
         }
 
-        internal SlateDbWriteBatch(SlateDb<K, V> slateDb)
+        internal SlateDbWriteBatch(ISlateDbConverter<K>? keyConverter, ISlateDbConverter<V>? valueConverter)
         {
+            _keyConverter = keyConverter;
+            _valueConverter = valueConverter;
+            
             unsafe
             {
-                CSdbWriteBatch** batch = stackalloc CSdbWriteBatch*[1];
-                var result = NativeMethods.slatedb_write_batch_new(batch);
-                ThrowOnError(result);
+                slatedb_write_batch_t** batch = stackalloc slatedb_write_batch_t*[1];
+                NativeMethods.slatedb_write_batch_new(batch).ThrowOnError();
                 _batch = (nuint)(*batch);
-                _slateDb = slateDb;
             }
         }
 
         public void Put(K key, V value) =>
-            Put(_slateDb.ConvertKeyToBytes(key), _slateDb.ConvertValueToBytes(value), null);
+            Put(_keyConverter.ConvertClassToBytes(key), _valueConverter.ConvertClassToBytes(value), null);
 
         public void Put(K key, V value, PutOptions options) =>
-            Put(_slateDb.ConvertKeyToBytes(key), _slateDb.ConvertValueToBytes(value), options);
+            Put(_keyConverter.ConvertClassToBytes(key), _valueConverter.ConvertClassToBytes(value), options);
         
-        public void Put(byte[] key, byte[] value, PutOptions? options)
+        public void Put(byte[]? key, byte[]? value, PutOptions? options)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
 
             options ??= PutOptions.NoExpiry;
-            var nativeOpts = new CSdbPutOptions
+            var nativeOpts = new slatedb_put_options_t()
             {
-                ttl_type = (uint)options.TtlType,
+                ttl_type = (byte)options.TtlType,
                 ttl_value = (ulong)options.TtlValue.TotalMilliseconds,
             };
 
@@ -55,31 +58,29 @@ public sealed partial class SlateDb<K, V>
                 fixed (byte* keyPtr = key)
                 fixed (byte* valuePtr = value)
                 {
-                    var result = NativeMethods.slatedb_write_batch_put_with_options(
-                        NativeHandle, keyPtr, (nuint)key.Length,
-                        valuePtr, (nuint)value.Length, &nativeOpts);
-                    ThrowOnError(result);
+                    NativeMethods.slatedb_write_batch_put_with_options(
+                        NativeHandle, keyPtr, key != null ? (nuint)key.Length : 0,
+                        valuePtr, value != null ? (nuint)value.Length : 0, &nativeOpts).ThrowOnError();
                 }
             }
         }
 
-        public void Delete(byte[] key)
+        public void Delete(byte[]? key)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
+            ArgumentNullException.ThrowIfNull(key);
 
             unsafe
             {
                 fixed (byte* keyPtr = key)
                 {
-                   // nuint l = (nuint)key.Length;
-                    var result = NativeMethods.slatedb_write_batch_delete(
-                        NativeHandle, keyPtr, (nuint)key.Length);
-                    ThrowOnError(result);
+                    NativeMethods.slatedb_write_batch_delete(
+                        NativeHandle, keyPtr, (nuint)key.Length).ThrowOnError();
                 }
             }
         }
 
-        public void Delete(K key) => Delete(_slateDb.ConvertKeyToBytes(key));
+        public void Delete(K key) => Delete(_keyConverter.ConvertClassToBytes(key));
         
         public void Dispose()
         {
@@ -99,7 +100,7 @@ public sealed partial class SlateDb<K, V>
     public SlateDbWriteBatch NewWriteBatch()
     {
         CheckSlateDbMode(true);
-        return new SlateDbWriteBatch(this);
+        return new SlateDbWriteBatch(_keyConverter, _valueConverter);
     }
 
     public void Write(SlateDbWriteBatch batch)
@@ -114,15 +115,18 @@ public sealed partial class SlateDb<K, V>
 
         options ??= WriteOptions.Default;
         
-        var nativeWrite = new CSdbWriteOptions
+        var nativeWrite = new slatedb_write_options_t()
         {
             await_durable = options.AwaitDurable,
         };
 
         unsafe
         {
-            var result = NativeMethods.slatedb_write_batch_write(_handle.GetCSdbHandle<CSdbHandle>(), batch.NativeHandle, &nativeWrite);
-            ThrowOnError(result);
+            NativeMethods.slatedb_db_write_with_options(
+                _handle.GetCSdbHandle<slatedb_db_t>(),
+                batch.NativeHandle,
+                &nativeWrite,
+                null).ThrowOnError();
         }
     }
 }

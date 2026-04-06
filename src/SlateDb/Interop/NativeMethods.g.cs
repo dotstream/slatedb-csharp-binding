@@ -19,314 +19,999 @@ namespace SlateDb.Interop
 
 
         /// <summary>
-        ///  Initialize logging for SlateDB Go bindings
-        ///  This should be called once before using any other SlateDB functions
+        ///  Frees heap memory referenced by `slatedb_result_t.message`.
         ///
-        ///  # Safety
+        ///  ## Arguments
+        ///  - `result`: Result value returned by a SlateDB C API function.
         ///
-        ///  - `level` must be a valid C string pointer or null for default level
-        /// </summary>
-        [DllImport(__DllName, EntryPoint = "slatedb_init_logging", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        internal static extern CSdbResult slatedb_init_logging(byte* level);
-
-        /// <summary>
-        ///  # Safety
+        ///  ## Returns
+        ///  - No return value.
         ///
-        ///  - `batch_out` must be a valid pointer to a location where a batch pointer can be stored
+        ///  ## Safety
+        ///  - `result.message` must be either null or a pointer returned by this crate.
         /// </summary>
-        [DllImport(__DllName, EntryPoint = "slatedb_write_batch_new", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        internal static extern CSdbResult slatedb_write_batch_new(CSdbWriteBatch** batch_out);
+        [DllImport(__DllName, EntryPoint = "slatedb_result_free", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern void slatedb_result_free(slatedb_result_t result);
 
         /// <summary>
-        ///  # Safety
+        ///  Frees a byte buffer allocated by SlateDB C APIs.
         ///
-        ///  - `batch` must be a valid pointer to a WriteBatch
-        ///  - `key` must point to valid memory of at least `key_len` bytes
-        ///  - `value` must point to valid memory of at least `value_len` bytes
-        /// </summary>
-        [DllImport(__DllName, EntryPoint = "slatedb_write_batch_put", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        internal static extern CSdbResult slatedb_write_batch_put(CSdbWriteBatch* batch, byte* key, nuint key_len, byte* value, nuint value_len);
-
-        /// <summary>
-        ///  # Safety
+        ///  ## Arguments
+        ///  - `data`: Byte pointer returned by this crate.
+        ///  - `len`: Buffer length associated with `data`.
         ///
-        ///  - `batch` must be a valid pointer to a WriteBatch
-        ///  - `key` must point to valid memory of at least `key_len` bytes  
-        ///  - `value` must point to valid memory of at least `value_len` bytes
-        ///  - `options` must be a valid pointer to CSdbPutOptions or null
-        /// </summary>
-        [DllImport(__DllName, EntryPoint = "slatedb_write_batch_put_with_options", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        internal static extern CSdbResult slatedb_write_batch_put_with_options(CSdbWriteBatch* batch, byte* key, nuint key_len, byte* value, nuint value_len, CSdbPutOptions* options);
-
-        /// <summary>
-        ///  # Safety
+        ///  ## Returns
+        ///  - No return value.
         ///
-        ///  - `batch` must be a valid pointer to a WriteBatch
-        ///  - `key` must point to valid memory of at least `key_len` bytes
+        ///  ## Safety
+        ///  - `data`/`len` must exactly match a buffer allocated by this crate.
+        ///  - Do not call more than once for the same allocation.
         /// </summary>
-        [DllImport(__DllName, EntryPoint = "slatedb_write_batch_delete", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        internal static extern CSdbResult slatedb_write_batch_delete(CSdbWriteBatch* batch, byte* key, nuint key_len);
+        [DllImport(__DllName, EntryPoint = "slatedb_bytes_free", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern void slatedb_bytes_free(byte* data, nuint len);
 
         /// <summary>
-        ///  # Safety
+        ///  Initializes `slatedb-c` logging with a process-global logger.
         ///
-        ///  - `handle` must contain a valid database handle pointer
-        ///  - `batch` must be a valid pointer to a WriteBatch
-        ///  - `options` must be a valid pointer to CSdbWriteOptions or null
-        /// </summary>
-        [DllImport(__DllName, EntryPoint = "slatedb_write_batch_write", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        internal static extern CSdbResult slatedb_write_batch_write(CSdbHandle handle, CSdbWriteBatch* batch, CSdbWriteOptions* options);
-
-        /// <summary>
-        ///  # Safety
+        ///  Calling this function multiple times is allowed when `slatedb-c` already
+        ///  owns the global logger. If another library has already installed a global
+        ///  logger, this function returns `SLATEDB_ERROR_KIND_INVALID`.
         ///
-        ///  - `batch` must be a valid pointer to a WriteBatch that was previously allocated
-        /// </summary>
-        [DllImport(__DllName, EntryPoint = "slatedb_write_batch_close", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        internal static extern CSdbResult slatedb_write_batch_close(CSdbWriteBatch* batch);
-
-        /// <summary>
-        ///  Create default Settings and return as JSON string
-        /// </summary>
-        [DllImport(__DllName, EntryPoint = "slatedb_settings_default", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        internal static extern byte* slatedb_settings_default();
-
-        /// <summary>
-        ///  Load Settings from file and return as JSON string
-        /// </summary>
-        [DllImport(__DllName, EntryPoint = "slatedb_settings_from_file", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        internal static extern byte* slatedb_settings_from_file(byte* path);
-
-        /// <summary>
-        ///  Load Settings from environment variables and return as JSON string
-        /// </summary>
-        [DllImport(__DllName, EntryPoint = "slatedb_settings_from_env", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        internal static extern byte* slatedb_settings_from_env(byte* prefix);
-
-        /// <summary>
-        ///  Load Settings using auto-detection and return as JSON string
-        /// </summary>
-        [DllImport(__DllName, EntryPoint = "slatedb_settings_load", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        internal static extern byte* slatedb_settings_load();
-
-        [DllImport(__DllName, EntryPoint = "slatedb_reader_open", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        internal static extern CSdbReaderHandleResult slatedb_reader_open(byte* path, byte* url, byte* env_file, byte* checkpoint_id, CSdbReaderOptions* reader_options);
-
-        /// <summary>
-        ///  # Safety
+        ///  ## Arguments
+        ///  - `level`: Logging level selector (`SLATEDB_LOG_LEVEL_*`).
         ///
-        ///  - `handle` must contain a valid reader handle pointer
-        ///  - `key` must point to valid memory of at least `key_len` bytes
-        ///  - `read_options` must be a valid pointer to CSdbReadOptions or null
-        ///  - `value_out` must be a valid pointer to a location where a value can be stored
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success/failure.
         /// </summary>
-        [DllImport(__DllName, EntryPoint = "slatedb_reader_get_with_options", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        internal static extern CSdbResult slatedb_reader_get_with_options(CSdbReaderHandle handle, byte* key, nuint key_len, CSdbReadOptions* read_options, CSdbValue* value_out);
+        [DllImport(__DllName, EntryPoint = "slatedb_logging_init", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_logging_init(byte level);
 
         /// <summary>
-        ///  # Safety
+        ///  Updates the global logging level for `slatedb-c` logger output.
         ///
-        ///  - `handle` must contain a valid reader handle pointer
-        ///  - `start_key` must point to valid memory of at least `start_key_len` bytes (if not null)
-        ///  - `end_key` must point to valid memory of at least `end_key_len` bytes (if not null)
-        ///  - `scan_options` must be a valid pointer to CSdbScanOptions or null
-        ///  - `iterator_ptr` must be a valid pointer to a location where an iterator pointer can be stored
+        ///  ## Arguments
+        ///  - `level`: Logging level selector (`SLATEDB_LOG_LEVEL_*`).
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success/failure.
         /// </summary>
-        [DllImport(__DllName, EntryPoint = "slatedb_reader_scan_with_options", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        internal static extern CSdbResult slatedb_reader_scan_with_options(CSdbReaderHandle handle, byte* start_key, nuint start_key_len, byte* end_key, nuint end_key_len, CSdbScanOptions* scan_options, CSdbIterator** iterator_ptr);
+        [DllImport(__DllName, EntryPoint = "slatedb_logging_set_level", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_logging_set_level(byte level);
 
         /// <summary>
-        ///  # Safety
+        ///  Sets a callback for receiving SlateDB log messages.
         ///
-        ///  - `handle` must contain a valid reader handle pointer
-        ///  - `prefix` must point to valid memory of at least `prefix_len` bytes (unless prefix_len is 0)
-        ///  - `scan_options` must be a valid pointer to CSdbScanOptions or null
-        ///  - `iterator_ptr` must be a valid pointer to a location where an iterator pointer can be stored
+        ///  Replaces any existing callback. When replaced, the old callback context is
+        ///  released using the previous `free_context` callback after in-flight log
+        ///  callbacks complete.
+        ///
+        ///  ## Arguments
+        ///  - `callback`: Log callback function pointer (must be non-null).
+        ///  - `context`: Opaque callback context passed to every invocation.
+        ///  - `free_context`: Optional context free callback.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success/failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` when `callback` is null.
+        ///
+        ///  ## Safety
+        ///  - `callback` and `context` must remain valid while configured.
+        ///  - Callback must be thread-safe and must not retain borrowed pointer
+        ///    arguments after it returns.
         /// </summary>
-        [DllImport(__DllName, EntryPoint = "slatedb_reader_scan_prefix_with_options", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        internal static extern CSdbResult slatedb_reader_scan_prefix_with_options(CSdbReaderHandle handle, byte* prefix, nuint prefix_len, CSdbScanOptions* scan_options, CSdbIterator** iterator_ptr);
+        [DllImport(__DllName, EntryPoint = "slatedb_logging_set_callback", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_logging_set_callback(delegate* unmanaged[Cdecl]<byte, byte*, nuint, byte*, nuint, byte*, nuint, byte*, nuint, uint, void*, void> callback, void* context, delegate* unmanaged[Cdecl]<void*, void> free_context);
 
-        [DllImport(__DllName, EntryPoint = "slatedb_reader_close", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        internal static extern CSdbResult slatedb_reader_close(CSdbReaderHandle handle);
+        /// <summary>
+        ///  Clears the configured log callback.
+        ///
+        ///  If a callback is configured with `free_context`, the context is released
+        ///  after in-flight callback invocations complete.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success/failure.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_logging_clear_callback", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_logging_clear_callback();
+
+        /// <summary>
+        ///  Opens a read-only database reader using a pre-resolved object store handle.
+        ///
+        ///  ## Arguments
+        ///  - `path`: Database path as a null-terminated UTF-8 string.
+        ///  - `object_store`: Opaque object store handle.
+        ///  - `checkpoint_id`: Optional checkpoint UUID string. Null means latest state.
+        ///  - `reader_options`: Optional reader options pointer. Null uses defaults.
+        ///  - `out_reader`: Output pointer populated with a `slatedb_db_reader_t*` on success.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` describing success or failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for null/invalid pointers, UTF-8,
+        ///    or malformed checkpoint UUID.
+        ///  - Returns mapped SlateDB errors for open failures.
+        ///
+        ///  ## Safety
+        ///  - `path` must be a valid null-terminated C string.
+        ///  - `object_store` must be a valid object store handle.
+        ///  - `checkpoint_id`, when non-null, must be a valid null-terminated C string.
+        ///  - `reader_options`, when non-null, must point to a valid
+        ///    `slatedb_db_reader_options_t`.
+        ///  - `out_reader` must be a valid non-null writable pointer.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_db_reader_open", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_db_reader_open(byte* path, slatedb_object_store_t* object_store, byte* checkpoint_id, slatedb_db_reader_options_t* reader_options, slatedb_db_reader_t** out_reader);
+
+        /// <summary>
+        ///  Reads a single key using default read options.
+        ///
+        ///  ## Arguments
+        ///  - `reader`: Reader handle.
+        ///  - `key`: Key bytes.
+        ///  - `key_len`: Length of `key`.
+        ///  - `out_present`: Set to `true` when a value is found.
+        ///  - `out_val`: Output pointer to Rust-allocated value bytes.
+        ///  - `out_val_len`: Output length for `out_val`.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success/failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for invalid pointers/handles.
+        ///  - Returns mapped SlateDB errors for read failures.
+        ///
+        ///  ## Safety
+        ///  - Pointer arguments must be valid for reads/writes as required.
+        ///  - `out_val` must be freed with `slatedb_bytes_free` when `*out_present` is true.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_db_reader_get", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_db_reader_get(slatedb_db_reader_t* reader, byte* key, nuint key_len, bool* out_present, byte** out_val, nuint* out_val_len);
+
+        /// <summary>
+        ///  Reads a single key using explicit read options.
+        ///
+        ///  ## Arguments
+        ///  - `reader`: Reader handle.
+        ///  - `key`: Key bytes.
+        ///  - `key_len`: Length of `key`.
+        ///  - `read_options`: Optional read options pointer (null uses defaults).
+        ///  - `out_present`: Set to `true` when a value is found.
+        ///  - `out_val`: Output pointer to Rust-allocated value bytes.
+        ///  - `out_val_len`: Output length for `out_val`.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success/failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for invalid pointers/handles/options.
+        ///  - Returns mapped SlateDB errors for read failures.
+        ///
+        ///  ## Safety
+        ///  - Pointer arguments must be valid for reads/writes as required.
+        ///  - `out_val` must be freed with `slatedb_bytes_free` when `*out_present` is true.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_db_reader_get_with_options", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_db_reader_get_with_options(slatedb_db_reader_t* reader, byte* key, nuint key_len, slatedb_read_options_t* read_options, bool* out_present, byte** out_val, nuint* out_val_len);
+
+        /// <summary>
+        ///  Scans a key range using default scan options.
+        ///
+        ///  ## Arguments
+        ///  - `reader`: Reader handle.
+        ///  - `range`: Range bounds to scan.
+        ///  - `out_iterator`: Output pointer populated with `slatedb_iterator_t*`.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success/failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for invalid pointers/handles/range.
+        ///  - Returns mapped SlateDB errors for scan failures.
+        ///
+        ///  ## Safety
+        ///  - `reader` and `out_iterator` must be valid non-null pointers.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_db_reader_scan", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_db_reader_scan(slatedb_db_reader_t* reader, slatedb_range_t range, slatedb_iterator_t** out_iterator);
+
+        /// <summary>
+        ///  Scans a key range with explicit scan options.
+        ///
+        ///  ## Arguments
+        ///  - `reader`: Reader handle.
+        ///  - `range`: Range bounds to scan.
+        ///  - `scan_options`: Optional scan options pointer.
+        ///  - `out_iterator`: Output pointer populated with `slatedb_iterator_t*`.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success/failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for invalid pointers/handles/options/range.
+        ///  - Returns mapped SlateDB errors for scan failures.
+        ///
+        ///  ## Safety
+        ///  - Pointer arguments must be valid for reads/writes as required.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_db_reader_scan_with_options", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_db_reader_scan_with_options(slatedb_db_reader_t* reader, slatedb_range_t range, slatedb_scan_options_t* scan_options, slatedb_iterator_t** out_iterator);
+
+        /// <summary>
+        ///  Scans keys matching a prefix using default scan options.
+        ///
+        ///  ## Arguments
+        ///  - `reader`: Reader handle.
+        ///  - `prefix`: Prefix bytes.
+        ///  - `prefix_len`: Length of `prefix`.
+        ///  - `out_iterator`: Output pointer populated with `slatedb_iterator_t*`.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success/failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for invalid pointers/handles/sizes.
+        ///  - Returns mapped SlateDB errors for scan failures.
+        ///
+        ///  ## Safety
+        ///  - `prefix` must reference at least `prefix_len` readable bytes.
+        ///  - `reader` and `out_iterator` must be valid non-null pointers.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_db_reader_scan_prefix", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_db_reader_scan_prefix(slatedb_db_reader_t* reader, byte* prefix, nuint prefix_len, slatedb_iterator_t** out_iterator);
+
+        /// <summary>
+        ///  Scans keys matching a prefix with explicit scan options.
+        ///
+        ///  ## Arguments
+        ///  - `reader`: Reader handle.
+        ///  - `prefix`: Prefix bytes.
+        ///  - `prefix_len`: Length of `prefix`.
+        ///  - `scan_options`: Optional scan options pointer.
+        ///  - `out_iterator`: Output pointer populated with `slatedb_iterator_t*`.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success/failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for invalid pointers/handles/options/sizes.
+        ///  - Returns mapped SlateDB errors for scan failures.
+        ///
+        ///  ## Safety
+        ///  - Pointer arguments must be valid for reads/writes as required.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_db_reader_scan_prefix_with_options", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_db_reader_scan_prefix_with_options(slatedb_db_reader_t* reader, byte* prefix, nuint prefix_len, slatedb_scan_options_t* scan_options, slatedb_iterator_t** out_iterator);
+
+        /// <summary>
+        ///  Closes and frees a database reader handle.
+        ///
+        ///  ## Arguments
+        ///  - `reader`: Reader handle to close.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success/failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for invalid handles.
+        ///  - Returns mapped SlateDB errors for close failures.
+        ///
+        ///  ## Safety
+        ///  - `reader` must be a valid non-null handle obtained from this library.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_db_reader_close", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_db_reader_close(slatedb_db_reader_t* reader);
 
         [DllImport(__DllName, EntryPoint = "slatedb_reader_open_with_object_builder", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        internal static extern CSdbReaderHandleResult slatedb_reader_open_with_object_builder(byte* path, ObjectStoreBuilder* object_store_builder, byte* checkpoint_id, CSdbReaderOptions* reader_options);
-
-        [DllImport(__DllName, EntryPoint = "slatedb_open", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        internal static extern CSdbHandleResult slatedb_open(byte* path, byte* url, byte* env_file);
+        internal static extern slatedb_result_t slatedb_reader_open_with_object_builder(byte* path, ObjectStoreBuilder* object_store_builder, byte* checkpoint_id, slatedb_db_reader_options_t* reader_options, slatedb_db_reader_t** out_reader);
 
         /// <summary>
-        ///  # Safety
+        ///  Opens a database using a pre-resolved object store handle.
         ///
-        ///  - `handle` must contain a valid database handle pointer
-        ///  - `key` must point to valid memory of at least `key_len` bytes
-        ///  - `value` must point to valid memory of at least `value_len` bytes
-        ///  - `put_options` must be a valid pointer to CSdbPutOptions or null
-        ///  - `write_options` must be a valid pointer to CSdbWriteOptions or null
+        ///  ## Arguments
+        ///  - `path`: Database path as a null-terminated UTF-8 string.
+        ///  - `object_store`: Opaque object store handle.
+        ///  - `out_db`: Output pointer populated with a `slatedb_db_t*` on success.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` describing success or failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for null/invalid pointers.
+        ///  - Returns mapped SlateDB errors for open failures.
+        ///
+        ///  ## Safety
+        ///  - `path` must be a valid null-terminated C string.
+        ///  - `object_store` must be a valid object store handle.
+        ///  - `out_db` must be a valid non-null writable pointer.
         /// </summary>
-        [DllImport(__DllName, EntryPoint = "slatedb_put_with_options", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        internal static extern CSdbResult slatedb_put_with_options(CSdbHandle handle, byte* key, nuint key_len, byte* value, nuint value_len, CSdbPutOptions* put_options, CSdbWriteOptions* write_options);
+        [DllImport(__DllName, EntryPoint = "slatedb_db_open", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_db_open(byte* path, slatedb_object_store_t* object_store, slatedb_db_t** out_db);
 
         /// <summary>
-        ///  # Safety
+        ///  Returns current database status without performing I/O.
         ///
-        ///  - `handle` must contain a valid database handle pointer
-        ///  - `key` must point to valid memory of at least `key_len` bytes
-        ///  - `write_options` must be a valid pointer to CSdbWriteOptions or null
+        ///  ## Arguments
+        ///  - `db`: Database handle.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating open/closed/error state.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for null handle.
+        ///  - Returns mapped SlateDB status errors (including close reason).
+        ///
+        ///  ## Safety
+        ///  - `db` must be a valid database handle.
         /// </summary>
-        [DllImport(__DllName, EntryPoint = "slatedb_delete_with_options", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        internal static extern CSdbResult slatedb_delete_with_options(CSdbHandle handle, byte* key, nuint key_len, CSdbWriteOptions* write_options);
+        [DllImport(__DllName, EntryPoint = "slatedb_db_status", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_db_status(slatedb_db_t* db);
 
         /// <summary>
-        ///  # Safety
+        ///  Returns a JSON snapshot of current metrics for the database.
         ///
-        ///  - `handle` must contain a valid database handle pointer
-        ///  - `key` must point to valid memory of at least `key_len` bytes
-        ///  - `read_options` must be a valid pointer to CSdbReadOptions or null
-        ///  - `value_out` must be a valid pointer to a location where a value can be stored
+        ///  The payload is a UTF-8 JSON object mapping metric name to metric value:
+        ///  `{ "db/get_requests": 42, ... }`.
+        ///
+        ///  ## Arguments
+        ///  - `db`: Database handle.
+        ///  - `out_json`: Output pointer to Rust-allocated UTF-8 bytes.
+        ///  - `out_json_len`: Output length for `out_json`.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success/failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for invalid pointers/handles.
+        ///  - Returns `SLATEDB_ERROR_KIND_INTERNAL` if JSON serialization fails.
+        ///
+        ///  ## Safety
+        ///  - `db`, `out_json`, and `out_json_len` must be valid non-null pointers.
+        ///  - `out_json` must be freed with `slatedb_bytes_free`.
         /// </summary>
-        [DllImport(__DllName, EntryPoint = "slatedb_get_with_options", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        internal static extern CSdbResult slatedb_get_with_options(CSdbHandle handle, byte* key, nuint key_len, CSdbReadOptions* read_options, CSdbValue* value_out);
-
-        [DllImport(__DllName, EntryPoint = "slatedb_flush", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        internal static extern CSdbResult slatedb_flush(CSdbHandle handle);
-
-        [DllImport(__DllName, EntryPoint = "slatedb_close", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        internal static extern CSdbResult slatedb_close(CSdbHandle handle);
+        [DllImport(__DllName, EntryPoint = "slatedb_db_metrics", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_db_metrics(slatedb_db_t* db, byte** out_json, nuint* out_json_len);
 
         /// <summary>
-        ///  # Safety
+        ///  Reads a single metric value by name.
         ///
-        ///  - `handle` must contain a valid database handle pointer
-        ///  - `start_key` must point to valid memory of at least `start_key_len` bytes (if not null)
-        ///  - `end_key` must point to valid memory of at least `end_key_len` bytes (if not null)
-        ///  - `scan_options` must be a valid pointer to CSdbScanOptions or null
-        ///  - `iterator_ptr` must be a valid pointer to a location where an iterator pointer can be stored
+        ///  ## Arguments
+        ///  - `db`: Database handle.
+        ///  - `name`: Null-terminated UTF-8 metric name (for example `db/get_requests`).
+        ///  - `out_present`: Set to `true` when the metric exists.
+        ///  - `out_value`: Metric value when `out_present` is true.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success/failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for invalid pointers/handles or
+        ///    invalid UTF-8 metric names.
+        ///
+        ///  ## Safety
+        ///  - `db`, `name`, `out_present`, and `out_value` must be valid non-null
+        ///    pointers.
         /// </summary>
-        [DllImport(__DllName, EntryPoint = "slatedb_scan_with_options", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        internal static extern CSdbResult slatedb_scan_with_options(CSdbHandle handle, byte* start_key, nuint start_key_len, byte* end_key, nuint end_key_len, CSdbScanOptions* scan_options, CSdbIterator** iterator_ptr);
+        [DllImport(__DllName, EntryPoint = "slatedb_db_metric_get", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_db_metric_get(slatedb_db_t* db, byte* name, bool* out_present, long* out_value);
 
         /// <summary>
-        ///  # Safety
+        ///  Reads a single key using default read options.
         ///
-        ///  - `handle` must contain a valid database handle pointer
-        ///  - `prefix` must point to valid memory of at least `prefix_len` bytes (unless prefix_len is 0)
-        ///  - `scan_options` must be a valid pointer to CSdbScanOptions or null
-        ///  - `iterator_ptr` must be a valid pointer to a location where an iterator pointer can be stored
+        ///  ## Arguments
+        ///  - `db`: Database handle.
+        ///  - `key`: Key bytes.
+        ///  - `key_len`: Length of `key`.
+        ///  - `out_present`: Set to `true` when a value is found.
+        ///  - `out_val`: Output pointer to Rust-allocated value bytes.
+        ///  - `out_val_len`: Output length for `out_val`.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success/failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for invalid pointers/handles.
+        ///  - Returns mapped SlateDB errors for read failures.
+        ///
+        ///  ## Safety
+        ///  - All pointer arguments must be valid for reads/writes as appropriate.
+        ///  - `out_val` must be freed with `slatedb_bytes_free` when `*out_present` is true.
         /// </summary>
-        [DllImport(__DllName, EntryPoint = "slatedb_scan_prefix_with_options", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        internal static extern CSdbResult slatedb_scan_prefix_with_options(CSdbHandle handle, byte* prefix, nuint prefix_len, CSdbScanOptions* scan_options, CSdbIterator** iterator_ptr);
+        [DllImport(__DllName, EntryPoint = "slatedb_db_get", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_db_get(slatedb_db_t* db, byte* key, nuint key_len, bool* out_present, byte** out_val, nuint* out_val_len);
 
         /// <summary>
-        ///  # Safety
+        ///  Reads a single key using explicit read options.
         ///
-        ///  - `handle` must contain a valid database handle pointer
-        ///  - `value_out` must be a valid pointer to a location where a value can be stored
+        ///  ## Arguments
+        ///  - `db`: Database handle.
+        ///  - `key`: Key bytes.
+        ///  - `key_len`: Length of `key`.
+        ///  - `read_options`: Optional read options pointer (null uses defaults).
+        ///  - `out_present`: Set to `true` when a value is found.
+        ///  - `out_val`: Output pointer to Rust-allocated value bytes.
+        ///  - `out_val_len`: Output length for `out_val`.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success/failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for invalid pointers/handles/options.
+        ///  - Returns mapped SlateDB errors for read failures.
+        ///
+        ///  ## Safety
+        ///  - Pointer arguments must be valid for reads/writes as required.
+        ///  - `out_val` must be freed with `slatedb_bytes_free` when `*out_present` is true.
         /// </summary>
-        [DllImport(__DllName, EntryPoint = "slatedb_metrics", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        internal static extern CSdbResult slatedb_metrics(CSdbHandle handle, CSdbValue* value_out);
+        [DllImport(__DllName, EntryPoint = "slatedb_db_get_with_options", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_db_get_with_options(slatedb_db_t* db, byte* key, nuint key_len, slatedb_read_options_t* read_options, bool* out_present, byte** out_val, nuint* out_val_len);
 
         /// <summary>
-        ///  Create a new DbBuilder
+        ///  Writes a key/value pair using default put/write options.
+        ///
+        ///  ## Arguments
+        ///  - `db`: Database handle.
+        ///  - `key`: Key bytes.
+        ///  - `key_len`: Length of `key`.
+        ///  - `value`: Value bytes.
+        ///  - `value_len`: Length of `value`.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success/failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for invalid handles/pointers/sizes.
+        ///  - Returns mapped SlateDB errors for write failures.
+        ///
+        ///  ## Safety
+        ///  - `key`/`value` must reference at least `key_len`/`value_len` readable bytes.
         /// </summary>
-        [DllImport(__DllName, EntryPoint = "slatedb_builder_new", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        internal static extern DbBuilder* slatedb_builder_new(byte* path, byte* url, byte* env_file);
+        [DllImport(__DllName, EntryPoint = "slatedb_db_put", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_db_put(slatedb_db_t* db, byte* key, nuint key_len, byte* value, nuint value_len);
 
         /// <summary>
-        ///  Set settings on DbBuilder from JSON
+        ///  Writes a key/value pair with explicit put and write options.
         ///
-        ///  # Safety
+        ///  ## Arguments
+        ///  - `db`: Database handle.
+        ///  - `key`: Key bytes.
+        ///  - `key_len`: Length of `key`.
+        ///  - `value`: Value bytes.
+        ///  - `value_len`: Length of `value`.
+        ///  - `put_options`: Optional put options pointer.
+        ///  - `write_options`: Optional write options pointer.
         ///
-        ///  - `builder` must be a valid pointer to a DbBuilder
-        ///  - `settings_json` must be a valid C string pointer
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success/failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for invalid handles/pointers/options/sizes.
+        ///  - Returns mapped SlateDB errors for write failures.
+        ///
+        ///  ## Safety
+        ///  - Pointer arguments must be valid for reads/writes as required.
         /// </summary>
-        [DllImport(__DllName, EntryPoint = "slatedb_builder_with_settings", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        [return: MarshalAs(UnmanagedType.U1)]
-        internal static extern bool slatedb_builder_with_settings(DbBuilder* builder, byte* settings_json);
+        [DllImport(__DllName, EntryPoint = "slatedb_db_put_with_options", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_db_put_with_options(slatedb_db_t* db, byte* key, nuint key_len, byte* value, nuint value_len, slatedb_put_options_t* put_options, slatedb_write_options_t* write_options, slatedb_write_handle_t* out_handle);
 
         /// <summary>
-        ///  Set SST block size on DbBuilder
+        ///  Deletes a key using default write options.
         ///
-        ///  # Safety
+        ///  ## Arguments
+        ///  - `db`: Database handle.
+        ///  - `key`: Key bytes.
+        ///  - `key_len`: Length of `key`.
         ///
-        ///  - `builder` must be a valid pointer to a DbBuilder
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success/failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for invalid handles/pointers/sizes.
+        ///  - Returns mapped SlateDB errors for delete failures.
+        ///
+        ///  ## Safety
+        ///  - `key` must reference at least `key_len` readable bytes.
         /// </summary>
-        [DllImport(__DllName, EntryPoint = "slatedb_builder_with_sst_block_size", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        [return: MarshalAs(UnmanagedType.U1)]
-        internal static extern bool slatedb_builder_with_sst_block_size(DbBuilder* builder, byte size);
+        [DllImport(__DllName, EntryPoint = "slatedb_db_delete", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_db_delete(slatedb_db_t* db, byte* key, nuint key_len);
 
         /// <summary>
-        ///  Build the database from DbBuilder
+        ///  Deletes a key with explicit write options.
         ///
-        ///  # Safety
+        ///  ## Arguments
+        ///  - `db`: Database handle.
+        ///  - `key`: Key bytes.
+        ///  - `key_len`: Length of `key`.
+        ///  - `write_options`: Optional write options pointer.
         ///
-        ///  - `builder` must be a valid pointer to a DbBuilder that was previously allocated
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success/failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for invalid handles/pointers/options.
+        ///  - Returns mapped SlateDB errors for delete failures.
+        ///
+        ///  ## Safety
+        ///  - `key` must reference at least `key_len` readable bytes.
         /// </summary>
-        [DllImport(__DllName, EntryPoint = "slatedb_builder_build", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        internal static extern CSdbHandle slatedb_builder_build(DbBuilder* builder);
+        [DllImport(__DllName, EntryPoint = "slatedb_db_delete_with_options", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_db_delete_with_options(slatedb_db_t* db, byte* key, nuint key_len, slatedb_write_options_t* write_options, slatedb_write_handle_t* out_handle);
 
         /// <summary>
-        ///  Free DbBuilder
+        ///  Merges a value into a key using default merge/write options.
         ///
-        ///  # Safety
+        ///  ## Arguments
+        ///  - `db`: Database handle.
+        ///  - `key`: Key bytes.
+        ///  - `key_len`: Length of `key`.
+        ///  - `value`: Merge operand bytes.
+        ///  - `value_len`: Length of `value`.
         ///
-        ///  - `builder` must be a valid pointer to a DbBuilder that was previously allocated
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success/failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for invalid handles/pointers/sizes.
+        ///  - Returns mapped SlateDB errors for merge failures.
+        ///
+        ///  ## Safety
+        ///  - `key`/`value` must reference readable memory for their lengths.
         /// </summary>
-        [DllImport(__DllName, EntryPoint = "slatedb_builder_free", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        internal static extern void slatedb_builder_free(DbBuilder* builder);
+        [DllImport(__DllName, EntryPoint = "slatedb_db_merge", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_db_merge(slatedb_db_t* db, byte* key, nuint key_len, byte* value, nuint value_len);
+
+        /// <summary>
+        ///  Merges a value into a key with explicit merge and write options.
+        ///
+        ///  ## Arguments
+        ///  - `db`: Database handle.
+        ///  - `key`: Key bytes.
+        ///  - `key_len`: Length of `key`.
+        ///  - `value`: Merge operand bytes.
+        ///  - `value_len`: Length of `value`.
+        ///  - `merge_options`: Optional merge options pointer.
+        ///  - `write_options`: Optional write options pointer.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success/failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for invalid handles/pointers/options/sizes.
+        ///  - Returns mapped SlateDB errors for merge failures.
+        ///
+        ///  ## Safety
+        ///  - Pointer arguments must be valid for reads as required.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_db_merge_with_options", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_db_merge_with_options(slatedb_db_t* db, byte* key, nuint key_len, byte* value, nuint value_len, slatedb_merge_options_t* merge_options, slatedb_write_options_t* write_options, slatedb_write_handle_t* out_handle);
+
+        /// <summary>
+        ///  Applies a write batch with default write options.
+        ///
+        ///  ## Arguments
+        ///  - `db`: Database handle.
+        ///  - `write_batch`: Mutable write batch handle, consumed by this call regardless
+        ///    of write outcome.
+        ///  - `out_handle`: Optional output pointer for write metadata (can be null).
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success/failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for invalid handles or already-consumed
+        ///    batches.
+        ///  - Returns mapped SlateDB errors for write failures.
+        ///
+        ///  ## Safety
+        ///  - `db` and `write_batch` must be valid non-null handles.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_db_write", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_db_write(slatedb_db_t* db, slatedb_write_batch_t* write_batch, slatedb_write_handle_t* out_handle);
+
+        /// <summary>
+        ///  Applies a write batch with explicit write options.
+        ///
+        ///  ## Arguments
+        ///  - `db`: Database handle.
+        ///  - `write_batch`: Mutable write batch handle, consumed by this call regardless
+        ///    of write outcome.
+        ///  - `write_options`: Optional write options pointer (null uses defaults).
+        ///  - `out_handle`: Optional output pointer for write metadata (can be null).
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success/failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for invalid handles or already-consumed
+        ///    batches.
+        ///  - Returns mapped SlateDB errors for write failures.
+        ///
+        ///  ## Safety
+        ///  - `db` and `write_batch` must be valid non-null handles.
+        ///  - `write_options`, when non-null, must point to a valid
+        ///    `slatedb_write_options_t`.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_db_write_with_options", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_db_write_with_options(slatedb_db_t* db, slatedb_write_batch_t* write_batch, slatedb_write_options_t* write_options, slatedb_write_handle_t* out_handle);
+
+        /// <summary>
+        ///  Scans a key range using default scan options.
+        ///
+        ///  ## Arguments
+        ///  - `db`: Database handle.
+        ///  - `range`: Range bounds to scan.
+        ///  - `out_iterator`: Output pointer populated with `slatedb_iterator_t*`.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success/failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for invalid handles/pointers/range.
+        ///  - Returns mapped SlateDB errors for scan failures.
+        ///
+        ///  ## Safety
+        ///  - `db` and `out_iterator` must be valid non-null pointers.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_db_scan", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_db_scan(slatedb_db_t* db, slatedb_range_t range, slatedb_iterator_t** out_iterator);
+
+        /// <summary>
+        ///  Scans a key range with explicit scan options.
+        ///
+        ///  ## Arguments
+        ///  - `db`: Database handle.
+        ///  - `range`: Range bounds to scan.
+        ///  - `scan_options`: Optional scan options pointer.
+        ///  - `out_iterator`: Output pointer populated with `slatedb_iterator_t*`.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success/failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for invalid pointers/handles/options/range.
+        ///  - Returns mapped SlateDB errors for scan failures.
+        ///
+        ///  ## Safety
+        ///  - Pointer arguments must be valid for reads/writes as required.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_db_scan_with_options", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_db_scan_with_options(slatedb_db_t* db, slatedb_range_t range, slatedb_scan_options_t* scan_options, slatedb_iterator_t** out_iterator);
+
+        /// <summary>
+        ///  Scans keys matching a prefix using default scan options.
+        ///
+        ///  ## Arguments
+        ///  - `db`: Database handle.
+        ///  - `prefix`: Prefix bytes.
+        ///  - `prefix_len`: Length of `prefix`.
+        ///  - `out_iterator`: Output pointer populated with `slatedb_iterator_t*`.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success/failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for invalid pointers/handles/sizes.
+        ///  - Returns mapped SlateDB errors for scan failures.
+        ///
+        ///  ## Safety
+        ///  - `prefix` must reference at least `prefix_len` readable bytes.
+        ///  - `db` and `out_iterator` must be valid non-null pointers.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_db_scan_prefix", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_db_scan_prefix(slatedb_db_t* db, byte* prefix, nuint prefix_len, slatedb_iterator_t** out_iterator);
+
+        /// <summary>
+        ///  Scans keys matching a prefix with explicit scan options.
+        ///
+        ///  ## Arguments
+        ///  - `db`: Database handle.
+        ///  - `prefix`: Prefix bytes.
+        ///  - `prefix_len`: Length of `prefix`.
+        ///  - `scan_options`: Optional scan options pointer.
+        ///  - `out_iterator`: Output pointer populated with `slatedb_iterator_t*`.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success/failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for invalid pointers/handles/options/sizes.
+        ///  - Returns mapped SlateDB errors for scan failures.
+        ///
+        ///  ## Safety
+        ///  - Pointer arguments must be valid for reads/writes as required.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_db_scan_prefix_with_options", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_db_scan_prefix_with_options(slatedb_db_t* db, byte* prefix, nuint prefix_len, slatedb_scan_options_t* scan_options, slatedb_iterator_t** out_iterator);
+
+        /// <summary>
+        ///  Flushes the database using default flush behavior.
+        ///
+        ///  ## Arguments
+        ///  - `db`: Database handle.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success/failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for invalid handles.
+        ///  - Returns mapped SlateDB errors for flush failures.
+        ///
+        ///  ## Safety
+        ///  - `db` must be a valid non-null handle.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_db_flush", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_db_flush(slatedb_db_t* db);
+
+        /// <summary>
+        ///  Flushes the database with explicit flush options.
+        ///
+        ///  ## Arguments
+        ///  - `db`: Database handle.
+        ///  - `flush_options`: Optional flush options pointer.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success/failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for invalid handles/options.
+        ///  - Returns mapped SlateDB errors for flush failures.
+        ///
+        ///  ## Safety
+        ///  - `db` must be a valid non-null handle.
+        ///  - `flush_options`, when non-null, must point to a valid `slatedb_flush_options_t`.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_db_flush_with_options", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_db_flush_with_options(slatedb_db_t* db, slatedb_flush_options_t* flush_options);
+
+        /// <summary>
+        ///  Closes and frees a database handle.
+        ///
+        ///  ## Arguments
+        ///  - `db`: Database handle to close.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success/failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for invalid handles.
+        ///  - Returns mapped SlateDB errors for close failures (including close reason).
+        ///
+        ///  ## Safety
+        ///  - `db` must be a valid non-null handle obtained from this library.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_db_close", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_db_close(slatedb_db_t* db);
 
         [DllImport(__DllName, EntryPoint = "slatedb_open_with_object_builder", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        internal static extern CSdbHandleResult slatedb_open_with_object_builder(byte* path, ObjectStoreBuilder* object_store_builder);
+        internal static extern slatedb_result_t slatedb_open_with_object_builder(byte* path, ObjectStoreBuilder* object_store_builder, slatedb_db_t** out_db);
 
         /// <summary>
         ///  Create a new DbBuilder with custom ObjectStoreBuilder
         /// </summary>
         [DllImport(__DllName, EntryPoint = "slatedb_builder_new_with_object_builder", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        internal static extern DbBuilder* slatedb_builder_new_with_object_builder(byte* path, ObjectStoreBuilder* object_store_builder);
+        internal static extern slatedb_result_t slatedb_builder_new_with_object_builder(byte* path, ObjectStoreBuilder* object_store_builder, slatedb_db_builder_t** out_builder);
 
         /// <summary>
-        ///  # Safety
+        ///  Allocates a new empty write batch.
         ///
-        ///  - `iter` must be a valid pointer to a CSdbIterator
-        ///  - `kv_out` must be a valid pointer to a location where a key-value pair can be stored
+        ///  ## Arguments
+        ///  - `out_write_batch`: Output pointer that receives the new batch handle.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success/failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` if `out_write_batch` is null.
+        ///
+        ///  ## Safety
+        ///  - `out_write_batch` must be a valid non-null writable pointer.
         /// </summary>
-        [DllImport(__DllName, EntryPoint = "slatedb_iterator_next", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        internal static extern CSdbResult slatedb_iterator_next(CSdbIterator* iter, CSdbKeyValue* kv_out);
+        [DllImport(__DllName, EntryPoint = "slatedb_write_batch_new", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_write_batch_new(slatedb_write_batch_t** out_write_batch);
 
         /// <summary>
-        ///  # Safety
+        ///  Appends a `put` operation to a write batch.
         ///
-        ///  - `iter` must be a valid pointer to a CSdbIterator
-        ///  - `key` must point to valid memory of at least `key_len` bytes
+        ///  ## Arguments
+        ///  - `write_batch`: Write batch handle.
+        ///  - `key`: Key bytes.
+        ///  - `key_len`: Length of `key`.
+        ///  - `value`: Value bytes.
+        ///  - `value_len`: Length of `value`.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success/failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for invalid handles, consumed batches,
+        ///    null pointers, or invalid key/value sizes.
+        ///
+        ///  ## Safety
+        ///  - `write_batch` must be a valid batch handle.
+        ///  - `key`/`value` must reference at least `key_len`/`value_len` readable bytes
+        ///    when lengths are non-zero.
         /// </summary>
-        [DllImport(__DllName, EntryPoint = "slatedb_iterator_seek", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        internal static extern CSdbResult slatedb_iterator_seek(CSdbIterator* iter, byte* key, nuint key_len);
+        [DllImport(__DllName, EntryPoint = "slatedb_write_batch_put", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_write_batch_put(slatedb_write_batch_t* write_batch, byte* key, nuint key_len, byte* value, nuint value_len);
 
         /// <summary>
-        ///  # Safety
+        ///  Appends a `put` operation with explicit put options.
         ///
-        ///  - `iter` must be a valid pointer to a CSdbIterator that was previously allocated
+        ///  ## Arguments
+        ///  - `write_batch`: Write batch handle.
+        ///  - `key`: Key bytes.
+        ///  - `key_len`: Length of `key`.
+        ///  - `value`: Value bytes.
+        ///  - `value_len`: Length of `value`.
+        ///  - `put_options`: Optional put options pointer (null uses defaults).
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success/failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for invalid handles, consumed batches,
+        ///    null pointers, invalid options, or invalid key/value sizes.
+        ///
+        ///  ## Safety
+        ///  - Pointer arguments must be valid for reads/writes as appropriate.
         /// </summary>
-        [DllImport(__DllName, EntryPoint = "slatedb_iterator_close", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        internal static extern CSdbResult slatedb_iterator_close(CSdbIterator* iter);
+        [DllImport(__DllName, EntryPoint = "slatedb_write_batch_put_with_options", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_write_batch_put_with_options(slatedb_write_batch_t* write_batch, byte* key, nuint key_len, byte* value, nuint value_len, slatedb_put_options_t* put_options);
 
         /// <summary>
-        ///  # Safety
+        ///  Appends a `merge` operation to a write batch.
         ///
-        ///  - `iter` must be a valid pointer to a CSdbIterator
-        ///  - `key` must point to valid memory of at least `key_len` bytes
+        ///  ## Arguments
+        ///  - `write_batch`: Write batch handle.
+        ///  - `key`: Key bytes.
+        ///  - `key_len`: Length of `key`.
+        ///  - `value`: Merge operand bytes.
+        ///  - `value_len`: Length of `value`.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success/failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for invalid handles, consumed batches,
+        ///    null pointers, or invalid key/value sizes.
+        ///
+        ///  ## Safety
+        ///  - Pointer arguments must be valid for reads as required.
         /// </summary>
-        [DllImport(__DllName, EntryPoint = "slatedb_iterator_seek_from_beginning", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        internal static extern CSdbResult slatedb_iterator_seek_from_beginning(CSdbIterator* iter);
+        [DllImport(__DllName, EntryPoint = "slatedb_write_batch_merge", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_write_batch_merge(slatedb_write_batch_t* write_batch, byte* key, nuint key_len, byte* value, nuint value_len);
 
-        [DllImport(__DllName, EntryPoint = "slatedb_free_result", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        internal static extern void slatedb_free_result(CSdbResult result);
+        /// <summary>
+        ///  Appends a `merge` operation with explicit merge options.
+        ///
+        ///  ## Arguments
+        ///  - `write_batch`: Write batch handle.
+        ///  - `key`: Key bytes.
+        ///  - `key_len`: Length of `key`.
+        ///  - `value`: Merge operand bytes.
+        ///  - `value_len`: Length of `value`.
+        ///  - `merge_options`: Optional merge options pointer (null uses defaults).
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success/failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for invalid handles, consumed batches,
+        ///    null pointers, invalid options, or invalid key/value sizes.
+        ///
+        ///  ## Safety
+        ///  - Pointer arguments must be valid for reads/writes as appropriate.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_write_batch_merge_with_options", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_write_batch_merge_with_options(slatedb_write_batch_t* write_batch, byte* key, nuint key_len, byte* value, nuint value_len, slatedb_merge_options_t* merge_options);
 
-        [DllImport(__DllName, EntryPoint = "slatedb_free_value", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        internal static extern void slatedb_free_value(CSdbValue value);
+        /// <summary>
+        ///  Appends a `delete` operation to a write batch.
+        ///
+        ///  ## Arguments
+        ///  - `write_batch`: Write batch handle.
+        ///  - `key`: Key bytes.
+        ///  - `key_len`: Length of `key`.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success/failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for invalid handles, consumed batches,
+        ///    null pointers, or invalid key size.
+        ///
+        ///  ## Safety
+        ///  - `key` must reference at least `key_len` readable bytes when `key_len &gt; 0`.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_write_batch_delete", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_write_batch_delete(slatedb_write_batch_t* write_batch, byte* key, nuint key_len);
 
-        [DllImport(__DllName, EntryPoint = "slatedb_free_scan_result", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        internal static extern void slatedb_free_scan_result(CSdbScanResult result);
+        /// <summary>
+        ///  Closes and frees a write batch handle.
+        ///
+        ///  ## Arguments
+        ///  - `write_batch`: Batch handle to destroy.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success/failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` when `write_batch` is null.
+        ///
+        ///  ## Safety
+        ///  - `write_batch` must be a valid non-null handle obtained from this library.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_write_batch_close", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_write_batch_close(slatedb_write_batch_t* write_batch);
+
+        /// <summary>
+        ///  Resolves an object store from a URL and returns an opaque handle.
+        ///
+        ///  ## Arguments
+        ///  - `url`: Null-terminated UTF-8 URL string (for example `file:///tmp/db`).
+        ///  - `out_object_store`: Output pointer populated with a newly allocated
+        ///    `slatedb_object_store_t*` on success.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` with `kind == SLATEDB_ERROR_KIND_NONE` on success.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for null pointers or invalid UTF-8.
+        ///  - Returns mapped SlateDB error kinds when URL resolution fails.
+        ///
+        ///  ## Safety
+        ///  - `url` must be a valid null-terminated C string.
+        ///  - `out_object_store` must be a valid non-null writable pointer.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_object_store_from_url", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_object_store_from_url(byte* url, slatedb_object_store_t** out_object_store);
+
+        /// <summary>
+        ///  Resolves an object store from environment variables and returns an opaque
+        ///  handle.
+        ///
+        ///  Provider configuration follows `slatedb::admin::load_object_store_from_env`.
+        ///
+        ///  ## Arguments
+        ///  - `env_file`: Optional null-terminated UTF-8 path to a `.env` file. Pass
+        ///    null or empty string to use default `.env` loading behavior.
+        ///  - `out_object_store`: Output pointer populated with a newly allocated
+        ///    `slatedb_object_store_t*` on success.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` with `kind == SLATEDB_ERROR_KIND_NONE` on success.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for invalid pointers/UTF-8 and
+        ///    invalid environment configuration.
+        ///
+        ///  ## Safety
+        ///  - `env_file` must be null or a valid null-terminated C string.
+        ///  - `out_object_store` must be a valid non-null writable pointer.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_object_store_from_env", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_object_store_from_env(byte* env_file, slatedb_object_store_t** out_object_store);
+
+        /// <summary>
+        ///  Closes and frees an object store handle previously returned by
+        ///  `slatedb_object_store_from_url` or `slatedb_object_store_from_env`.
+        ///
+        ///  ## Arguments
+        ///  - `object_store`: Opaque object store handle.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating whether close succeeded.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` if `object_store` is null.
+        ///
+        ///  ## Safety
+        ///  - `object_store` must be a valid non-null handle obtained from this library.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_object_store_close", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_object_store_close(slatedb_object_store_t* object_store);
 
         [DllImport(__DllName, EntryPoint = "slatedb_object_store_builder_new", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
         internal static extern ObjectStoreBuilder* slatedb_object_store_builder_new(ObjectStoreType _type, ObjectStoreConfig* config_map);
@@ -349,67 +1034,1121 @@ namespace SlateDb.Interop
         [DllImport(__DllName, EntryPoint = "slatedb_object_store_builder_config_free", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
         internal static extern void slatedb_object_store_builder_config_free(ObjectStoreConfig* config);
 
+        /// <summary>
+        ///  Creates a new WAL reader for the database at the given path.
+        ///
+        ///  ## Arguments
+        ///  - `path`: Database path as a null-terminated UTF-8 string. If the database
+        ///    was configured with a separate WAL object store, pass that store in
+        ///    `object_store`.
+        ///  - `object_store`: Opaque object store handle.
+        ///  - `out_reader`: Output pointer populated with a `slatedb_wal_reader_t*` on success.
+        ///
+        ///  ## Returns
+        ///  `slatedb_result_t` describing success or failure.
+        ///
+        ///  ## Errors
+        ///  - `SLATEDB_ERROR_KIND_INVALID` for null/invalid pointers or UTF-8 errors.
+        ///  - `SLATEDB_ERROR_KIND_INTERNAL` if the Tokio runtime cannot be created.
+        ///
+        ///  ## Safety
+        ///  - `path` must be a valid null-terminated C string.
+        ///  - `object_store` must be a valid object store handle.
+        ///  - `out_reader` must be a valid non-null writable pointer.
+        ///  - The returned handle must be freed with `slatedb_wal_reader_close`.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_wal_reader_new", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_wal_reader_new(byte* path, slatedb_object_store_t* object_store, slatedb_wal_reader_t** out_reader);
+
+        /// <summary>
+        ///  Frees the outer array returned by `slatedb_wal_reader_list`.
+        ///
+        ///  Does **not** free the individual `slatedb_wal_file_t*` elements — those must
+        ///  be freed with `slatedb_wal_file_close` before calling this function.
+        ///
+        ///  ## Arguments
+        ///  - `files`: Array pointer written by `slatedb_wal_reader_list`. No-op if null.
+        ///  - `count`: Element count written by `slatedb_wal_reader_list`.
+        ///
+        ///  ## Safety
+        ///  - `files`/`count` must exactly match what `slatedb_wal_reader_list` wrote.
+        ///  - All elements must have already been freed with `slatedb_wal_file_close`.
+        ///  - Do not call more than once per array.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_wal_files_free", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern void slatedb_wal_files_free(slatedb_wal_file_t** files, nuint count);
+
+        /// <summary>
+        ///  Returns a `slatedb_wal_file_t` handle for a specific WAL ID without checking
+        ///  whether that file exists in object storage.
+        ///
+        ///  ## Arguments
+        ///  - `reader`: WAL reader handle.
+        ///  - `id`: WAL file ID to retrieve.
+        ///  - `out_file`: Output pointer populated with a `slatedb_wal_file_t*` on success.
+        ///
+        ///  ## Returns
+        ///  `slatedb_result_t` describing success or failure.
+        ///
+        ///  ## Errors
+        ///  - `SLATEDB_ERROR_KIND_INVALID` for null/invalid pointers.
+        ///
+        ///  ## Safety
+        ///  - `reader` and `out_file` must be valid non-null pointers.
+        ///  - The returned handle must be freed with `slatedb_wal_file_close`.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_wal_reader_get", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_wal_reader_get(slatedb_wal_reader_t* reader, ulong id, slatedb_wal_file_t** out_file);
+
+        /// <summary>
+        ///  Closes and frees a WAL reader handle.
+        ///
+        ///  ## Arguments
+        ///  - `reader`: WAL reader handle to close.
+        ///
+        ///  ## Returns
+        ///  `slatedb_result_t` describing success or failure.
+        ///
+        ///  ## Errors
+        ///  - `SLATEDB_ERROR_KIND_INVALID` if `reader` is null.
+        ///
+        ///  ## Safety
+        ///  - `reader` must be a valid non-null handle. Do not use it after this call.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_wal_reader_close", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_wal_reader_close(slatedb_wal_reader_t* reader);
+
+        /// <summary>
+        ///  Returns the ID of this WAL file.
+        ///
+        ///  ## Arguments
+        ///  - `file`: WAL file handle.
+        ///  - `out_id`: Output pointer populated with the file ID on success.
+        ///
+        ///  ## Returns
+        ///  `slatedb_result_t` describing success or failure.
+        ///
+        ///  ## Errors
+        ///  - `SLATEDB_ERROR_KIND_INVALID` for null/invalid pointers.
+        ///
+        ///  ## Safety
+        ///  - `file` and `out_id` must be valid non-null pointers.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_wal_file_id", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_wal_file_id(slatedb_wal_file_t* file, ulong* out_id);
+
+        /// <summary>
+        ///  Returns the WAL ID immediately following this file's ID (`id + 1`).
+        ///
+        ///  ## Arguments
+        ///  - `file`: WAL file handle.
+        ///  - `out_id`: Output pointer populated with the next file ID on success.
+        ///
+        ///  ## Returns
+        ///  `slatedb_result_t` describing success or failure.
+        ///
+        ///  ## Errors
+        ///  - `SLATEDB_ERROR_KIND_INVALID` for null/invalid pointers.
+        ///
+        ///  ## Safety
+        ///  - `file` and `out_id` must be valid non-null pointers.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_wal_file_next_id", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_wal_file_next_id(slatedb_wal_file_t* file, ulong* out_id);
+
+        /// <summary>
+        ///  Returns a handle for the WAL file immediately following this one without
+        ///  checking whether it exists in object storage.
+        ///
+        ///  ## Arguments
+        ///  - `file`: WAL file handle.
+        ///  - `out_next_file`: Output pointer populated with a `slatedb_wal_file_t*` on success.
+        ///
+        ///  ## Returns
+        ///  `slatedb_result_t` describing success or failure.
+        ///
+        ///  ## Errors
+        ///  - `SLATEDB_ERROR_KIND_INVALID` for null/invalid pointers.
+        ///
+        ///  ## Safety
+        ///  - `file` and `out_next_file` must be valid non-null pointers.
+        ///  - The returned handle must be freed with `slatedb_wal_file_close`.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_wal_file_next_file", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_wal_file_next_file(slatedb_wal_file_t* file, slatedb_wal_file_t** out_next_file);
+
+        /// <summary>
+        ///  Returns metadata for this WAL file.
+        ///
+        ///  Populates `out_metadata.location` with a Rust-allocated UTF-8 byte buffer.
+        ///  Call `slatedb_wal_file_metadata_free` to release it.
+        ///
+        ///  ## Arguments
+        ///  - `file`: WAL file handle.
+        ///  - `out_metadata`: Output struct populated with metadata on success.
+        ///
+        ///  ## Returns
+        ///  `slatedb_result_t` describing success or failure.
+        ///
+        ///  ## Errors
+        ///  - `SLATEDB_ERROR_KIND_INVALID` for null/invalid pointers.
+        ///  - `SLATEDB_ERROR_KIND_DATA` if the file is missing from object storage.
+        ///
+        ///  ## Safety
+        ///  - `file` and `out_metadata` must be valid non-null pointers.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_wal_file_metadata", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_wal_file_metadata(slatedb_wal_file_t* file, slatedb_wal_file_metadata_t* out_metadata);
+
+        /// <summary>
+        ///  Frees the `location` buffer in a `slatedb_wal_file_metadata_t`.
+        ///
+        ///  ## Arguments
+        ///  - `metadata`: Pointer to the struct whose `location` buffer should be freed.
+        ///    No-op if null.
+        ///
+        ///  ## Safety
+        ///  - `metadata.location`/`metadata.location_len` must match values from
+        ///    `slatedb_wal_file_metadata`. Do not call more than once.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_wal_file_metadata_free", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern void slatedb_wal_file_metadata_free(slatedb_wal_file_metadata_t* metadata);
+
+        /// <summary>
+        ///  Returns an iterator over entries in this WAL file, preserving tombstones and
+        ///  merge operands exactly as written.
+        ///
+        ///  ## Arguments
+        ///  - `file`: WAL file handle.
+        ///  - `out_iter`: Output pointer populated with a `slatedb_wal_file_iterator_t*` on success.
+        ///
+        ///  ## Returns
+        ///  `slatedb_result_t` describing success or failure.
+        ///
+        ///  ## Errors
+        ///  - `SLATEDB_ERROR_KIND_INVALID` for null/invalid pointers.
+        ///  - `SLATEDB_ERROR_KIND_DATA` if the file is missing from object storage.
+        ///
+        ///  ## Safety
+        ///  - `file` and `out_iter` must be valid non-null pointers.
+        ///  - The returned handle must be freed with `slatedb_wal_file_iterator_close`.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_wal_file_iterator", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_wal_file_iterator(slatedb_wal_file_t* file, slatedb_wal_file_iterator_t** out_iter);
+
+        /// <summary>
+        ///  Closes and frees a WAL file handle.
+        ///
+        ///  ## Arguments
+        ///  - `file`: WAL file handle to close.
+        ///
+        ///  ## Returns
+        ///  `slatedb_result_t` describing success or failure.
+        ///
+        ///  ## Errors
+        ///  - `SLATEDB_ERROR_KIND_INVALID` if `file` is null.
+        ///
+        ///  ## Safety
+        ///  - `file` must be a valid non-null handle. Do not use it after this call.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_wal_file_close", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_wal_file_close(slatedb_wal_file_t* file);
+
+        /// <summary>
+        ///  Retrieves the next entry from a WAL file iterator.
+        ///
+        ///  Sets `*out_present` to `true` and populates `*out_entry` when an entry is
+        ///  available; sets `*out_present` to `false` at end of file.
+        ///
+        ///  Call `slatedb_row_entry_free` to release `out_entry.key` / `out_entry.value`
+        ///  when `*out_present` is true.
+        ///
+        ///  ## Arguments
+        ///  - `iter`: WAL file iterator handle.
+        ///  - `out_present`: Set to `true` if an entry was read, `false` at end of file.
+        ///  - `out_entry`: Output struct populated with the entry when `*out_present` is true.
+        ///
+        ///  ## Returns
+        ///  `slatedb_result_t` describing success or failure.
+        ///
+        ///  ## Errors
+        ///  - `SLATEDB_ERROR_KIND_INVALID` for null/invalid pointers.
+        ///  - Mapped SlateDB errors for decode or object-storage failures.
+        ///
+        ///  ## Safety
+        ///  - `iter`, `out_present`, and `out_entry` must be valid non-null pointers.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_wal_file_iterator_next", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_wal_file_iterator_next(slatedb_wal_file_iterator_t* iter, bool* out_present, slatedb_row_entry_t* out_entry);
+
+        /// <summary>
+        ///  Frees the `key` and `value` buffers in a `slatedb_row_entry_t`.
+        ///
+        ///  ## Arguments
+        ///  - `entry`: Pointer to the entry whose `key`/`value` buffers should be freed.
+        ///    No-op if null.
+        ///
+        ///  ## Safety
+        ///  - Buffers must match those written by `slatedb_wal_file_iterator_next`.
+        ///  - Do not call more than once per entry.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_row_entry_free", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern void slatedb_row_entry_free(slatedb_row_entry_t* entry);
+
+        /// <summary>
+        ///  Closes and frees a WAL file iterator handle.
+        ///
+        ///  ## Arguments
+        ///  - `iter`: WAL file iterator handle to close.
+        ///
+        ///  ## Returns
+        ///  `slatedb_result_t` describing success or failure.
+        ///
+        ///  ## Errors
+        ///  - `SLATEDB_ERROR_KIND_INVALID` if `iter` is null.
+        ///
+        ///  ## Safety
+        ///  - `iter` must be a valid non-null handle. Do not use it after this call.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_wal_file_iterator_close", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_wal_file_iterator_close(slatedb_wal_file_iterator_t* iter);
+
+        [DllImport(__DllName, EntryPoint = "slatedb_wal_reader_with_object_builder_new", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_wal_reader_with_object_builder_new(byte* path, ObjectStoreBuilder* object_store_builder, slatedb_wal_reader_t** out_reader);
+
+        /// <summary>
+        ///  Creates a new settings handle initialized with default values.
+        ///
+        ///  ## Arguments
+        ///  - `out_settings`: Output pointer populated with a `slatedb_settings_t*`.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success or failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for null output pointers.
+        ///
+        ///  ## Safety
+        ///  - `out_settings` must be a valid non-null writable pointer.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_settings_default", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_settings_default(slatedb_settings_t** out_settings);
+
+        /// <summary>
+        ///  Loads settings from a configuration file.
+        ///
+        ///  ## Arguments
+        ///  - `path`: Config file path (`.json`, `.toml`, `.yaml`, `.yml`) as a
+        ///    null-terminated UTF-8 string.
+        ///  - `out_settings`: Output pointer populated with a `slatedb_settings_t*`.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success or failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for null pointers or invalid UTF-8.
+        ///  - Returns mapped SlateDB errors for file/parse failures.
+        ///
+        ///  ## Safety
+        ///  - `path` must be a valid null-terminated C string.
+        ///  - `out_settings` must be a valid non-null writable pointer.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_settings_from_file", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_settings_from_file(byte* path, slatedb_settings_t** out_settings);
+
+        /// <summary>
+        ///  Loads settings from a JSON string.
+        ///
+        ///  ## Arguments
+        ///  - `json`: JSON payload as a null-terminated UTF-8 string.
+        ///  - `out_settings`: Output pointer populated with a `slatedb_settings_t*`.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success or failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for null pointers, invalid UTF-8, or
+        ///    invalid JSON/settings schema.
+        ///
+        ///  ## Safety
+        ///  - `json` must be a valid null-terminated C string.
+        ///  - `out_settings` must be a valid non-null writable pointer.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_settings_from_json", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_settings_from_json(byte* json, slatedb_settings_t** out_settings);
+
+        /// <summary>
+        ///  Loads settings from environment variables with the given prefix.
+        ///
+        ///  ## Arguments
+        ///  - `prefix`: Environment variable prefix as a null-terminated UTF-8 string.
+        ///  - `out_settings`: Output pointer populated with a `slatedb_settings_t*`.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success or failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for null pointers or invalid UTF-8.
+        ///  - Returns mapped SlateDB errors for parse failures.
+        ///
+        ///  ## Safety
+        ///  - `prefix` must be a valid null-terminated C string.
+        ///  - `out_settings` must be a valid non-null writable pointer.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_settings_from_env", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_settings_from_env(byte* prefix, slatedb_settings_t** out_settings);
+
+        /// <summary>
+        ///  Loads settings from environment variables using a default settings handle.
+        ///
+        ///  ## Arguments
+        ///  - `prefix`: Environment variable prefix as a null-terminated UTF-8 string.
+        ///  - `default_settings`: Default settings handle to merge environment overrides
+        ///    into.
+        ///  - `out_settings`: Output pointer populated with a `slatedb_settings_t*`.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success or failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for null pointers or invalid UTF-8.
+        ///  - Returns mapped SlateDB errors for parse failures.
+        ///
+        ///  ## Safety
+        ///  - `prefix` must be a valid null-terminated C string.
+        ///  - `default_settings` and `out_settings` must be valid non-null pointers.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_settings_from_env_with_default", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_settings_from_env_with_default(byte* prefix, slatedb_settings_t* default_settings, slatedb_settings_t** out_settings);
+
+        /// <summary>
+        ///  Loads settings from default files and `SLATEDB_` environment variables.
+        ///
+        ///  ## Arguments
+        ///  - `out_settings`: Output pointer populated with a `slatedb_settings_t*`.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success or failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for null output pointers.
+        ///  - Returns mapped SlateDB errors for parse failures.
+        ///
+        ///  ## Safety
+        ///  - `out_settings` must be a valid non-null writable pointer.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_settings_load", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_settings_load(slatedb_settings_t** out_settings);
+
+        /// <summary>
+        ///  Applies key/value JSON updates to an existing settings handle.
+        ///
+        ///  Uses a dotted field path in `key` and a JSON literal payload in
+        ///  `value_json`. Intermediate objects in a dotted path are materialized as
+        ///  needed when absent or null.
+        ///
+        ///  ## Arguments
+        ///  - `settings`: Settings handle to mutate.
+        ///  - `key`: UTF-8 dotted field path bytes.
+        ///  - `key_len`: Number of bytes in `key`.
+        ///  - `value_json`: UTF-8 JSON literal bytes assigned at `key`.
+        ///  - `value_json_len`: Number of bytes in `value_json`.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success or failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for invalid pointers/handles, invalid
+        ///    keys, invalid JSON literals, or schema-invalid resulting settings.
+        ///  - Returns `SLATEDB_ERROR_KIND_INTERNAL` for unexpected serialization errors.
+        ///
+        ///  ## Safety
+        ///  - `settings` must be a valid non-null settings handle.
+        ///  - If `key_len &gt; 0`, `key` must point to at least `key_len` readable bytes.
+        ///  - If `value_json_len &gt; 0`, `value_json` must point to at least
+        ///    `value_json_len` readable bytes.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_settings_apply_kv", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_settings_apply_kv(slatedb_settings_t* settings, byte* key, nuint key_len, byte* value_json, nuint value_json_len);
+
+        /// <summary>
+        ///  Serializes settings to a UTF-8 JSON payload.
+        ///
+        ///  ## Arguments
+        ///  - `settings`: Settings handle.
+        ///  - `out_json`: Output pointer to Rust-allocated UTF-8 bytes.
+        ///  - `out_json_len`: Output length for `out_json`.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success or failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for invalid pointers/handles.
+        ///  - Returns `SLATEDB_ERROR_KIND_INTERNAL` when serialization fails.
+        ///
+        ///  ## Safety
+        ///  - `settings`, `out_json`, and `out_json_len` must be valid non-null
+        ///    pointers.
+        ///  - `out_json` must be freed with `slatedb_bytes_free`.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_settings_to_json", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_settings_to_json(slatedb_settings_t* settings, byte** out_json, nuint* out_json_len);
+
+        /// <summary>
+        ///  Closes and frees a settings handle.
+        ///
+        ///  ## Arguments
+        ///  - `settings`: Settings handle.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success/failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` when `settings` is null.
+        ///
+        ///  ## Safety
+        ///  - `settings` must be a valid non-null handle obtained from this library.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_settings_close", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_settings_close(slatedb_settings_t* settings);
+
+        /// <summary>
+        ///  Creates a new database builder.
+        ///
+        ///  ## Arguments
+        ///  - `path`: Database path as a null-terminated UTF-8 string.
+        ///  - `object_store`: Opaque object store handle.
+        ///  - `out_builder`: Output pointer populated with a `slatedb_db_builder_t*`.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success or failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for null/invalid pointers.
+        ///
+        ///  ## Safety
+        ///  - `path` must be a valid null-terminated C string.
+        ///  - `object_store` and `out_builder` must be valid non-null pointers.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_db_builder_new", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_db_builder_new(byte* path, slatedb_object_store_t* object_store, slatedb_db_builder_t** out_builder);
+
+        /// <summary>
+        ///  Configures a dedicated WAL object store on an existing builder.
+        ///
+        ///  ## Arguments
+        ///  - `builder`: Builder handle.
+        ///  - `wal_object_store`: Object store handle for WAL files.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success or failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for invalid handles or consumed builder.
+        ///
+        ///  ## Safety
+        ///  - `builder` and `wal_object_store` must be valid handles.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_db_builder_with_wal_object_store", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_db_builder_with_wal_object_store(slatedb_db_builder_t* builder, slatedb_object_store_t* wal_object_store);
+
+        /// <summary>
+        ///  Configures RNG seed for a builder.
+        ///
+        ///  ## Arguments
+        ///  - `builder`: Builder handle.
+        ///  - `seed`: Seed value.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success/failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for invalid handles or consumed builder.
+        ///
+        ///  ## Safety
+        ///  - `builder` must be a valid builder handle.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_db_builder_with_seed", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_db_builder_with_seed(slatedb_db_builder_t* builder, ulong seed);
+
+        /// <summary>
+        ///  Configures SST block size for a builder.
+        ///
+        ///  ## Arguments
+        ///  - `builder`: Builder handle.
+        ///  - `sst_block_size`: Block-size selector (`1..=7`).
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success/failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for invalid handles, invalid block
+        ///    size, or consumed builder.
+        ///
+        ///  ## Safety
+        ///  - `builder` must be a valid builder handle.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_db_builder_with_sst_block_size", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_db_builder_with_sst_block_size(slatedb_db_builder_t* builder, byte sst_block_size);
+
+        /// <summary>
+        ///  Configures settings for a builder.
+        ///
+        ///  ## Arguments
+        ///  - `builder`: Builder handle.
+        ///  - `settings`: Settings handle.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success/failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for invalid handles or consumed builder.
+        ///
+        ///  ## Safety
+        ///  - `builder` and `settings` must be valid handles.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_db_builder_with_settings", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_db_builder_with_settings(slatedb_db_builder_t* builder, slatedb_settings_t* settings);
+
+        /// <summary>
+        ///  Configures a merge operator callback for a builder.
+        ///
+        ///  ## Arguments
+        ///  - `builder`: Builder handle.
+        ///  - `merge_operator`: Merge callback used to resolve merge operands.
+        ///  - `free_merge_result`: Optional callback to release merge result buffers
+        ///    returned by `merge_operator`.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success/failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for invalid handles, null
+        ///    `merge_operator`, or consumed builder.
+        ///
+        ///  ## Safety
+        ///  - `builder` must be a valid builder handle.
+        ///  - `merge_operator` must be non-null.
+        ///  - If `merge_operator` allocates `out_value`, supply `free_merge_result` to
+        ///    free that allocation (do not rely on `slatedb_bytes_free`).
+        ///  - Callback pointers must remain valid and thread-safe for as long
+        ///    as any database built from this builder is alive.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_db_builder_with_merge_operator", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_db_builder_with_merge_operator(slatedb_db_builder_t* builder, delegate* unmanaged[Cdecl]<byte*, nuint, bool, byte*, nuint, byte*, nuint, byte**, nuint*, bool> merge_operator, delegate* unmanaged[Cdecl]<byte*, nuint, void> free_merge_result);
+
+        /// <summary>
+        ///  Builds a database from a builder and consumes the builder handle.
+        ///
+        ///  ## Arguments
+        ///  - `builder`: Builder handle to consume.
+        ///  - `out_db`: Output pointer populated with a `slatedb_db_t*` on success.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success/failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for invalid pointers/handles.
+        ///  - Returns mapped SlateDB errors if build fails.
+        ///
+        ///  ## Safety
+        ///  - `builder` and `out_db` must be valid non-null pointers.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_db_builder_build", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_db_builder_build(slatedb_db_builder_t* builder, slatedb_db_t** out_db);
+
+        /// <summary>
+        ///  Closes and frees a builder handle.
+        ///
+        ///  ## Arguments
+        ///  - `builder`: Builder handle.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success/failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` when `builder` is null.
+        ///
+        ///  ## Safety
+        ///  - `builder` must be a valid non-null handle obtained from this library.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_db_builder_close", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_db_builder_close(slatedb_db_builder_t* builder);
+
+        /// <summary>
+        ///  Retrieves the next key/value pair from an iterator.
+        ///
+        ///  ## Arguments
+        ///  - `iterator`: Iterator handle created by scan APIs.
+        ///  - `out_present`: Set to `true` when a row is returned.
+        ///  - `out_key`: Output key buffer pointer (allocated by Rust).
+        ///  - `out_key_len`: Output key length.
+        ///  - `out_val`: Output value buffer pointer (allocated by Rust).
+        ///  - `out_val_len`: Output value length.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` with `kind == SLATEDB_ERROR_KIND_NONE` on success.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for null pointers or invalid handles.
+        ///  - Returns mapped SlateDB error kinds if iteration fails.
+        ///
+        ///  ## Safety
+        ///  - All output pointers must be valid, non-null writable pointers.
+        ///  - Buffers returned in `out_key`/`out_val` must be freed with
+        ///    `slatedb_bytes_free`.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_iterator_next", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_iterator_next(slatedb_iterator_t* iterator, bool* out_present, byte** out_key, nuint* out_key_len, byte** out_val, nuint* out_val_len);
+
+        /// <summary>
+        ///  Retrieves up to `max_count` key/value pairs (or up to `max_bytes` of packed
+        ///  data) from an iterator in a single call — whichever limit is reached first.
+        ///
+        ///  Results are packed into a single buffer with the following layout per entry:
+        ///  ```text
+        ///  [key_len: 8 bytes LE u64][val_len: 8 bytes LE u64][key_bytes][val_bytes]
+        ///  ```
+        ///
+        ///  ## Arguments
+        ///  - `iterator`: Iterator handle created by scan APIs.
+        ///  - `max_count`: Maximum number of key/value pairs to return. Pass `0` for no
+        ///    count limit.
+        ///  - `max_bytes`: Maximum packed buffer size in bytes. The last entry is allowed
+        ///    to push the buffer over this limit so that at least one entry is always
+        ///    returned when the iterator is not exhausted. Pass `0` for no byte limit.
+        ///  - `out_data`: Output buffer pointer (allocated by Rust, single allocation).
+        ///  - `out_data_len`: Output total buffer length in bytes.
+        ///  - `out_count`: Output number of key/value pairs in the buffer.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` with `kind == SLATEDB_ERROR_KIND_NONE` on success.
+        ///  - `out_count == 0` means the iterator is exhausted.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for null pointers or invalid handles.
+        ///  - Returns mapped SlateDB error kinds if iteration fails.
+        ///
+        ///  ## Safety
+        ///  - All output pointers must be valid, non-null writable pointers.
+        ///  - The buffer returned in `out_data` must be freed with `slatedb_bytes_free`.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_iterator_next_batch", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_iterator_next_batch(slatedb_iterator_t* iterator, nuint max_count, nuint max_bytes, byte** out_data, nuint* out_data_len, nuint* out_count);
+
+        /// <summary>
+        ///  Seeks the iterator to the first key greater than or equal to `key`.
+        ///
+        ///  ## Arguments
+        ///  - `iterator`: Iterator handle.
+        ///  - `key`: Seek target key bytes.
+        ///  - `key_len`: Length of `key`.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` describing success or failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` for invalid handles/pointers.
+        ///  - Returns mapped SlateDB error kinds for seek failures.
+        ///
+        ///  ## Safety
+        ///  - `iterator` must be a valid iterator handle.
+        ///  - `key` must reference at least `key_len` readable bytes when `key_len &gt; 0`.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_iterator_seek", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_iterator_seek(slatedb_iterator_t* iterator, byte* key, nuint key_len);
+
+        /// <summary>
+        ///  Closes and frees an iterator handle.
+        ///
+        ///  ## Arguments
+        ///  - `iterator`: Iterator handle previously returned from scan APIs.
+        ///
+        ///  ## Returns
+        ///  - `slatedb_result_t` indicating success/failure.
+        ///
+        ///  ## Errors
+        ///  - Returns `SLATEDB_ERROR_KIND_INVALID` when `iterator` is null.
+        ///
+        ///  ## Safety
+        ///  - `iterator` must be a valid non-null handle obtained from this library.
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_iterator_close", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_iterator_close(slatedb_iterator_t* iterator);
+
+        /// <summary>
+        ///  # Safety
+        ///
+        ///  - `iter` must be a valid pointer to a CSdbIterator
+        ///  - `key` must point to valid memory of at least `key_len` bytes
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_iterator_seek_from_beginning", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_iterator_seek_from_beginning(slatedb_iterator_t* iterator);
+
 
     }
 
     /// <summary>
-    ///  Internal struct that owns a Tokio runtime and a SlateDB DbReader instance.
-    ///  Similar to SlateDbFFI but for read-only operations.
+    ///  Opaque handle backing a resolved object store.
     /// </summary>
     [StructLayout(LayoutKind.Sequential)]
-    internal unsafe partial struct SlateDbReaderFFI
+    internal unsafe partial struct slatedb_object_store_t
     {
     }
 
     /// <summary>
-    ///  Type-safe wrapper around a pointer to DbReaderFFI.
-    ///  This provides better type safety than raw pointers.
+    ///  Opaque handle backing a database builder.
     /// </summary>
     [StructLayout(LayoutKind.Sequential)]
-    internal unsafe partial struct CSdbReaderHandle
+    internal unsafe partial struct slatedb_db_builder_t
     {
-        public SlateDbReaderFFI* Item1;
     }
 
     /// <summary>
-    ///  DbReader options for FFI
+    ///  Opaque handle backing database settings.
     /// </summary>
     [StructLayout(LayoutKind.Sequential)]
-    internal unsafe partial struct CSdbReaderOptions
+    internal unsafe partial struct slatedb_settings_t
     {
-        /// <summary>
-        ///  How often to poll for manifest updates (in milliseconds)
-        /// </summary>
-        public ulong manifest_poll_interval_ms;
-        /// <summary>
-        ///  How long checkpoints should live (in milliseconds)
-        /// </summary>
-        public ulong checkpoint_lifetime_ms;
-        /// <summary>
-        ///  Max size of in-memory table for WAL buffering
-        /// </summary>
-        public ulong max_memtable_bytes;
     }
 
+    /// <summary>
+    ///  Opaque handle backing an open `Db` plus runtime owner.
+    /// </summary>
     [StructLayout(LayoutKind.Sequential)]
-    internal unsafe partial struct CSdbResult
+    internal unsafe partial struct slatedb_db_t
     {
-        public CSdbError error;
+    }
+
+    /// <summary>
+    ///  Opaque handle backing an open `DbReader` plus runtime owner.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal unsafe partial struct slatedb_db_reader_t
+    {
+    }
+
+    /// <summary>
+    ///  Opaque handle backing a scan iterator plus runtime owner.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal unsafe partial struct slatedb_iterator_t
+    {
+    }
+
+    /// <summary>
+    ///  Opaque handle backing a mutable write batch.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal unsafe partial struct slatedb_write_batch_t
+    {
+    }
+
+    /// <summary>
+    ///  Opaque handle backing a `WalReader` plus runtime owner.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal unsafe partial struct slatedb_wal_reader_t
+    {
+    }
+
+    /// <summary>
+    ///  Opaque handle backing a `WalFile` plus runtime owner.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal unsafe partial struct slatedb_wal_file_t
+    {
+    }
+
+    /// <summary>
+    ///  Opaque handle backing a `WalFileIterator` plus runtime owner.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal unsafe partial struct slatedb_wal_file_iterator_t
+    {
+    }
+
+    /// <summary>
+    ///  C representation of WAL file metadata.
+    ///
+    ///  `location` and `location_len` reference a Rust-allocated buffer that must
+    ///  be freed by calling `slatedb_wal_file_metadata_free`.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal unsafe partial struct slatedb_wal_file_metadata_t
+    {
+        /// <summary>
+        ///  Seconds since the Unix epoch for the last-modified time.
+        /// </summary>
+        public long last_modified_secs;
+        /// <summary>
+        ///  Sub-second nanoseconds component for the last-modified time.
+        /// </summary>
+        public uint last_modified_nanos;
+        /// <summary>
+        ///  File size in bytes.
+        /// </summary>
+        public ulong size_bytes;
+        /// <summary>
+        ///  Object storage path as UTF-8 bytes (not null-terminated).
+        /// </summary>
+        public byte* location;
+        /// <summary>
+        ///  Length of `location` in bytes.
+        /// </summary>
+        public nuint location_len;
+    }
+
+    /// <summary>
+    ///  C representation of a single row entry returned by the iterator.
+    ///
+    ///  `key` and `value` reference Rust-allocated buffers that must be freed by
+    ///  calling `slatedb_row_entry_free`. `value` is null when `kind` is
+    ///  `SLATEDB_ROW_ENTRY_KIND_TOMBSTONE`.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal unsafe partial struct slatedb_row_entry_t
+    {
+        /// <summary>
+        ///  Entry kind. Use `SLATEDB_ROW_ENTRY_KIND_*` constants.
+        /// </summary>
+        public byte kind;
+        /// <summary>
+        ///  Key bytes.
+        /// </summary>
+        public byte* key;
+        /// <summary>
+        ///  Length of `key` in bytes.
+        /// </summary>
+        public nuint key_len;
+        /// <summary>
+        ///  Value bytes. Null for tombstones.
+        /// </summary>
+        public byte* value;
+        /// <summary>
+        ///  Length of `value` in bytes. Zero for tombstones.
+        /// </summary>
+        public nuint value_len;
+        /// <summary>
+        ///  Sequence number assigned to this entry.
+        /// </summary>
+        public ulong seq;
+        /// <summary>
+        ///  Whether `create_ts` is populated.
+        /// </summary>
+        [MarshalAs(UnmanagedType.U1)] public bool create_ts_present;
+        /// <summary>
+        ///  Creation timestamp (valid when `create_ts_present` is true).
+        /// </summary>
+        public long create_ts;
+        /// <summary>
+        ///  Whether `expire_ts` is populated.
+        /// </summary>
+        [MarshalAs(UnmanagedType.U1)] public bool expire_ts_present;
+        /// <summary>
+        ///  Expiration timestamp (valid when `expire_ts_present` is true).
+        /// </summary>
+        public long expire_ts;
+    }
+
+    /// <summary>
+    ///  Handle returned from write operations, containing metadata.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal unsafe partial struct slatedb_write_handle_t
+    {
+        /// <summary>
+        ///  Sequence number assigned to this write.
+        /// </summary>
+        public ulong seq;
+        /// <summary>
+        ///  Creation timestamp assigned to this write.
+        /// </summary>
+        public long create_ts;
+    }
+
+    /// <summary>
+    ///  Standard result structure returned by all C ABI functions.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal unsafe partial struct slatedb_result_t
+    {
+        /// <summary>
+        ///  Top-level SlateDB error kind.
+        /// </summary>
+        public slatedb_error_kind_t kind;
+        /// <summary>
+        ///  Additional closed reason when `kind == SLATEDB_ERROR_KIND_CLOSED`.
+        /// </summary>
+        public slatedb_close_reason_t close_reason;
+        /// <summary>
+        ///  Optional error message allocated by Rust (free with `slatedb_result_free`).
+        /// </summary>
         public byte* message;
     }
 
+    /// <summary>
+    ///  Read options passed to `slatedb_db_get_with_options`.
+    /// </summary>
     [StructLayout(LayoutKind.Sequential)]
-    internal unsafe partial struct CSdbHandleResult
+    internal unsafe partial struct slatedb_read_options_t
     {
-        public CSdbHandle handle;
-        public CSdbResult result;
+        /// <summary>
+        ///  Durability filter. Use `SLATEDB_DURABILITY_FILTER_*` constants.
+        /// </summary>
+        public byte durability_filter;
+        /// <summary>
+        ///  Include dirty (uncommitted) data.
+        /// </summary>
+        [MarshalAs(UnmanagedType.U1)] public bool dirty;
+        /// <summary>
+        ///  Cache fetched blocks.
+        /// </summary>
+        [MarshalAs(UnmanagedType.U1)] public bool cache_blocks;
     }
 
+    /// <summary>
+    ///  Scan options passed to `slatedb_db_scan_with_options`.
+    /// </summary>
     [StructLayout(LayoutKind.Sequential)]
-    internal unsafe partial struct CSdbReaderHandleResult
+    internal unsafe partial struct slatedb_scan_options_t
     {
-        public CSdbReaderHandle handle;
-        public CSdbResult result;
+        /// <summary>
+        ///  Durability filter. Use `SLATEDB_DURABILITY_FILTER_*` constants.
+        /// </summary>
+        public byte durability_filter;
+        /// <summary>
+        ///  Include dirty (uncommitted) data.
+        /// </summary>
+        [MarshalAs(UnmanagedType.U1)] public bool dirty;
+        /// <summary>
+        ///  Read-ahead bytes.
+        /// </summary>
+        public ulong read_ahead_bytes;
+        /// <summary>
+        ///  Cache fetched blocks.
+        /// </summary>
+        [MarshalAs(UnmanagedType.U1)] public bool cache_blocks;
+        /// <summary>
+        ///  Max concurrent fetch tasks.
+        /// </summary>
+        public ulong max_fetch_tasks;
+    }
+
+    /// <summary>
+    ///  Reader options passed to `slatedb_db_reader_open`.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal unsafe partial struct slatedb_db_reader_options_t
+    {
+        /// <summary>
+        ///  How often to poll manifests/WAL for reader refreshes (milliseconds).
+        /// </summary>
+        public ulong manifest_poll_interval_ms;
+        /// <summary>
+        ///  Reader-owned checkpoint lifetime (milliseconds).
+        /// </summary>
+        public ulong checkpoint_lifetime_ms;
+        /// <summary>
+        ///  Maximum replay memtable size in bytes.
+        /// </summary>
+        public ulong max_memtable_bytes;
+        /// <summary>
+        ///  Whether to skip WAL replay entirely.
+        /// </summary>
+        [MarshalAs(UnmanagedType.U1)] public bool skip_wal_replay;
+    }
+
+    /// <summary>
+    ///  Write options passed to write operations.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal unsafe partial struct slatedb_write_options_t
+    {
+        /// <summary>
+        ///  Wait for durable commit before returning.
+        /// </summary>
+        [MarshalAs(UnmanagedType.U1)] public bool await_durable;
+    }
+
+    /// <summary>
+    ///  Put options passed to put operations.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal unsafe partial struct slatedb_put_options_t
+    {
+        /// <summary>
+        ///  TTL type. Use `SLATEDB_TTL_TYPE_*` constants.
+        /// </summary>
+        public byte ttl_type;
+        /// <summary>
+        ///  TTL value in milliseconds when `ttl_type=SLATEDB_TTL_TYPE_EXPIRE_AFTER`.
+        /// </summary>
+        public ulong ttl_value;
+    }
+
+    /// <summary>
+    ///  Merge options passed to merge operations.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal unsafe partial struct slatedb_merge_options_t
+    {
+        /// <summary>
+        ///  TTL type. Use `SLATEDB_TTL_TYPE_*` constants.
+        /// </summary>
+        public byte ttl_type;
+        /// <summary>
+        ///  TTL value in milliseconds when `ttl_type=SLATEDB_TTL_TYPE_EXPIRE_AFTER`.
+        /// </summary>
+        public ulong ttl_value;
+    }
+
+    /// <summary>
+    ///  Flush options passed to `slatedb_db_flush_with_options`.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal unsafe partial struct slatedb_flush_options_t
+    {
+        /// <summary>
+        ///  Flush type. Use `SLATEDB_FLUSH_TYPE_*` constants.
+        /// </summary>
+        public byte flush_type;
+    }
+
+    /// <summary>
+    ///  C representation of a single range bound.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal unsafe partial struct slatedb_bound_t
+    {
+        /// <summary>
+        ///  Bound kind. Use `SLATEDB_BOUND_KIND_*` constants.
+        /// </summary>
+        public byte kind;
+        /// <summary>
+        ///  Bound value for included/excluded bounds.
+        /// </summary>
+        public void* data;
+        /// <summary>
+        ///  Length of `data` if data is an array.
+        /// </summary>
+        public nuint len;
+    }
+
+    /// <summary>
+    ///  C representation of a byte-key range.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal unsafe partial struct slatedb_range_t
+    {
+        /// <summary>
+        ///  Start bound.
+        /// </summary>
+        public slatedb_bound_t start;
+        /// <summary>
+        ///  End bound.
+        /// </summary>
+        public slatedb_bound_t end;
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -436,123 +2175,71 @@ namespace SlateDb.Interop
         public nuint len;
     }
 
-    /// <summary>
-    ///  Internal struct that owns a Tokio runtime and a SlateDB instance.
-    ///  This eliminates the need for a global handle map and shared runtime.
-    /// </summary>
-    [StructLayout(LayoutKind.Sequential)]
-    internal unsafe partial struct SlateDbFFI
-    {
-    }
 
     /// <summary>
-    ///  Type-safe wrapper around a pointer to SlateDbFFI.
-    ///  This provides better type safety than raw u64 handles.
+    ///  Public error kind mirroring `slatedb::ErrorKind`.
     /// </summary>
-    [StructLayout(LayoutKind.Sequential)]
-    internal unsafe partial struct CSdbHandle
-    {
-        public SlateDbFFI* Item1;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    internal unsafe partial struct CSdbValue
-    {
-        public byte* data;
-        public nuint len;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    internal unsafe partial struct CSdbKeyValue
-    {
-        public CSdbValue key;
-        public CSdbValue value;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    internal unsafe partial struct CSdbScanResult
-    {
-        public CSdbKeyValue* items;
-        public nuint count;
-        [MarshalAs(UnmanagedType.U1)] public bool has_more;
-        public CSdbValue next_key;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    internal unsafe partial struct CSdbWriteOptions
-    {
-        [MarshalAs(UnmanagedType.U1)] public bool await_durable;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    internal unsafe partial struct CSdbPutOptions
+    internal enum slatedb_error_kind_t : uint
     {
         /// <summary>
-        ///  TTL type: 0=Default, 1=NoExpiry, 2=ExpireAfter
+        ///  No error.
         /// </summary>
-        public uint ttl_type;
+        SLATEDB_ERROR_KIND_NONE = 0,
         /// <summary>
-        ///  TTL value in milliseconds (only used when ttl_type=2)
+        ///  Transaction conflict / transactional error.
         /// </summary>
-        public ulong ttl_value;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    internal unsafe partial struct CSdbReadOptions
-    {
+        SLATEDB_ERROR_KIND_TRANSACTION = 1,
         /// <summary>
-        ///  Durability filter: 0=Memory, 1=Remote
+        ///  Database closed.
         /// </summary>
-        public uint durability_filter;
+        SLATEDB_ERROR_KIND_CLOSED = 2,
         /// <summary>
-        ///  Whether to include dirty/uncommitted data
+        ///  Backend/storage unavailable.
         /// </summary>
-        [MarshalAs(UnmanagedType.U1)] public bool dirty;
+        SLATEDB_ERROR_KIND_UNAVAILABLE = 3,
         /// <summary>
-        ///  Whether to cache fetched blocks
+        ///  Invalid request/argument/state for caller.
         /// </summary>
-        [MarshalAs(UnmanagedType.U1)] public bool cache_blocks;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    internal unsafe partial struct CSdbScanOptions
-    {
-        public int durability_filter;
-        [MarshalAs(UnmanagedType.U1)] public bool dirty;
-        public ulong read_ahead_bytes;
-        [MarshalAs(UnmanagedType.U1)] public bool cache_blocks;
-        public ulong max_fetch_tasks;
+        SLATEDB_ERROR_KIND_INVALID = 4,
+        /// <summary>
+        ///  Persisted data-level error.
+        /// </summary>
+        SLATEDB_ERROR_KIND_DATA = 5,
+        /// <summary>
+        ///  Internal SlateDB error.
+        /// </summary>
+        SLATEDB_ERROR_KIND_INTERNAL = 6,
+        /// <summary>
+        ///  Unknown error kind (forward compatibility).
+        /// </summary>
+        SLATEDB_ERROR_KIND_UNKNOWN = 255,
     }
 
     /// <summary>
-    ///  Contains the iterator and a reference to the owner to ensure proper lifetime management
+    ///  Closed reason mirroring `slatedb::CloseReason`.
     /// </summary>
-    [StructLayout(LayoutKind.Sequential)]
-    internal unsafe partial struct CSdbIterator
+    internal enum slatedb_close_reason_t : uint
     {
-    }
-
-    /// <summary>
-    ///  Internal struct for managing WriteBatch operations in FFI
-    ///  Contains the WriteBatch that can be moved out when writing to the database
-    /// </summary>
-    [StructLayout(LayoutKind.Sequential)]
-    internal unsafe partial struct CSdbWriteBatch
-    {
-    }
-
-
-    internal enum CSdbError : uint
-    {
-        Success = 0,
-        InvalidArgument = 1,
-        NotFound = 2,
-        AlreadyExists = 3,
-        IOError = 4,
-        InternalError = 5,
-        NullPointer = 6,
-        InvalidHandle = 7,
-        InvalidProvider = 8,
+        /// <summary>
+        ///  Not a closed error.
+        /// </summary>
+        SLATEDB_CLOSE_REASON_NONE = 0,
+        /// <summary>
+        ///  Closed cleanly.
+        /// </summary>
+        SLATEDB_CLOSE_REASON_CLEAN = 1,
+        /// <summary>
+        ///  Closed due to fencing.
+        /// </summary>
+        SLATEDB_CLOSE_REASON_FENCED = 2,
+        /// <summary>
+        ///  Closed due to background panic.
+        /// </summary>
+        SLATEDB_CLOSE_REASON_PANIC = 3,
+        /// <summary>
+        ///  Unknown close reason (forward compatibility).
+        /// </summary>
+        SLATEDB_CLOSE_REASON_UNKNOWN = 255,
     }
 
     internal enum ObjectStoreType : uint

@@ -3,28 +3,15 @@ using SlateDb.Interop;
 
 namespace SlateDb.Handle.Internal;
 
-internal sealed unsafe class SlateDbHandle : SafeHandle
+internal sealed unsafe class SlateDbHandle(slatedb_db_t* sdbHandleT) : SafeHandle((IntPtr)sdbHandleT, true)
 {
-    private readonly CSdbHandle _slateDbPtr;
-
-    public SlateDbHandle(CSdbHandle cSdbHandle)
-        : base((IntPtr)cSdbHandle.Item1, true)
-    {
-        _slateDbPtr = cSdbHandle;
-    }
-
-    internal CSdbHandle GetCSdbHandle() => _slateDbPtr;
+    internal slatedb_db_t* GetCSdbHandle() => sdbHandleT;
 
     public override bool IsInvalid => handle == IntPtr.Zero;
 
     protected override bool ReleaseHandle()
     {
-        var result = NativeMethods.slatedb_close(_slateDbPtr);
-        if (result.error != CSdbError.Success)
-        {
-            var message = Marshal.PtrToStringUTF8((IntPtr)result.message);
-            throw new SlateDbException(result, message);
-        }
+        NativeMethods.slatedb_db_close(sdbHandleT).ThrowOnError();
         return true;
     }
 }

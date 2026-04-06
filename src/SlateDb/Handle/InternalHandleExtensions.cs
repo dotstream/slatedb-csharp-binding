@@ -5,21 +5,34 @@ namespace SlateDb.Handle;
 
 internal static class InternalHandleExtensions
 {
-    public static T GetCSdbHandle<T>(this SafeHandle safeHandle)
+    public static unsafe T* GetCSdbHandle<T>(this SafeHandle safeHandle)
         where T : struct
     {
-        if (safeHandle is SlateDbHandle  slateDbHandle)
+        if (safeHandle is SlateDbHandle slateDbHandle)
         {
             var handle = slateDbHandle.GetCSdbHandle();
-            if (handle is T handleT)
-                return handleT;
-        } else if (safeHandle is SlateDbReaderHandle  slateDbReaderHandle)
-        {
-            var handle = slateDbReaderHandle.GetCSdbHandle();
-            if(handle is T handleT)
-                return handleT;
+            return (T*)handle;
         }
 
-        return default;
+        if (safeHandle is SlateDbReaderHandle slateDbReaderHandle)
+        {
+            var handle = slateDbReaderHandle.GetCSdbHandle();
+            return (T*)handle;
+        }
+
+        if (safeHandle is SlateWalHandle slateWalHandle)
+        {
+            var handle = slateWalHandle.GetCSdbHandle();
+            return (T*)handle;
+        }
+
+        if (safeHandle is SlateWalFileHandle slateWalFileHandle)
+        {
+            var handle = slateWalFileHandle.GetCSdbHandle();
+            return (T*)handle;
+        }
+        
+
+        return (T*)IntPtr.Zero;
     }
 }

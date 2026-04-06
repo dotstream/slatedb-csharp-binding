@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Runtime.InteropServices;
+using SlateDb.Converter;
 using SlateDb.Interop;
 
 namespace SlateDb;
@@ -9,42 +10,45 @@ internal class SlateDbEnumerator<K, V> : IEnumerator<SlateDbKeyValue<K, V>>
     where K : class
 {
     private IntPtr _iterator;
-    private readonly SlateDb<K, V> _slateDb;
+    private readonly ISlateDbConverter<K>? _keyConverter;
+    private readonly ISlateDbConverter<V>? _valueConverter;
     private bool _disposed;
     private SlateDbKeyValue<K, V>? _current;
 
-    internal SlateDbEnumerator(IntPtr iterator, SlateDb<K, V> slateDb)
+    internal SlateDbEnumerator(IntPtr iterator, ISlateDbConverter<K>? keyConverter, ISlateDbConverter<V>? valueConverter)
     {
         _iterator = iterator;
-        _slateDb = slateDb;
+        _keyConverter = keyConverter;
+        _valueConverter = valueConverter;
     }
 
     public bool MoveNext()
     {
         unsafe
         {
-            CSdbKeyValue kv;
-            var result = NativeMethods.slatedb_iterator_next((CSdbIterator*)_iterator, &kv);
+            bool foundValue = false;
+            byte** keyPtr = stackalloc byte*[1];
+            byte** valuePtr = stackalloc byte*[1];
+            nuint keyLength = 0, valueLength = 0;
 
-            if (result.error == CSdbError.NotFound)
-            {
-                NativeMethods.slatedb_free_result(result);
+            NativeMethods.slatedb_iterator_next((slatedb_iterator_t*)_iterator,
+                &foundValue, keyPtr, &keyLength, valuePtr, &valueLength)
+                .ThrowOnError();
+
+            if (!foundValue)
                 return false;
-            }
 
-            SlateDb<K, V>.ThrowOnError(result);
+            var key = new byte[(int)keyLength];
+            Marshal.Copy((IntPtr)(*keyPtr), key, 0, key.Length);
 
-            var key = new byte[(int)kv.key.len];
-            Marshal.Copy((IntPtr)kv.key.data, key, 0, key.Length);
+            var value = new byte[(int)valueLength];
+            Marshal.Copy((IntPtr)(*valuePtr), value, 0, value.Length);
 
-            var value = new byte[(int)kv.value.len];
-            Marshal.Copy((IntPtr)kv.value.data, value, 0, value.Length);
+            NativeMethods.slatedb_bytes_free(*keyPtr, keyLength);
+            NativeMethods.slatedb_bytes_free(*valuePtr, keyLength);
 
-            NativeMethods.slatedb_free_value(kv.key);
-            NativeMethods.slatedb_free_value(kv.value);
-
-            K keyObject = _slateDb.ConvertBytesToKey(key);
-            V valueObject = _slateDb.ConvertBytesToValue(value);
+            K keyObject = _keyConverter.ConvertBytesToClass(key);
+            V valueObject = _valueConverter.ConvertBytesToClass(value);
             
             _current = new SlateDbKeyValue<K, V>(keyObject, valueObject);
             return true;
@@ -53,17 +57,9 @@ internal class SlateDbEnumerator<K, V> : IEnumerator<SlateDbKeyValue<K, V>>
 
     public void Reset()
     {
-        // to test
         unsafe
         {
-            var result = NativeMethods.slatedb_iterator_seek_from_beginning((CSdbIterator*)_iterator);
-
-            if (result.error == CSdbError.NotFound)
-            {
-                NativeMethods.slatedb_free_result(result);
-            }
-
-            SlateDb<K, V>.ThrowOnError(result);
+            NativeMethods.slatedb_iterator_seek_from_beginning((slatedb_iterator_t*)_iterator).ThrowOnError();
         }
     }
 
@@ -81,7 +77,7 @@ internal class SlateDbEnumerator<K, V> : IEnumerator<SlateDbKeyValue<K, V>>
         {
             unsafe
             {
-                NativeMethods.slatedb_iterator_close((CSdbIterator*) _iterator);
+                NativeMethods.slatedb_iterator_close((slatedb_iterator_t*) _iterator);
             }
 
             _iterator =  IntPtr.Zero;
