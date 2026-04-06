@@ -1,3 +1,4 @@
+using SlateDb.Converter;
 using SlateDb.Handle;
 using SlateDb.Interop;
 using SlateDb.Options;
@@ -13,22 +14,22 @@ public enum SlateDbRangeBound
 public sealed partial class SlateDb<K, V>
 {
     public IEnumerable<SlateDbKeyValue<K, V>> Scan(K? startKey, K? endKey) =>
-        Scan(startKey is null ? null : ConvertKeyToBytes(startKey),
-            endKey is null ? null : ConvertKeyToBytes(endKey));
+        Scan(startKey is null ? null : _keyConverter.ConvertClassToBytes(startKey),
+            endKey is null ? null : _keyConverter.ConvertClassToBytes(endKey));
 
     public IEnumerable<SlateDbKeyValue<K, V>> Scan(K? startKey, K? endKey, ScanOptions? options) =>
         Scan(startKey, endKey, options, SlateDbRangeBound.INCLUDED, SlateDbRangeBound.INCLUDED);
 
     public IEnumerable<SlateDbKeyValue<K, V>> Scan(K? startKey, K? endKey, ScanOptions? options,
         SlateDbRangeBound startKeyRangeBound, SlateDbRangeBound endKeyRangeBound) =>
-        Scan(startKey is null ? null : ConvertKeyToBytes(startKey),
-            endKey is null ? null : ConvertKeyToBytes(endKey), options, startKeyRangeBound, endKeyRangeBound);
+        Scan(startKey is null ? null : _keyConverter.ConvertClassToBytes(startKey),
+            endKey is null ? null : _keyConverter.ConvertClassToBytes(endKey), options, startKeyRangeBound, endKeyRangeBound);
 
     public IEnumerable<SlateDbKeyValue<K, V>> ScanPrefix(K prefix) =>
-        ScanPrefix(ConvertKeyToBytes(prefix));
+        ScanPrefix(_keyConverter.ConvertClassToBytes(prefix));
 
     public IEnumerable<SlateDbKeyValue<K, V>> ScanPrefix(K prefix, ScanOptions? options) =>
-        ScanPrefix(ConvertKeyToBytes(prefix), options);
+        ScanPrefix(_keyConverter.ConvertClassToBytes(prefix), options);
 
     public IEnumerable<SlateDbKeyValue<K, V>> Scan(byte[]? startKey, byte[]? endKey)
         => Scan(startKey, endKey, null);
@@ -79,7 +80,7 @@ public sealed partial class SlateDb<K, V>
                         &nativeOpts, (slatedb_iterator_t**)&iterPtr).ThrowOnError();
             }
 
-            return new SlateDbEnumerable<K, V>(iterPtr, this);
+            return new SlateDbEnumerable<K, V>(iterPtr, _keyConverter, _valueConverter);
         }
     }
 
@@ -111,14 +112,14 @@ public sealed partial class SlateDb<K, V>
                     range,
                     &nativeOpts, (slatedb_iterator_t**)&iterPtr).ThrowOnError();
 
-            return new SlateDbEnumerable<K, V>(iterPtr, this);
+            return new SlateDbEnumerable<K, V>(iterPtr, _keyConverter, _valueConverter);
         }
     }
 
-    public IEnumerable<SlateDbKeyValue<K, V>> ScanPrefix(byte[] prefix)
+    public IEnumerable<SlateDbKeyValue<K, V>> ScanPrefix(byte[]? prefix)
         => ScanPrefix(prefix, null);
 
-    public IEnumerable<SlateDbKeyValue<K, V>> ScanPrefix(byte[] prefix, ScanOptions? options)
+    public IEnumerable<SlateDbKeyValue<K, V>> ScanPrefix(byte[]? prefix, ScanOptions? options)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ObjectDisposedException.ThrowIf(_handle == null, this);
@@ -141,7 +142,7 @@ public sealed partial class SlateDb<K, V>
                         (slatedb_iterator_t**)&iterPtr).ThrowOnError();
             }
 
-            return new SlateDbEnumerable<K, V>(iterPtr, this);
+            return new SlateDbEnumerable<K, V>(iterPtr, _keyConverter, _valueConverter);
         }
     }
 

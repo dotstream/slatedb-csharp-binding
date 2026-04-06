@@ -20,6 +20,19 @@ internal static class InternalHandleExtensions
             return (T*)handle;
         }
 
+        if (safeHandle is SlateWalHandle slateWalHandle)
+        {
+            var handle = slateWalHandle.GetCSdbHandle();
+            return (T*)handle;
+        }
+
+        if (safeHandle is SlateWalFileHandle slateWalFileHandle)
+        {
+            var handle = slateWalFileHandle.GetCSdbHandle();
+            return (T*)handle;
+        }
+        
+
         return (T*)IntPtr.Zero;
     }
 }

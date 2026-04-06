@@ -10,6 +10,7 @@ internal static class SlateDbConvert
         string s => Encoding.UTF8.GetBytes(s),
         int i => WriteInt(i),
         long l => WriteLong(l),
+        ulong ul => WriteULong(ul),
         bool b => [b ? (byte)1 : (byte)0],
         double d => WriteDouble(d),
         byte[] bytes => bytes,
@@ -34,6 +35,13 @@ internal static class SlateDbConvert
         return bytes;
     }
 
+    private static byte[] WriteULong(ulong value)
+    {
+        var bytes = new byte[8];
+        BinaryPrimitives.WriteUInt64BigEndian(bytes, value);
+        return bytes;
+    }
+    
     private static byte[] WriteLong(long value)
     {
         var bytes = new byte[8];

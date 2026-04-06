@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Runtime.InteropServices;
+using SlateDb.Converter;
 using SlateDb.Interop;
 
 namespace SlateDb;
@@ -9,14 +10,16 @@ internal class SlateDbEnumerator<K, V> : IEnumerator<SlateDbKeyValue<K, V>>
     where K : class
 {
     private IntPtr _iterator;
-    private readonly SlateDb<K, V> _slateDb;
+    private readonly ISlateDbConverter<K>? _keyConverter;
+    private readonly ISlateDbConverter<V>? _valueConverter;
     private bool _disposed;
     private SlateDbKeyValue<K, V>? _current;
 
-    internal SlateDbEnumerator(IntPtr iterator, SlateDb<K, V> slateDb)
+    internal SlateDbEnumerator(IntPtr iterator, ISlateDbConverter<K>? keyConverter, ISlateDbConverter<V>? valueConverter)
     {
         _iterator = iterator;
-        _slateDb = slateDb;
+        _keyConverter = keyConverter;
+        _valueConverter = valueConverter;
     }
 
     public bool MoveNext()
@@ -44,8 +47,8 @@ internal class SlateDbEnumerator<K, V> : IEnumerator<SlateDbKeyValue<K, V>>
             NativeMethods.slatedb_bytes_free(*keyPtr, keyLength);
             NativeMethods.slatedb_bytes_free(*valuePtr, keyLength);
 
-            K keyObject = _slateDb.ConvertBytesToKey(key);
-            V valueObject = _slateDb.ConvertBytesToValue(value);
+            K keyObject = _keyConverter.ConvertBytesToClass(key);
+            V valueObject = _valueConverter.ConvertBytesToClass(value);
             
             _current = new SlateDbKeyValue<K, V>(keyObject, valueObject);
             return true;

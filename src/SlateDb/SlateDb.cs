@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.Json;
 using SlateDb.Configuration;
 using SlateDb.Converter;
 using SlateDb.Handle;
@@ -124,7 +125,7 @@ public sealed partial class SlateDb<K,V> : IDisposable
     internal SlateDb(
         string path,
         AbstractSlateDbConfig configuration,
-        SlateDbOptions options,
+        SlateDbOptions<K, V> options,
         ISlateDbConverter<K>? keyConverter = null,
         ISlateDbConverter<V>? valueConverter = null)
     {
@@ -181,8 +182,16 @@ public sealed partial class SlateDb<K,V> : IDisposable
 
                     if (options.SstBlockSize != null)
                     {
-                            NativeMethods.slatedb_db_builder_with_sst_block_size(*dbBuilder,
-                                (byte)options.SstBlockSize).ThrowOnError();
+                        NativeMethods.slatedb_db_builder_with_sst_block_size(*dbBuilder,
+                            (byte)options.SstBlockSize).ThrowOnError();
+                    }
+
+                    if (options.MergeOperator != null)
+                    {
+                        NativeMethods.slatedb_db_builder_with_merge_operator(
+                            *dbBuilder,
+                            options.MergeOperator,
+                            options.FreeMergeResult);
                     }
                     
                     slatedb_db_t** db = stackalloc slatedb_db_t*[1];
@@ -255,6 +264,28 @@ public sealed partial class SlateDb<K,V> : IDisposable
         }
     }
     
+    public Status DbStatus
+    {
+        get
+        {
+            unsafe
+            {
+                if(_mode == SlateDbMode.Readonly)
+                    throw new SlateDbException(new slatedb_result_t(), "Status is not supported in Readonly mode");
+                
+                var resultT = NativeMethods.slatedb_db_status(_handle.GetCSdbHandle<slatedb_db_t>());
+                switch (resultT.kind)
+                {
+                    case slatedb_error_kind_t.SLATEDB_ERROR_KIND_NONE:
+                        return Status.Running();
+                    case slatedb_error_kind_t.SLATEDB_ERROR_KIND_CLOSED:
+                        return Status.Closed(resultT.close_reason.ToString());
+                    default:
+                        return Status.Error(resultT.message->ToString());
+                }
+            }
+        }
+    }
     
     public void Dispose()
     {
@@ -262,6 +293,23 @@ public sealed partial class SlateDb<K,V> : IDisposable
         {
             _handle.Dispose();
             _disposed = true;
+        }
+    }
+    
+    public void Flush(FlushOptions options)
+    {
+        if (_handle == null)
+            return;
+        CheckSlateDbMode(true);
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        unsafe
+        {
+            var flushOptions = new slatedb_flush_options_t()
+            {
+                flush_type = (byte)options
+            };
+            NativeMethods.slatedb_db_flush_with_options(_handle.GetCSdbHandle<slatedb_db_t>(), &flushOptions).ThrowOnError();
         }
     }
     
@@ -277,37 +325,36 @@ public sealed partial class SlateDb<K,V> : IDisposable
             NativeMethods.slatedb_db_flush(_handle.GetCSdbHandle<slatedb_db_t>()).ThrowOnError();
         }
     }
-    
-    internal byte[] ConvertKeyToBytes(K key)
+
+    public SlateDbMetrics? Metrics()
     {
-        if (_keyConverter != null)
-            return _keyConverter.ConvertToBytes(key);
-        
-        return SlateDbConvert.ToBytes(key);
+        unsafe
+        {
+            byte** json = stackalloc byte*[1];
+            nuint length = 0;
+            
+            NativeMethods.slatedb_db_metrics(_handle.GetCSdbHandle<slatedb_db_t>(), json, &length)
+                .ThrowOnError();
+
+            var jsonObject = Encoding.UTF8.GetString(*json, (int)length);
+            return JsonSerializer.Deserialize<SlateDbMetrics>(jsonObject);
+        }
     }
 
-    internal byte[] ConvertValueToBytes(V value)
+    public long? Metric(string name)
     {
-        if (_valueConverter != null)
-            return _valueConverter.ConvertToBytes(value);
-        
-        return SlateDbConvert.ToBytes(value);
-    }
+        unsafe
+        {
+            bool present = false;
+            long value = 0;
+            
+            NativeMethods.slatedb_db_metric_get(
+                _handle.GetCSdbHandle<slatedb_db_t>(),
+                name.ToPtr(), &present, &value)
+                .ThrowOnError();
 
-    internal V ConvertBytesToValue(byte[] bytes)
-    {
-        if (_valueConverter != null)
-            return _valueConverter.ConvertFromBytes(bytes);
-        
-        return SlateDbConvert.FromBytes<V>(bytes);
-    }
-    
-    internal K ConvertBytesToKey(byte[] bytes)
-    {
-        if (_keyConverter != null)
-            return _keyConverter.ConvertFromBytes(bytes);
-        
-        return SlateDbConvert.FromBytes<K>(bytes);
+            return present ? value : null;
+        }
     }
     
     private static unsafe byte[] ConsumeValue(byte* value, int valueLength)

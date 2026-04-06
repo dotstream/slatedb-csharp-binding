@@ -1,3 +1,4 @@
+using SlateDb.Converter;
 using SlateDb.Handle;
 using SlateDb.Interop;
 using SlateDb.Options;
@@ -9,23 +10,24 @@ public sealed partial class SlateDb<K,V>
     public byte[]? GetRawBytes(K key) => GetRawBytes(key, null);
     
     public byte[]? GetRawBytes(K key, ReadOptions? options) 
-        => GetRawBytes(ConvertKeyToBytes(key), options);
+        => GetRawBytes(_keyConverter.ConvertClassToBytes(key), options);
 
     public V? Get(K key)
         => Get(key, null);
     
     public V? Get(K key, ReadOptions? options)
     {
-        var bytes = GetRawBytes(ConvertKeyToBytes(key), options);
-        return bytes is null ? null : ConvertBytesToValue(bytes);
+        var bytes = GetRawBytes(_keyConverter.ConvertClassToBytes(key), options);
+        return bytes is null ? null : _valueConverter.ConvertBytesToClass(bytes);
     }
 
-    public byte[]? GetRawBytes(byte[] key, ReadOptions? options)
+    public byte[]? GetRawBytes(byte[]? key, ReadOptions? options)
     {
         options ??= ReadOptions.Default;
         
         ObjectDisposedException.ThrowIf(_disposed, this);
         ObjectDisposedException.ThrowIf(_handle == null, this);
+        ArgumentNullException.ThrowIfNull(key);
 
         var nativeOpts = new slatedb_read_options_t()
         {

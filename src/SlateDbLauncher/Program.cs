@@ -1,4 +1,6 @@
 ﻿using SlateDb.Configuration;
+using SlateDb.Options;
+using SlateDb.Wal;
 
 using var db = SlateDb.SlateDb
     .Create<string, string>("db")
@@ -10,5 +12,8 @@ db.Put("user:melissa", "value2");
 db.Put("user:lise", "value3");
 db.Put("user:jules", "value4");
 
+
 foreach (var kv in db.ScanPrefix("user:"))
+{
     Console.WriteLine($"{kv.Key} = {kv.Value}");
+}

@@ -1313,6 +1313,9 @@ namespace SlateDb.Interop
         [DllImport(__DllName, EntryPoint = "slatedb_wal_file_iterator_close", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
         internal static extern slatedb_result_t slatedb_wal_file_iterator_close(slatedb_wal_file_iterator_t* iter);
 
+        [DllImport(__DllName, EntryPoint = "slatedb_wal_reader_with_object_builder_new", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern slatedb_result_t slatedb_wal_reader_with_object_builder_new(byte* path, ObjectStoreBuilder* object_store_builder, slatedb_wal_reader_t** out_reader);
+
         /// <summary>
         ///  Creates a new settings handle initialized with default values.
         ///

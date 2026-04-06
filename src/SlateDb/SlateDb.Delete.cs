@@ -1,3 +1,4 @@
+using SlateDb.Converter;
 using SlateDb.Handle;
 using SlateDb.Interop;
 using SlateDb.Options;
@@ -10,12 +11,12 @@ public sealed partial class SlateDb<K,V>
         => Delete(key, null);
     
     public void Delete(K key, WriteOptions? options) 
-        => Delete(ConvertKeyToBytes(key), options);
+        => Delete(_keyConverter.ConvertClassToBytes(key), options);
 
     public void Delete(byte[] key)
         => Delete(key, null);
     
-    public void Delete(byte[] key, WriteOptions? options)
+    public void Delete(byte[]? key, WriteOptions? options)
     {
         if (_handle == null) return;
         

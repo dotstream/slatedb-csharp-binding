@@ -12,41 +12,43 @@ public class SlateDbBuilder<K, V>
     where V : class
     where K : class
 {
-    protected readonly string path;
+    protected readonly string Path;
 
-    protected AbstractSlateDbConfig configuration
+    protected AbstractSlateDbConfig Configuration
         = new MemoryStoreConfig();
+    protected ISlateDbConverter<K>? KeyConverter;
+    protected ISlateDbConverter<V>? ValueConverter;
 
-    protected ISlateDbConverter<K> keyConverter;
-    protected ISlateDbConverter<V> valueConverter;
-    protected SlateDbSettings? slateDbSettings;
-    protected SstBlockSize? sstBlockSize;
+    private SlateDbSettings? _slateDbSettings;
+    private SstBlockSize? _sstBlockSize;
+    private SlatedbMergeOperatorFn? _mergeOperator;
+    private SlateDbFreeMergeResultFn? _freeMergeResultFn;
 
     internal SlateDbBuilder(string path)
     {
-        this.path = path;
+        Path = path;
     }
 
     public SlateDbBuilder<K, V> WithObjectConfiguration(AbstractSlateDbConfig configuration)
     {
-        this.configuration = configuration;
+        this.Configuration = configuration;
         return this;
     }
 
-    public SlateDbBuilder<K, V> WithObjectConfiguration<C>(JsonNode jsonNode)
-        where C : AbstractSlateDbConfig
+    public SlateDbBuilder<K, V> WithObjectConfiguration<TC>(JsonNode jsonNode)
+        where TC : AbstractSlateDbConfig
     {
         jsonNode = jsonNode ?? throw new ArgumentNullException(nameof(jsonNode));
-        var parsedConf = JsonSerializer.Deserialize<C>(jsonNode);
+        var parsedConf = JsonSerializer.Deserialize<TC>(jsonNode);
         if (parsedConf == null)
             throw new JsonException($"Could not parse JSON node: {jsonNode}");
-        configuration = parsedConf;
+        Configuration = parsedConf;
         return this;
     }
 
     public SlateDbBuilder<K, V> WithSettings(SlateDbSettings settings)
     {
-        slateDbSettings = settings;
+        _slateDbSettings = settings;
         return this;
     }
 
@@ -62,44 +64,54 @@ public class SlateDbBuilder<K, V>
         if (parsedSettings == null)
             throw new JsonException($"Could not parse JSON node: {jsonNode}");
         
-        slateDbSettings = parsedSettings;
+        _slateDbSettings = parsedSettings;
         return this;
     }
 
     public SlateDbBuilder<K, V> WithSstBlockSize(SstBlockSize size)
     {
-        sstBlockSize = size;
+        _sstBlockSize = size;
         return this;
     }
 
     public SlateDbBuilder<K, V> WithKeyConverter(
         ISlateDbConverter<K> converter)
     {
-        keyConverter = converter;
+        KeyConverter = converter;
         return this;
     }
 
     public SlateDbBuilder<K, V> WithValueConverter(
         ISlateDbConverter<V> converter)
     {
-        valueConverter = converter;
+        ValueConverter = converter;
+        return this;
+    }
+
+    public SlateDbBuilder<K, V> WithMergeOperator(SlatedbMergeOperatorFn mergeOperator)
+        => WithMergeOperator(mergeOperator, null);
+    
+    public SlateDbBuilder<K, V> WithMergeOperator(SlatedbMergeOperatorFn mergeOperator, SlateDbFreeMergeResultFn? freeMergeResultFn)
+    {
+        this._mergeOperator = mergeOperator;
+        this._freeMergeResultFn = freeMergeResultFn;
         return this;
     }
 
     public virtual SlateDb<K, V> Build()
     {
-        if (string.IsNullOrWhiteSpace(path))
+        if (string.IsNullOrWhiteSpace(Path))
             throw new SlateDbException(new slatedb_result_t(), "Path is empty");
 
-        if (configuration == null)
+        if (Configuration == null)
             throw new SlateDbException(new slatedb_result_t(), "Configuration is null");
 
         return new SlateDb<K, V>(
-            path,
-            configuration,
-            new SlateDbOptions(slateDbSettings,  sstBlockSize),
-            keyConverter,
-            valueConverter);
+            Path,
+            Configuration,
+            new SlateDbOptions<K, V>(_slateDbSettings,  _sstBlockSize, _mergeOperator, _freeMergeResultFn),
+            KeyConverter,
+            ValueConverter);
     }
 }
 
@@ -107,37 +119,37 @@ public class SlateDbReaderBuilder<K, V> : SlateDbBuilder<K, V>
     where V : class
     where K : class
 {
-    private readonly string checkpointId;
-    private ReaderOptions readerOptions;
+    private readonly string _checkpointId;
+    private ReaderOptions _readerOptions;
 
     internal SlateDbReaderBuilder(string path, string checkpointId)
         : base(path)
     {
-        this.checkpointId = checkpointId;
-        readerOptions = ReaderOptions.Default;
+        this._checkpointId = checkpointId;
+        _readerOptions = ReaderOptions.Default;
     }
 
     public SlateDbReaderBuilder<K, V> WithReaderOptions(
         ReaderOptions readerOptions)
     {
-        this.readerOptions = readerOptions;
+        this._readerOptions = readerOptions;
         return this;
     }
 
     public override SlateDb<K, V> Build()
     {
-        if (string.IsNullOrWhiteSpace(path))
+        if (string.IsNullOrWhiteSpace(Path))
             throw new SlateDbException(new slatedb_result_t(), "Path is empty");
 
-        if (configuration == null)
+        if (Configuration == null)
             throw new SlateDbException(new slatedb_result_t(), "Configuration is null");
 
         return new SlateDb<K, V>(
-            path,
-            configuration,
-            checkpointId,
-            keyConverter,
-            valueConverter,
-            readerOptions);
+            Path,
+            Configuration,
+            _checkpointId,
+            KeyConverter,
+            ValueConverter,
+            _readerOptions);
     }
 }
