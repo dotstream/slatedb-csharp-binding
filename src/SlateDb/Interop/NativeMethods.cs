@@ -58,7 +58,7 @@ internal static partial class NativeMethods
     }
     
     [DllImport(__DllName, EntryPoint = "slatedb_db_builder_with_merge_operator", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-    internal static extern unsafe int slatedb_db_builder_with_merge_operator(
+    internal static extern unsafe slatedb_result_t slatedb_db_builder_with_merge_operator(
         slatedb_db_builder_t* builder,
         SlatedbMergeOperatorFn merge_operator,
         SlateDbFreeMergeResultFn free_merge_result);
