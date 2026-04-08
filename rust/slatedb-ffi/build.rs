@@ -28,7 +28,13 @@ fn main() {
     match list_files_with_pattern(path_rs, ".rs") {
         Ok(files) => {
             for file in files {
-                builder = builder.input_extern_file(path_rs.join(file));
+                println!(" - {}", file);
+                let full_path = path_rs.join(&file);
+                let content = fs::read_to_string(&full_path).unwrap();
+
+                if content.contains("extern \"C\"") {
+                    builder = builder.input_extern_file(full_path);
+                }
             }
         }
         Err(e) => eprintln!("Error listing files: {}", e),
