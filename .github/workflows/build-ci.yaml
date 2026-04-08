@@ -14,7 +14,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@nightly
-      - run: grep -RIl $'\xEF\xBB\xBF' rust/slatedb-ffi/src/
+      - name: Check for BOM
+        run: |
+          if grep -RIl $'\xEF\xBB\xBF' rust/slatedb-ffi/src/ > /dev/null; then
+            echo "BOM found!"
+            grep -RIl $'\xEF\xBB\xBF' rust/slatedb-ffi/src/
+            exit 1
+          else
+            echo "No BOM found."
+          fi
+      - name: Check for CRLF
+        run: |
+          if grep -RIl $'\r' rust/slatedb-ffi/src/ > /dev/null; then
+            echo "CRLF found!"
+            grep -RIl $'\r' rust/slatedb-ffi/src/
+            exit 1
+          else
+            echo "No CRLF found."
+          fi
       - run: ./generate-binding.sh
       - uses: actions/setup-dotnet@v4
         with:
