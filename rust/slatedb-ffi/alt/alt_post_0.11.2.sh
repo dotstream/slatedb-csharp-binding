@@ -73,29 +73,31 @@ if [[ ! -f "$FFI_TARGET_FILE" ]]; then
 fi
 
 awk '
-  # Detect the start of the specific function
+  BEGIN { in_func = 0 }
+
+  # Detect start of struct
   /pub struct slatedb_key_value_t/ { in_func = 1 }
-  
-  # If we are inside the function, check for the lines to remove
-  in_func {
-    if ($0 ~ /\/\/\/ Sequence number assigned to this entry\./ || 
-        $0 ~ /pub seq: u64,/ || 
-        $0 ~ /\/\/\/ Creation timestamp in milliseconds since epoch\, or 0 if not set\./ || 
-        $0 ~ /pub create_ts: i64,/ || 
-        $0 ~ /\/\/\/ Whether \`expire_ts\` is populated\./ || 
-        $0 ~ /pub expire_ts_present: bool,/ || 
-        $0 ~ /\/\/\/ Expiration timestamp in milliseconds since epoch \(valid when \`expire_ts_present\` is true\)\./ || 
-        $0 ~ /pub expire_ts: i64,/) {
-      next # Skip these lines
-    }
+
+  # Skip unwanted lines inside struct
+  (in_func == 1) {
+      if ($0 ~ /Sequence number assigned/ ||
+          $0 ~ /pub seq:/ ||
+          $0 ~ /Creation timestamp/ ||
+          $0 ~ /pub create_ts:/ ||
+          $0 ~ /Whether `expire_ts` is populated/ ||
+          $0 ~ /pub expire_ts_present:/ ||
+          $0 ~ /Expiration timestamp/ ||
+          $0 ~ /pub expire_ts:/) {
+          next
+      }
   }
 
-  # Detect the end of the function to stop the specific filtering
-  in_func && /^\}/ { in_func = 0 }
+  # Detect end of struct
+  (in_func == 1 && /^\}/) { in_func = 0 }
 
-  # Print all other lines
-  { print $0 }
-' "$FFI_TARGET_FILE" > "$FFI_TEMP_FILE" && mv "$FFI_TEMP_FILE" "$FFI_TARGET_FILE"
+  # Print everything else
+  { print }
+  ' "$FFI_TARGET_FILE" > "$FFI_TEMP_FILE" && mv "$FFI_TEMP_FILE" "$FFI_TARGET_FILE"
 
 echo "Metadata lines removed from slatedb_key_value_t in $FFI_TARGET_FILE."
 

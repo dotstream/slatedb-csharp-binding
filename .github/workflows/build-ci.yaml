@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       RUST_BACKTRACE: 1
+      CARGO_PROFILE_RELEASE_BUILD_OVERRIDE_DEBUG: true
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@nightly
