@@ -27,7 +27,9 @@ fn main() {
 
     match list_files_with_pattern(path_rs, ".rs") {
         Ok(files) => {
-            for file in files {
+            let mut sfiles = files.clone();
+            sfiles.sort();
+            for file in sfiles {
                 let full_path = path_rs.join(&file);
                 let content = fs::read_to_string(&full_path).unwrap();
 
@@ -60,6 +62,4 @@ fn main() {
     let cs_dest = PathBuf::from("../../src/SlateDb/Interop/NativeMethods.g.cs");
     fs::create_dir_all(cs_dest.parent().unwrap()).unwrap();
     fs::copy(&generated, &cs_dest).unwrap();
-
-    println!("cargo:rerun-if-changed=src/lib.rs");
 }

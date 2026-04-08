@@ -14,6 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@nightly
+      - run: grep -RIl $'\xEF\xBB\xBF' rust/slatedb-ffi/src/
       - run: ./generate-binding.sh
       - uses: actions/setup-dotnet@v4
         with:
