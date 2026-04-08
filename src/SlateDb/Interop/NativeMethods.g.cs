@@ -449,6 +449,12 @@ namespace SlateDb.Interop
         internal static extern slatedb_result_t slatedb_db_get_with_options(slatedb_db_t* db, byte* key, nuint key_len, slatedb_read_options_t* read_options, bool* out_present, byte** out_val, nuint* out_val_len);
 
         /// <summary>
+        ///  ## Safety
+        ///  - `db` must be a valid database handle.
+        ///  - `key` must point to at least `key_len` bytes of valid memory.
+        ///  - `read_options` must be a valid pointer to `slatedb_read_options_t` or NULL.
+        ///  - `out_present` must be a valid pointer to a `bool`.
+        ///  - `out_kv` must be a valid pointer to a `*mut slatedb_key_value_t`.
         ///  Writes a key/value pair using default put/write options.
         ///
         ///  ## Arguments
@@ -1676,15 +1682,16 @@ namespace SlateDb.Interop
         internal static extern slatedb_result_t slatedb_db_builder_close(slatedb_db_builder_t* builder);
 
         /// <summary>
-        ///  Retrieves the next key/value pair from an iterator.
+        ///  Retrieves the next key-value pair from an iterator.
+        ///
+        ///  Returns a `slatedb_key_value_t` containing key, value, sequence number,
+        ///  and optional timestamps. The returned struct must be freed with
+        ///  `slatedb_key_value_free`.
         ///
         ///  ## Arguments
         ///  - `iterator`: Iterator handle created by scan APIs.
-        ///  - `out_present`: Set to `true` when a row is returned.
-        ///  - `out_key`: Output key buffer pointer (allocated by Rust).
-        ///  - `out_key_len`: Output key length.
-        ///  - `out_val`: Output value buffer pointer (allocated by Rust).
-        ///  - `out_val_len`: Output value length.
+        ///  - `out_present`: Set to `true` when a key-value pair is returned.
+        ///  - `out_kv`: Output pointer to the allocated `slatedb_key_value_t`.
         ///
         ///  ## Returns
         ///  - `slatedb_result_t` with `kind == SLATEDB_ERROR_KIND_NONE` on success.
@@ -1695,11 +1702,20 @@ namespace SlateDb.Interop
         ///
         ///  ## Safety
         ///  - All output pointers must be valid, non-null writable pointers.
-        ///  - Buffers returned in `out_key`/`out_val` must be freed with
-        ///    `slatedb_bytes_free`.
+        ///  - The struct returned in `out_kv` must be freed with `slatedb_key_value_free`.
         /// </summary>
         [DllImport(__DllName, EntryPoint = "slatedb_iterator_next", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
-        internal static extern slatedb_result_t slatedb_iterator_next(slatedb_iterator_t* iterator, bool* out_present, byte** out_key, nuint* out_key_len, byte** out_val, nuint* out_val_len);
+        internal static extern slatedb_result_t slatedb_iterator_next(slatedb_iterator_t* iterator, bool* out_present, slatedb_key_value_t** out_kv);
+
+        /// <summary>
+        ///  Frees a `slatedb_key_value_t` and its `key` / `value` buffers.
+        ///
+        ///  ## Safety
+        ///  - `kv` must be a valid pointer returned by `slatedb_iterator_next`
+        ///    or `slatedb_db_get_key_value_with_options`, or null (no-op).
+        /// </summary>
+        [DllImport(__DllName, EntryPoint = "slatedb_key_value_free", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
+        internal static extern void slatedb_key_value_free(slatedb_key_value_t* kv);
 
         /// <summary>
         ///  Retrieves up to `max_count` key/value pairs (or up to `max_bytes` of packed
@@ -1949,6 +1965,36 @@ namespace SlateDb.Interop
         ///  Expiration timestamp (valid when `expire_ts_present` is true).
         /// </summary>
         public long expire_ts;
+    }
+
+    /// <summary>
+    ///  C representation of a key-value pair returned by iterators and point lookups.
+    ///
+    ///  Unlike `slatedb_row_entry_t`, this type does not carry tombstone or merge
+    ///  information — the value is always a regular (resolved) value.
+    ///
+    ///  `key` and `value` reference Rust-allocated buffers that must be freed by
+    ///  calling `slatedb_key_value_free`.
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    internal unsafe partial struct slatedb_key_value_t
+    {
+        /// <summary>
+        ///  Key bytes.
+        /// </summary>
+        public byte* key;
+        /// <summary>
+        ///  Length of `key` in bytes.
+        /// </summary>
+        public nuint key_len;
+        /// <summary>
+        ///  Value bytes.
+        /// </summary>
+        public byte* value;
+        /// <summary>
+        ///  Length of `value` in bytes.
+        /// </summary>
+        public nuint value_len;
     }
 
     /// <summary>

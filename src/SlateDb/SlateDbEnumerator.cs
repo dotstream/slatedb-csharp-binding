@@ -27,25 +27,22 @@ internal class SlateDbEnumerator<K, V> : IEnumerator<SlateDbKeyValue<K, V>>
         unsafe
         {
             bool foundValue = false;
-            byte** keyPtr = stackalloc byte*[1];
-            byte** valuePtr = stackalloc byte*[1];
-            nuint keyLength = 0, valueLength = 0;
-
+            slatedb_key_value_t* kv;
+            
             NativeMethods.slatedb_iterator_next((slatedb_iterator_t*)_iterator,
-                &foundValue, keyPtr, &keyLength, valuePtr, &valueLength)
+                &foundValue, &kv)
                 .ThrowOnError();
 
             if (!foundValue)
                 return false;
 
-            var key = new byte[(int)keyLength];
-            Marshal.Copy((IntPtr)(*keyPtr), key, 0, key.Length);
+            var key = new byte[(int)kv->key_len];
+            Marshal.Copy((IntPtr)kv->key, key, 0, key.Length);
 
-            var value = new byte[(int)valueLength];
-            Marshal.Copy((IntPtr)(*valuePtr), value, 0, value.Length);
+            var value = new byte[(int)kv->value_len];
+            Marshal.Copy((IntPtr)kv->value, value, 0, value.Length);
 
-            NativeMethods.slatedb_bytes_free(*keyPtr, keyLength);
-            NativeMethods.slatedb_bytes_free(*valuePtr, keyLength);
+            NativeMethods.slatedb_key_value_free(kv);
 
             K keyObject = _keyConverter.ConvertBytesToClass(key);
             V valueObject = _valueConverter.ConvertBytesToClass(value);
