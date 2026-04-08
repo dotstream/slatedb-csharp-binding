@@ -128,7 +128,7 @@ for i in "${!RIDS[@]}"; do
         BUILD_CMD="cargo build"
     fi
 
-    if $BUILD_CMD --release -p slatedb-csharp-ffi --target "$TARGET" \
+    if $BUILD_CMD --release -p slatedb-csharp-ffi --verbose --target "$TARGET" \
         --manifest-path "Cargo.toml" 2>&1; then
 
         SRC="target/$TARGET/release/$LIB_NAME"

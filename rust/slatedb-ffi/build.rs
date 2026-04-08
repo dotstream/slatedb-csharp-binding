@@ -28,24 +28,34 @@ fn main() {
     match list_files_with_pattern(path_rs, ".rs") {
         Ok(files) => {
             for file in files {
-                println!(" - {}", file);
                 let full_path = path_rs.join(&file);
                 let content = fs::read_to_string(&full_path).unwrap();
 
+                println!("Adding file to csbindgen: {}", file);
+                println!("Content preview:\n{}", &content[..content.len()]);
+
                 if content.contains("extern \"C\"") {
-                    builder = builder.input_extern_file(full_path);
+                    builder = builder.input_extern_file(&full_path);
                 }
+
+                println!("File processed: {}", &full_path.display());
             }
         }
         Err(e) => eprintln!("Error listing files: {}", e),
     }
 
-    builder
+    match builder
         .csharp_namespace("SlateDb.Interop")
         .csharp_class_name("NativeMethods")
         .csharp_dll_name("slatedb_csharp_ffi")
-        .generate_csharp_file(&generated)
-        .unwrap();
+        .generate_csharp_file(&generated){
+            Ok(_) => {}
+            Err(e) => {
+                eprintln!("Error while generating C# bindings:");
+                eprintln!("  {:?}", e);
+                panic!("csbindgen failed");
+            }
+        }
 
     let cs_dest = PathBuf::from("../../src/SlateDb/Interop/NativeMethods.g.cs");
     fs::create_dir_all(cs_dest.parent().unwrap()).unwrap();
