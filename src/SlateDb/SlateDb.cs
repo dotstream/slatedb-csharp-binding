@@ -191,7 +191,8 @@ public sealed partial class SlateDb<K,V> : IDisposable
                         NativeMethods.slatedb_db_builder_with_merge_operator(
                             *dbBuilder,
                             options.MergeOperator,
-                            options.FreeMergeResult);
+                            options.FreeMergeResult
+                            ).ThrowOnError();
                     }
                     
                     slatedb_db_t** db = stackalloc slatedb_db_t*[1];

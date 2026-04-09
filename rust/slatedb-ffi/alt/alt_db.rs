@@ -64,9 +64,9 @@ pub unsafe extern "C" fn slatedb_builder_new_with_object_builder(
         Err(err) => return err,
     };
 
-    let objectBuilder = unsafe {object_store_builder.as_ref().unwrap()};
+    let object_builder = unsafe {object_store_builder.as_ref().unwrap()};
 
-    let object_store = match objectBuilder.build() {
+    let object_store = match object_builder.build() {
         Ok(store) => store,
         Err(err) => return error_result(slatedb_error_kind_t::SLATEDB_ERROR_KIND_INTERNAL, &format!("Failed to build object store: {:?}", err.message)),
     };

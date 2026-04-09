@@ -23,27 +23,43 @@ fn main() {
     let generated = out_dir.join("NativeMethods.g.cs");
 
     let mut builder = csbindgen::Builder::default();
-    let pathRs = Path::new("./src");
+    let path_rs = Path::new("./src");
 
-    match list_files_with_pattern(pathRs, ".rs") {
+    match list_files_with_pattern(path_rs, ".rs") {
         Ok(files) => {
-            for file in files {
-                builder = builder.input_extern_file(pathRs.join(file));
+            let mut sfiles = files.clone();
+            sfiles.sort();
+            for file in sfiles {
+                let full_path = path_rs.join(&file);
+                let content = fs::read_to_string(&full_path).unwrap();
+
+                println!("Adding file to csbindgen: {}", file);
+                println!("Content preview:\n{}", &content[..content.len()]);
+
+                if content.contains("extern \"C\"") {
+                    builder = builder.input_extern_file(&full_path);
+                }
+
+                println!("File processed: {}", &full_path.display());
             }
         }
         Err(e) => eprintln!("Error listing files: {}", e),
     }
 
-    builder
+    match builder
         .csharp_namespace("SlateDb.Interop")
         .csharp_class_name("NativeMethods")
         .csharp_dll_name("slatedb_csharp_ffi")
-        .generate_csharp_file(&generated)
-        .unwrap();
+        .generate_csharp_file(&generated){
+            Ok(_) => {}
+            Err(e) => {
+                eprintln!("Error while generating C# bindings:");
+                eprintln!("  {:?}", e);
+                panic!("csbindgen failed");
+            }
+        }
 
     let cs_dest = PathBuf::from("../../src/SlateDb/Interop/NativeMethods.g.cs");
     fs::create_dir_all(cs_dest.parent().unwrap()).unwrap();
     fs::copy(&generated, &cs_dest).unwrap();
-
-    println!("cargo:rerun-if-changed=src/lib.rs");
 }

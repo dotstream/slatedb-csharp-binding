@@ -10,10 +10,12 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-latest
-            targets: linux + windows
-          - os: macos-latest
-            targets: macOS
+        - os: ubuntu-latest
+          targets: linux
+        - os: macos-latest
+          targets: macOS
+        - os: windows-latest
+          targets: windows
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout

@@ -7,7 +7,6 @@ namespace SlateDbUnitTests;
 
 public class WalReaderTest
 {
-    private SlateDb<string, string> _slateDb;
     private string path;
     
     [SetUp]
@@ -15,23 +14,27 @@ public class WalReaderTest
     {
         path = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName().Replace(".", ""));
         Directory.CreateDirectory(path);
-        
-        _slateDb = SlateDb.SlateDb
-            .Create<string, string>("db")
-            .WithObjectConfiguration(new LocalStoreConfig(path))
-            .Build();
-        
-        for(int i = 0; i < 100; i++)
-            _slateDb.Put("key"+i, "value"+i, new PutOptions(){TtlType = TtlType.NoExpiry}, new WriteOptions(){AwaitDurable = false});
-        
-        _slateDb.Flush(FlushOptions.SlatedbFlushTypeWal);
+        SeedSlateDb();
     }
 
     [TearDown]
     public void TearDown()
     {
-        _slateDb.Dispose();
         Directory.Delete(path, true);
+    }
+
+    private void SeedSlateDb()
+    {
+        var slateDb = SlateDb.SlateDb
+            .Create<string, string>("db")
+            .WithObjectConfiguration(new LocalStoreConfig(path))
+            .Build();
+        
+        for(int i = 0; i < 100; i++)
+            slateDb.Put("key"+i, "value"+i, new PutOptions(){TtlType = TtlType.NoExpiry}, new WriteOptions(){AwaitDurable = false});
+        
+        slateDb.Flush(FlushOptions.SlatedbFlushTypeWal);
+        slateDb.Dispose();
     }
     
     [Test]
