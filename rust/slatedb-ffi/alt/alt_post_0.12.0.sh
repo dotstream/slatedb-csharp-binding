@@ -18,7 +18,7 @@ awk '
   
   # If we are inside the function, check for the lines to remove
   in_func {
-    if ($0 ~ /\#\[uniffi\(default = None\)\]/) {
+    if ($0 ~ /#\[uniffi\(default = None\)\]/) {
       next # Skip these lines
     }
   }
@@ -32,7 +32,7 @@ awk '
 
 awk '
   # Detect the start of the specific function
-  /impl TryFrom\<ScanOptions\> for slatedb::config::ScanOptions/ { in_func = 1 }
+  /impl TryFrom<ScanOptions> for slatedb::config::ScanOptions/ { in_func = 1 }
   
   # If we are inside the function, check for the lines to remove
   in_func {
