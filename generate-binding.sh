@@ -83,6 +83,8 @@ if [ "$all" = true ] && [ "$HAS_ZIGBUILD" = false ]; then
     exit 1
 fi
 
+cargo install uniffi-bindgen-cs --git https://github.com/NordSecurity/uniffi-bindgen-cs --tag v0.11.0+v0.31.0
+
 SUCCEEDED=""
 FAILED=""
 
@@ -132,6 +134,11 @@ for i in "${!RIDS[@]}"; do
         --manifest-path "Cargo.toml" 2>&1; then
 
         SRC="target/$TARGET/release/$LIB_NAME"
+        
+        uniffi-bindgen-cs --library "$SRC" --out-dir . --config ./rust/slatedb-ffi/uniffi.toml
+
+        mv ./slatedb.cs ./src/SlateDb/Interop/UniffiSlateDb.g.cs
+        
         if [ -f "$SRC" ]; then
             cp "$SRC" "$OUT_DIR/$LIB_NAME"
 

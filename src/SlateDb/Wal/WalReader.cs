@@ -1,29 +1,34 @@
-using System.Runtime.InteropServices;
 using SlateDb.Configuration;
 using SlateDb.Converter;
-using SlateDb.Interop;
-using SlateDb.Handle;
-using SlateDb.Handle.Internal;
 
 namespace SlateDb.Wal;
 
+/// <summary>
+/// Entry point for reading raw WAL files stored under a database path, independent of a
+/// running <see cref="SlateDb{K,V}"/> instance.
+/// </summary>
 public static class WalReader
 {
+    /// <summary>Creates a builder for a <see cref="WalReader{K,V}"/> rooted at <paramref name="path"/>.</summary>
     public static WalReaderBuilder<K, V> Create<K, V>(string path)
         where V : class
         where K : class
         => new(path);
 }
 
+/// <summary>
+/// Reader for WAL files stored under a database path, created via <see cref="WalReader.Create{K,V}"/>.
+/// </summary>
 public sealed class WalReader<K, V> : IDisposable
     where V : class
     where K : class
 {
     private readonly ISlateDbConverter<K>? _keyConverter;
     private readonly ISlateDbConverter<V>? _valueConverter;
-    private readonly SafeHandle? _handle;
+    private readonly Interop.WalReader _handle;
     private bool _disposed;
 
+    /// <summary>Creates a WAL reader for <paramref name="path"/>, using the given object store configuration.</summary>
     public WalReader(string path,
         AbstractSlateDbConfig configuration,
         ISlateDbConverter<K>? keyConverter = null,
@@ -32,144 +37,72 @@ public sealed class WalReader<K, V> : IDisposable
         _keyConverter = keyConverter;
         _valueConverter = valueConverter;
 
-#if DEBUG
-        NativeMethods.LoadDebugNativeLibrary();
-#endif
-
-        unsafe
-        {
-            var objectStoreBuilderConfig = NativeMethods.slatedb_object_store_builder_config_new();
-            var builder = configuration.BuildStoreConfig();
-            if (builder != null)
-            {
-                foreach (var kv in builder)
-                {
-                    NativeMethods.slatedb_object_store_builder_config_set(
-                        objectStoreBuilderConfig,
-                        kv.Key.ToPtr(),
-                        kv.Value.ToPtr()
-                    );
-                }
-            }
-
-            var objectStoreBuilder = NativeMethods.slatedb_object_store_builder_new(
-                configuration.StoreType,
-                objectStoreBuilderConfig);
-
-            slatedb_wal_reader_t** walReaderT = stackalloc slatedb_wal_reader_t*[1];
-            NativeMethods.slatedb_wal_reader_with_object_builder_new(
-                path.ToPtr(),
-                objectStoreBuilder,
-                walReaderT).ThrowOnError();
-            _handle = new SlateWalHandle(*walReaderT);
-
-            NativeMethods.slatedb_object_store_builder_config_free(objectStoreBuilderConfig);
-        }
+        using var objectStore = Interop.UniffiHelpers.CreateObjectStore(configuration);
+        _handle = new Interop.WalReader(path, objectStore);
     }
 
-
+    /// <inheritdoc/>
     public void Dispose()
     {
-        if (!_disposed && _handle != null)
+        if (!_disposed)
         {
             _handle.Dispose();
             _disposed = true;
         }
     }
 
+    /// <summary>Lists all WAL files, in ascending ID order.</summary>
     public IReadOnlyList<WalFile<K, V>> All()
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        ObjectDisposedException.ThrowIf(_handle == null, this);
-
-        unsafe
-        {
-            var range = new slatedb_range_t
-            {
-                start = new slatedb_bound_t { kind = 0 },
-                end = new slatedb_bound_t { kind = 0 }
-            };
-
-            slatedb_wal_file_t** filesPtr;
-            ulong count;
-
-            NativeMethods.slatedb_wal_reader_list(
-                _handle.GetCSdbHandle<slatedb_wal_reader_t>(),
-                range,
-                &filesPtr,
-                &count
-            ).ThrowOnError();
-
-            var list = new List<WalFile<K, V>>((int)count);
-
-            for (ulong i = 0; i < count; i++)
-            {
-                var filePtr = filesPtr[i];
-                list.Add(new WalFile<K, V>(filePtr, _keyConverter, _valueConverter));
-            }
-
-            NativeMethods.slatedb_wal_files_free(filesPtr, (UIntPtr)count);
-
-            return list;
-        }
+        return List(null, null);
     }
 
+    /// <summary>Lists WAL files with IDs in <c>[startId, endId]</c>, in ascending ID order.</summary>
     public IReadOnlyList<WalFile<K, V>> List(ulong startId, ulong endId)
         => List(startId, endId, SlateDbRangeBound.INCLUDED, SlateDbRangeBound.INCLUDED);
 
+    /// <summary>Lists WAL files with IDs in the given range, in ascending ID order.</summary>
+    /// <param name="startId">Range start.</param>
+    /// <param name="endId">Range end.</param>
+    /// <param name="startKeyRangeBound">Whether <paramref name="startId"/> is included in the range.</param>
+    /// <param name="endKeyRangeBound">Whether <paramref name="endId"/> is included in the range.</param>
     public IReadOnlyList<WalFile<K, V>> List(ulong startId, ulong endId, SlateDbRangeBound startKeyRangeBound,
         SlateDbRangeBound endKeyRangeBound)
     {
+        // For bounded range, map to nullable parameters
+        ulong? start = startKeyRangeBound != SlateDbRangeBound.EXCLUDED ? startId : (ulong?)null;
+        ulong? end = endKeyRangeBound != SlateDbRangeBound.EXCLUDED ? endId : (ulong?)null;
+        return List(start, end);
+    }
+
+    private IReadOnlyList<WalFile<K, V>> List(ulong? startId, ulong? endId)
+    {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        ObjectDisposedException.ThrowIf(_handle == null, this);
 
-        unsafe
+        try
         {
-            var range = new slatedb_range_t
-            {
-                start = new slatedb_bound_t
-                {
-                    data = &startId,
-                    kind = (byte)startKeyRangeBound
-                },
-                end = new slatedb_bound_t
-                {
-                    data = &endId,
-                    kind = (byte)endKeyRangeBound
-                }
-            };
-
-            slatedb_wal_file_t** filesPtr;
-            ulong count;
-
-            NativeMethods.slatedb_wal_reader_list(
-                _handle.GetCSdbHandle<slatedb_wal_reader_t>(),
-                range,
-                &filesPtr,
-                &count
-            ).ThrowOnError();
-
-            var list = new List<WalFile<K, V>>((int)count);
-
-            for (ulong i = 0; i < count; i++)
-            {
-                var filePtr = filesPtr[i];
-                list.Add(new WalFile<K, V>(filePtr, _keyConverter, _valueConverter));
-            }
-
-            NativeMethods.slatedb_wal_files_free(filesPtr, (UIntPtr)count);
-
-            return list;
+            var files = _handle.List(startId, endId).GetAwaiter().GetResult();
+            return files.Select(file => new WalFile<K, V>(file, _keyConverter, _valueConverter)).ToList();
+        }
+        catch (Exception ex) when (ex is not SlateDbException)
+        {
+            throw new SlateDbException($"WalReader.List failed: {ex.Message}", ex);
         }
     }
 
+    /// <summary>Returns a handle for the WAL file with the given ID.</summary>
     public WalFile<K, V> Get(ulong id)
     {
-        unsafe
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        try
         {
-            slatedb_wal_file_t** filePtr = stackalloc slatedb_wal_file_t*[1];
-            NativeMethods.slatedb_wal_reader_get(_handle.GetCSdbHandle<slatedb_wal_reader_t>(), id, filePtr);
-            return new WalFile<K, V>(*filePtr, _keyConverter, _valueConverter);
+            var file = _handle.Get(id);
+            return new WalFile<K, V>(file, _keyConverter, _valueConverter);
+        }
+        catch (Exception ex) when (ex is not SlateDbException)
+        {
+            throw new SlateDbException($"WalReader.Get failed: {ex.Message}", ex);
         }
     }
 }

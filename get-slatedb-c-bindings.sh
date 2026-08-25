@@ -1,14 +1,14 @@
 #!/bin/bash
 
-version="0.11.2"
+version="0.12.0"
 
 rm -rf rust/slatedb-ffi/src/*.rs
-mkdir -p slatedb-c
-rm -rf slatedb-c/*
-curl -sL https://github.com/slatedb/slatedb/archive/refs/tags/v${version}.tar.gz | tar xz -C slatedb-c --strip-components=3 slatedb-${version}/slatedb-c/src
+mkdir -p slatedb-bindings
+rm -rf slatedb-bindings/*
+curl -sL https://github.com/slatedb/slatedb/archive/refs/tags/v${version}.tar.gz | tar xz -C slatedb-bindings --strip-components=4 slatedb-${version}/bindings/uniffi/src
 
-cp -R slatedb-c/* rust/slatedb-ffi/src/
-rm -rf slatedb-c
+cp -R slatedb-bindings/* rust/slatedb-ffi/src
+rm -rf slatedb-bindings
 
 ALT_DIR="rust/slatedb-ffi/alt"
 SRC_DIR="rust/slatedb-ffi/src"

@@ -1,7 +1,5 @@
 using System.Collections;
-using System.Runtime.InteropServices;
 using SlateDb.Converter;
-using SlateDb.Interop;
 
 namespace SlateDb;
 
@@ -9,13 +7,13 @@ internal class SlateDbEnumerator<K, V> : IEnumerator<SlateDbKeyValue<K, V>>
     where V : class
     where K : class
 {
-    private IntPtr _iterator;
+    private readonly Interop.DbIterator _iterator;
     private readonly ISlateDbConverter<K>? _keyConverter;
     private readonly ISlateDbConverter<V>? _valueConverter;
     private bool _disposed;
     private SlateDbKeyValue<K, V>? _current;
 
-    internal SlateDbEnumerator(IntPtr iterator, ISlateDbConverter<K>? keyConverter, ISlateDbConverter<V>? valueConverter)
+    internal SlateDbEnumerator(Interop.DbIterator iterator, ISlateDbConverter<K>? keyConverter, ISlateDbConverter<V>? valueConverter)
     {
         _iterator = iterator;
         _keyConverter = keyConverter;
@@ -24,40 +22,28 @@ internal class SlateDbEnumerator<K, V> : IEnumerator<SlateDbKeyValue<K, V>>
 
     public bool MoveNext()
     {
-        unsafe
+        try
         {
-            bool foundValue = false;
-            slatedb_key_value_t* kv;
-            
-            NativeMethods.slatedb_iterator_next((slatedb_iterator_t*)_iterator,
-                &foundValue, &kv)
-                .ThrowOnError();
+            var result = _iterator.Next().GetAwaiter().GetResult();
 
-            if (!foundValue)
+            if (result == null)
                 return false;
 
-            var key = new byte[(int)kv->key_len];
-            Marshal.Copy((IntPtr)kv->key, key, 0, key.Length);
+            var keyObject = _keyConverter.ConvertBytesToClass(result.Key);
+            var valueObject = _valueConverter.ConvertBytesToClass(result.Value);
 
-            var value = new byte[(int)kv->value_len];
-            Marshal.Copy((IntPtr)kv->value, value, 0, value.Length);
-
-            NativeMethods.slatedb_key_value_free(kv);
-
-            K keyObject = _keyConverter.ConvertBytesToClass(key);
-            V valueObject = _valueConverter.ConvertBytesToClass(value);
-            
             _current = new SlateDbKeyValue<K, V>(keyObject, valueObject);
             return true;
+        }
+        catch (Exception ex)
+        {
+            throw new SlateDbException($"Iterator.MoveNext failed: {ex.Message}", ex);
         }
     }
 
     public void Reset()
     {
-        unsafe
-        {
-            NativeMethods.slatedb_iterator_seek_from_beginning((slatedb_iterator_t*)_iterator).ThrowOnError();
-        }
+        _iterator.SeekToBeginning().GetAwaiter().GetResult();
     }
 
     SlateDbKeyValue<K, V> IEnumerator<SlateDbKeyValue<K, V>>.Current => _current!;
@@ -66,18 +52,10 @@ internal class SlateDbEnumerator<K, V> : IEnumerator<SlateDbKeyValue<K, V>>
 
     public void Dispose()
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        
-        _disposed = true;
-
-        if (_iterator != IntPtr.Zero)
+        if (!_disposed)
         {
-            unsafe
-            {
-                NativeMethods.slatedb_iterator_close((slatedb_iterator_t*) _iterator);
-            }
-
-            _iterator =  IntPtr.Zero;
+            _iterator?.Dispose();
+            _disposed = true;
         }
     }
 }

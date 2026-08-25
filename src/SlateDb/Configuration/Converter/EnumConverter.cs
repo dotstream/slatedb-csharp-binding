@@ -2,9 +2,12 @@ using System.Reflection;
 
 namespace SlateDb.Configuration.Converter;
 
+/// <summary>
+/// Converts an enum property's value to the string an object store expects, using the
+/// member's <see cref="PropertyConverter"/> attribute when present, or its name otherwise.
+/// </summary>
 public class EnumConverter : ISlateDbConfigurationConverter
 {
-
     static List<FieldInfo> GetEnumMembers(Type enumType)
     {
         var e = Nullable.GetUnderlyingType(enumType) ?? enumType;
@@ -31,6 +34,7 @@ public class EnumConverter : ISlateDbConfigurationConverter
     }
 
     
+    /// <inheritdoc/>
     public string ConvertSlateDbProperty(PropertyInfo p, object value)
     {
         if (value == null)

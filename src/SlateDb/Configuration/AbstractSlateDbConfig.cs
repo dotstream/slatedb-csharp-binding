@@ -1,12 +1,22 @@
 using System.Reflection;
-using SlateDb.Interop;
 
 namespace SlateDb.Configuration;
 
+/// <summary>
+/// Base class for object-store configurations (<see cref="MemoryStoreConfig"/>,
+/// <see cref="LocalStoreConfig"/>, <see cref="AwsStoreConfig"/>, <see cref="AzureStoreConfig"/>,
+/// <see cref="GoogleStoreConfig"/>).
+///
+/// Properties annotated with <c>[SlateDbConfiguration]</c> are collected by
+/// <see cref="BuildStoreConfig"/> into the key/value map passed to the underlying object store
+/// builder.
+/// </summary>
 public abstract class AbstractSlateDbConfig : ISlateDbConfiguration
 {
-    internal abstract ObjectStoreType StoreType { get; }
-
+    /// <summary>
+    /// Builds the object-store configuration map from this configuration's annotated properties,
+    /// skipping any property left <c>null</c>.
+    /// </summary>
     public IDictionary<string, string> BuildStoreConfig()
     {
         var dict = new Dictionary<string, string>();

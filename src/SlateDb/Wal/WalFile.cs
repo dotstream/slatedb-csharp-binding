@@ -1,102 +1,94 @@
-using System.Runtime.InteropServices;
 using SlateDb.Converter;
-using SlateDb.Handle;
-using SlateDb.Handle.Internal;
-using SlateDb.Interop;
 
 namespace SlateDb.Wal;
 
+/// <summary>
+/// Handle for a single WAL file, obtained from <see cref="WalReader{K,V}.Get"/> or
+/// <see cref="WalReader{K,V}.List(ulong,ulong)"/>.
+/// </summary>
 public sealed class WalFile<K, V> : IDisposable
     where V : class
     where K : class
 {
     private readonly ISlateDbConverter<K>? _keyConverter;
     private readonly ISlateDbConverter<V>? _valueConverter;
-    private readonly SafeHandle _handle;
+    private readonly Interop.WalFile _handle;
     private bool _disposed;
 
-    internal unsafe WalFile(slatedb_wal_file_t* handle, ISlateDbConverter<K>? keyConverter, ISlateDbConverter<V>? valueConverter)
+    internal WalFile(Interop.WalFile handle, ISlateDbConverter<K>? keyConverter, ISlateDbConverter<V>? valueConverter)
     {
         _keyConverter = keyConverter;
         _valueConverter = valueConverter;
-        _handle = new SlateWalFileHandle(handle);
+        _handle = handle;
     }
-    
+
+    /// <summary>The WAL file's ID.</summary>
     public ulong Id
     {
         get
         {
-            unsafe
-            {
-                ulong id;
-                NativeMethods.slatedb_wal_file_id(_handle.GetCSdbHandle<slatedb_wal_file_t>(), &id).ThrowOnError();
-                return id;
-            }
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            return _handle.Id();
         }
     }
 
+    /// <summary>The WAL ID immediately after this file.</summary>
     public ulong NextId
     {
         get
         {
-            unsafe
-            {
-                ulong id;
-                NativeMethods.slatedb_wal_file_next_id(_handle.GetCSdbHandle<slatedb_wal_file_t>(), &id).ThrowOnError();
-                return id;
-            }
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            return _handle.NextId();
         }
     }
 
+    /// <summary>Returns a handle for the next WAL file ID, without checking that it exists.</summary>
     public WalFile<K, V> NextFile()
     {
-        unsafe
-        {
-            slatedb_wal_file_t** filePtr = stackalloc slatedb_wal_file_t*[1];
-            NativeMethods.slatedb_wal_file_next_file(_handle.GetCSdbHandle<slatedb_wal_file_t>(), filePtr);
-            return new WalFile<K, V>(*filePtr, _keyConverter, _valueConverter);
-        }
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        var file = _handle.NextFile();
+        return new WalFile<K, V>(file, _keyConverter, _valueConverter);
     }
 
+    /// <summary>Reads object-store metadata for this WAL file.</summary>
     public WalFileMetadata GetMetadata()
     {
-        unsafe
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        try
         {
-            slatedb_wal_file_metadata_t fileMetadata;
+            var metadata = _handle.Metadata().GetAwaiter().GetResult();
 
-            try
-            {
-                NativeMethods
-                    .slatedb_wal_file_metadata(_handle.GetCSdbHandle<slatedb_wal_file_t>(), &fileMetadata)
-                    .ThrowOnError();
-
-                var location = Marshal.PtrToStringUTF8((IntPtr)fileMetadata.location, (int)fileMetadata.location_len);
-
-                return new WalFileMetadata(
-                    fileMetadata.last_modified_secs,
-                    fileMetadata.last_modified_nanos,
-                    fileMetadata.size_bytes,
-                    location
-                );
-            }
-            finally
-            {
-                NativeMethods.slatedb_wal_file_metadata_free(&fileMetadata);
-            }
+            return new WalFileMetadata(
+                metadata.LastModifiedSeconds,
+                metadata.LastModifiedNanos,
+                metadata.SizeBytes,
+                metadata.Location
+            );
+        }
+        catch (Exception ex) when (ex is not SlateDbException)
+        {
+            throw new SlateDbException($"WalFile.GetMetadata failed: {ex.Message}", ex);
         }
     }
 
+    /// <summary>Enumerates the raw row entries stored in this WAL file.</summary>
     public IEnumerable<WalEntry<K, V>> All()
     {
-        unsafe
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        try
         {
-            slatedb_wal_file_iterator_t* fileIterator;
-            NativeMethods.slatedb_wal_file_iterator(_handle.GetCSdbHandle<slatedb_wal_file_t>(), &fileIterator)
-                .ThrowOnError();
-            return new WalEnumerable<K, V>((IntPtr) fileIterator, _keyConverter, _valueConverter);
+            var iterator = _handle.Iterator().GetAwaiter().GetResult();
+            return new WalEnumerable<K, V>(iterator, _keyConverter, _valueConverter);
+        }
+        catch (Exception ex) when (ex is not SlateDbException)
+        {
+            throw new SlateDbException($"WalFile.All failed: {ex.Message}", ex);
         }
     }
 
+    /// <inheritdoc/>
     public void Dispose()
     {
         if (!_disposed)

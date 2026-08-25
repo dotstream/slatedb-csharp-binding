@@ -1,0 +1,3 @@
+[bindings.csharp]
+cdylib_name = "slatedb_csharp_ffi"
+namespace = "SlateDb.Interop"

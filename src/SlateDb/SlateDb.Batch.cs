@@ -1,132 +1,196 @@
 using SlateDb.Converter;
-using SlateDb.Handle;
-using SlateDb.Interop;
 using SlateDb.Options;
 
 namespace SlateDb;
 
 public sealed partial class SlateDb<K, V>
 {
+    /// <summary>
+    /// A mutable batch of write operations, created via <see cref="NewWriteBatch"/> and applied
+    /// atomically via <see cref="Write(SlateDbWriteBatch)"/> or <see cref="WriteAsync(SlateDbWriteBatch)"/>.
+    ///
+    /// A batch is single-use: once submitted, it should not be reused.
+    /// </summary>
     public class SlateDbWriteBatch : IDisposable
     {
         private readonly ISlateDbConverter<K>? _keyConverter;
         private readonly ISlateDbConverter<V>? _valueConverter;
-        private nuint _batch;
+        private readonly Interop.WriteBatch _batch;
         private bool _disposed;
 
-        internal unsafe slatedb_write_batch_t* NativeHandle
-        {
-            get
-            {
-                ObjectDisposedException.ThrowIf(_disposed, this);
-                return (slatedb_write_batch_t*)_batch;
-            }
-        }
+        internal Interop.WriteBatch NativeHandle => _batch;
 
         internal SlateDbWriteBatch(ISlateDbConverter<K>? keyConverter, ISlateDbConverter<V>? valueConverter)
         {
             _keyConverter = keyConverter;
             _valueConverter = valueConverter;
-            
-            unsafe
-            {
-                slatedb_write_batch_t** batch = stackalloc slatedb_write_batch_t*[1];
-                NativeMethods.slatedb_write_batch_new(batch).ThrowOnError();
-                _batch = (nuint)(*batch);
-            }
+            _batch = new Interop.WriteBatch();
         }
 
+        /// <summary>Appends a put operation to the batch.</summary>
         public void Put(K key, V value) =>
             Put(_keyConverter.ConvertClassToBytes(key), _valueConverter.ConvertClassToBytes(value), null);
 
+        /// <summary>Appends a put operation to the batch, using custom put options.</summary>
         public void Put(K key, V value, PutOptions options) =>
             Put(_keyConverter.ConvertClassToBytes(key), _valueConverter.ConvertClassToBytes(value), options);
-        
+
+        /// <summary>Appends a raw put operation to the batch, using custom put options.</summary>
         public void Put(byte[]? key, byte[]? value, PutOptions? options)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
+            ArgumentNullException.ThrowIfNull(key);
+            ArgumentNullException.ThrowIfNull(value);
 
             options ??= PutOptions.NoExpiry;
-            var nativeOpts = new slatedb_put_options_t()
-            {
-                ttl_type = (byte)options.TtlType,
-                ttl_value = (ulong)options.TtlValue.TotalMilliseconds,
-            };
 
-            unsafe
+            try
             {
-                fixed (byte* keyPtr = key)
-                fixed (byte* valuePtr = value)
+                if (options.TtlType == TtlType.NoExpiry)
                 {
-                    NativeMethods.slatedb_write_batch_put_with_options(
-                        NativeHandle, keyPtr, key != null ? (nuint)key.Length : 0,
-                        valuePtr, value != null ? (nuint)value.Length : 0, &nativeOpts).ThrowOnError();
+                    _batch.Put(key, value);
                 }
+                else
+                {
+                    _batch.PutWithOptions(key, value, Interop.OptionsConverters.ToInterop(options));
+                }
+            }
+            catch (Exception ex) when (ex is not SlateDbException)
+            {
+                throw new SlateDbException($"WriteBatch.Put failed: {ex.Message}", ex);
             }
         }
 
+        /// <summary>Appends a raw delete operation to the batch.</summary>
         public void Delete(byte[]? key)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             ArgumentNullException.ThrowIfNull(key);
 
-            unsafe
+            try
             {
-                fixed (byte* keyPtr = key)
-                {
-                    NativeMethods.slatedb_write_batch_delete(
-                        NativeHandle, keyPtr, (nuint)key.Length).ThrowOnError();
-                }
+                _batch.Delete(key);
+            }
+            catch (Exception ex) when (ex is not SlateDbException)
+            {
+                throw new SlateDbException($"WriteBatch.Delete failed: {ex.Message}", ex);
             }
         }
 
+        /// <summary>Appends a delete operation to the batch.</summary>
         public void Delete(K key) => Delete(_keyConverter.ConvertClassToBytes(key));
-        
+
+        /// <summary>Appends a merge operation to the batch.</summary>
+        public void Merge(K key, V operand) =>
+            Merge(_keyConverter.ConvertClassToBytes(key), _valueConverter.ConvertClassToBytes(operand), null);
+
+        /// <summary>Appends a merge operation to the batch, using custom merge options.</summary>
+        public void Merge(K key, V operand, MergeOptions options) =>
+            Merge(_keyConverter.ConvertClassToBytes(key), _valueConverter.ConvertClassToBytes(operand), options);
+
+        /// <summary>Appends a raw merge operation to the batch, using custom merge options.</summary>
+        public void Merge(byte[]? key, byte[]? operand, MergeOptions? options)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            ArgumentNullException.ThrowIfNull(key);
+            ArgumentNullException.ThrowIfNull(operand);
+
+            options ??= MergeOptions.NoExpiry;
+
+            try
+            {
+                if (options.TtlType == TtlType.NoExpiry)
+                {
+                    _batch.Merge(key, operand);
+                }
+                else
+                {
+                    _batch.MergeWithOptions(key, operand, Interop.OptionsConverters.ToInterop(options));
+                }
+            }
+            catch (Exception ex) when (ex is not SlateDbException)
+            {
+                throw new SlateDbException($"WriteBatch.Merge failed: {ex.Message}", ex);
+            }
+        }
+
+        /// <summary>Releases the underlying native batch handle.</summary>
         public void Dispose()
         {
             if (_disposed) return;
-            unsafe
-            {
-                if (_batch != nuint.Zero)
-                {
-                    NativeMethods.slatedb_write_batch_close(NativeHandle);
-                    _disposed = true;
-                    _batch = nuint.Zero;
-                }
-            }
+            _batch?.Dispose();
+            _disposed = true;
         }
     }
-    
+
+    /// <summary>Creates a new, empty <see cref="SlateDbWriteBatch"/>. Write-mode only.</summary>
     public SlateDbWriteBatch NewWriteBatch()
     {
         CheckSlateDbMode(true);
         return new SlateDbWriteBatch(_keyConverter, _valueConverter);
     }
 
+    /// <summary>Applies all operations in <paramref name="batch"/> atomically. Write-mode only.</summary>
     public void Write(SlateDbWriteBatch batch)
         => Write(batch, null);
 
+    /// <summary>Applies all operations in <paramref name="batch"/> atomically, using custom write options. Write-mode only.</summary>
     public void Write(SlateDbWriteBatch batch, WriteOptions? options)
     {
-        if (_handle == null) return;
-        
         CheckSlateDbMode(true);
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        options ??= WriteOptions.Default;
-        
-        var nativeWrite = new slatedb_write_options_t()
-        {
-            await_durable = options.AwaitDurable,
-        };
+        if (_dbHandle == null)
+            throw new SlateDbException("Database handle is null");
 
-        unsafe
+        options ??= WriteOptions.Default;
+
+        try
         {
-            NativeMethods.slatedb_db_write_with_options(
-                _handle.GetCSdbHandle<slatedb_db_t>(),
-                batch.NativeHandle,
-                &nativeWrite,
-                null).ThrowOnError();
+            if (options.AwaitDurable)
+            {
+                _dbHandle.WriteWithOptions(batch.NativeHandle, Interop.OptionsConverters.ToInterop(options)).GetAwaiter().GetResult();
+            }
+            else
+            {
+                _dbHandle.Write(batch.NativeHandle).GetAwaiter().GetResult();
+            }
+        }
+        catch (Exception ex) when (ex is not SlateDbException)
+        {
+            throw new SlateDbException($"Write batch failed: {ex.Message}", ex);
+        }
+    }
+
+    /// <summary>Applies all operations in <paramref name="batch"/> atomically, asynchronously. Write-mode only.</summary>
+    public Task WriteAsync(SlateDbWriteBatch batch)
+        => WriteAsync(batch, null);
+
+    /// <summary>Applies all operations in <paramref name="batch"/> atomically and asynchronously, using custom write options. Write-mode only.</summary>
+    public async Task WriteAsync(SlateDbWriteBatch batch, WriteOptions? options)
+    {
+        CheckSlateDbMode(true);
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        if (_dbHandle == null)
+            throw new SlateDbException("Database handle is null");
+
+        options ??= WriteOptions.Default;
+
+        try
+        {
+            if (options.AwaitDurable)
+            {
+                await _dbHandle.WriteWithOptions(batch.NativeHandle, Interop.OptionsConverters.ToInterop(options));
+            }
+            else
+            {
+                await _dbHandle.Write(batch.NativeHandle);
+            }
+        }
+        catch (Exception ex) when (ex is not SlateDbException)
+        {
+            throw new SlateDbException($"Write batch failed: {ex.Message}", ex);
         }
     }
 }

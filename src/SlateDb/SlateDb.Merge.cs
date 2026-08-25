@@ -1,11 +1,20 @@
 using System.Runtime.InteropServices;
 using SlateDb.Converter;
-using SlateDb.Handle;
-using SlateDb.Interop;
 using SlateDb.Options;
 
 namespace SlateDb;
 
+/// <summary>
+/// Application-defined merge operator, installed via
+/// <see cref="SlateDbBuilder{K,V}.WithMergeOperator(SlatedbMergeOperatorFn)"/>.
+///
+/// Given <paramref name="key"/>, the current value (if any, indicated by
+/// <paramref name="existingValuePresent"/>/<paramref name="existingValue"/>), and the merge
+/// operand, computes the new value and writes a pointer/length to it into
+/// <paramref name="outValue"/>/<paramref name="outValueLen"/>. The returned buffer is later
+/// freed via the paired <see cref="SlateDbFreeMergeResultFn"/>, if one was supplied.
+/// </summary>
+/// <returns><c>true</c> if the merge succeeded; <c>false</c> to fail the operation.</returns>
 [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
 public unsafe delegate bool SlatedbMergeOperatorFn(
     byte* key,
@@ -18,6 +27,9 @@ public unsafe delegate bool SlatedbMergeOperatorFn(
     byte** outValue,
     nuint* outValueLen);
 
+/// <summary>
+/// Callback that frees a result buffer previously produced by a <see cref="SlatedbMergeOperatorFn"/>.
+/// </summary>
 [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
 public unsafe delegate void SlateDbFreeMergeResultFn(byte* ptr,
     nuint len);
@@ -89,44 +101,87 @@ internal static class MergeOperators
 
 public sealed partial class SlateDb<K,V>
 {
-    public void Merge(K key, V value) 
+    /// <summary>Appends a merge operand for <paramref name="key"/>, applied via the installed merge operator. Write-mode only.</summary>
+    public void Merge(K key, V value)
         => Merge(_keyConverter.ConvertClassToBytes(key), _valueConverter.ConvertClassToBytes(value), null, null);
-    
+
+    /// <summary>Appends a merge operand for <paramref name="key"/> using custom merge and write options. Write-mode only.</summary>
     public void Merge(K key, V value, MergeOptions mergeOptions, WriteOptions writeOptions)
         => Merge(_keyConverter.ConvertClassToBytes(key), _valueConverter.ConvertClassToBytes(value), mergeOptions,  writeOptions);
 
-    public void Merge(byte[]? key, byte[]? value, MergeOptions? mergeOptions, WriteOptions? writeOptions)
+    /// <summary>Appends a raw merge operand for <paramref name="key"/> using custom merge and write options. Write-mode only.</summary>
+    public void Merge(byte[]? key, byte[]? operand, MergeOptions? mergeOptions, WriteOptions? writeOptions)
     {
         CheckSlateDbMode(true);
         ObjectDisposedException.ThrowIf(_disposed, this);
-        ObjectDisposedException.ThrowIf(_handle == null, this);
-        
-        unsafe
-        {
-            fixed (byte* keyPtr = key)
-            fixed (byte* valuePtr = value)
-            {
-                mergeOptions ??= MergeOptions.NoExpiry;
-                writeOptions ??= WriteOptions.Default;
+        ArgumentNullException.ThrowIfNull(key);
+        ArgumentNullException.ThrowIfNull(operand);
 
-                var nativePut = new slatedb_merge_options_t {
-                    ttl_type = (byte)mergeOptions.TtlType,
-                    ttl_value = (ulong)mergeOptions.TtlValue.TotalMilliseconds
-                };
-                
-                var nativeWrite = new slatedb_write_options_t {
-                    await_durable = writeOptions.AwaitDurable
-                };
-                
-                NativeMethods.slatedb_db_merge_with_options(
-                    _handle.GetCSdbHandle<slatedb_db_t>(),
-                    keyPtr,
-                    key != null ? (nuint)key.Length : 0,
-                    valuePtr,
-                    value != null ? (nuint)value.Length : 0,
-                    &nativePut, &nativeWrite, 
-                    null).ThrowOnError();
+        if (_dbHandle == null)
+            throw new SlateDbException("Database handle is null");
+
+        mergeOptions ??= MergeOptions.NoExpiry;
+        writeOptions ??= WriteOptions.Default;
+
+        try
+        {
+            if (mergeOptions.TtlType == TtlType.NoExpiry && !writeOptions.AwaitDurable)
+            {
+                _dbHandle.Merge(key, operand).GetAwaiter().GetResult();
             }
+            else
+            {
+                _dbHandle.MergeWithOptions(
+                    key, operand,
+                    Interop.OptionsConverters.ToInterop(mergeOptions),
+                    Interop.OptionsConverters.ToInterop(writeOptions)).GetAwaiter().GetResult();
+            }
+        }
+        catch (Exception ex) when (ex is not SlateDbException)
+        {
+            throw new SlateDbException($"Merge failed: {ex.Message}", ex);
+        }
+    }
+
+    /// <summary>Appends a merge operand for <paramref name="key"/> asynchronously, applied via the installed merge operator. Write-mode only.</summary>
+    public Task MergeAsync(K key, V value)
+        => MergeAsync(_keyConverter.ConvertClassToBytes(key), _valueConverter.ConvertClassToBytes(value), null, null);
+
+    /// <summary>Appends a merge operand for <paramref name="key"/> asynchronously using custom merge and write options. Write-mode only.</summary>
+    public Task MergeAsync(K key, V value, MergeOptions mergeOptions, WriteOptions writeOptions)
+        => MergeAsync(_keyConverter.ConvertClassToBytes(key), _valueConverter.ConvertClassToBytes(value), mergeOptions, writeOptions);
+
+    /// <summary>Appends a raw merge operand for <paramref name="key"/> asynchronously using custom merge and write options. Write-mode only.</summary>
+    public async Task MergeAsync(byte[]? key, byte[]? operand, MergeOptions? mergeOptions, WriteOptions? writeOptions)
+    {
+        CheckSlateDbMode(true);
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentNullException.ThrowIfNull(key);
+        ArgumentNullException.ThrowIfNull(operand);
+
+        if (_dbHandle == null)
+            throw new SlateDbException("Database handle is null");
+
+        mergeOptions ??= MergeOptions.NoExpiry;
+        writeOptions ??= WriteOptions.Default;
+
+        try
+        {
+            if (mergeOptions.TtlType == TtlType.NoExpiry && !writeOptions.AwaitDurable)
+            {
+                await _dbHandle.Merge(key, operand);
+            }
+            else
+            {
+                await _dbHandle.MergeWithOptions(
+                    key, operand,
+                    Interop.OptionsConverters.ToInterop(mergeOptions),
+                    Interop.OptionsConverters.ToInterop(writeOptions));
+            }
+        }
+        catch (Exception ex) when (ex is not SlateDbException)
+        {
+            throw new SlateDbException($"Merge failed: {ex.Message}", ex);
         }
     }
 }

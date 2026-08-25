@@ -1,49 +1,77 @@
 using SlateDb.Converter;
-using SlateDb.Handle;
-using SlateDb.Interop;
 using SlateDb.Options;
 
 namespace SlateDb;
 
 public sealed partial class SlateDb<K,V>
 {
+    /// <summary>Inserts or overwrites <paramref name="value"/> for <paramref name="key"/>, using custom put and write options. Write-mode only.</summary>
     public void Put(K key, V value, PutOptions putOptions, WriteOptions writeOptions)
         => Put(_keyConverter.ConvertClassToBytes(key), _valueConverter.ConvertClassToBytes(value), putOptions,  writeOptions);
 
-    public void Put(K key, V value) 
+    /// <summary>Inserts or overwrites <paramref name="value"/> for <paramref name="key"/>. Write-mode only.</summary>
+    public void Put(K key, V value)
         => Put(_keyConverter.ConvertClassToBytes(key), _valueConverter.ConvertClassToBytes(value), null, null);
 
+    /// <summary>Inserts or overwrites raw bytes for <paramref name="key"/>, using custom put and write options. Write-mode only.</summary>
     public void Put(byte[]? key, byte[]? value, PutOptions? putOptions, WriteOptions? writeOptions)
     {
         CheckSlateDbMode(true);
         ObjectDisposedException.ThrowIf(_disposed, this);
-        ObjectDisposedException.ThrowIf(_handle == null, this);
-        
-        unsafe
-        {
-            fixed (byte* keyPtr = key)
-            fixed (byte* valuePtr = value)
-            {
-                putOptions ??= PutOptions.NoExpiry;
-                writeOptions ??= WriteOptions.Default;
+        if (_dbHandle == null)
+            throw new SlateDbException("Database handle is null");
 
-                var nativePut = new slatedb_put_options_t() {
-                    ttl_type = (byte)putOptions.TtlType,
-                    ttl_value = (ulong)putOptions.TtlValue.TotalMilliseconds
-                };
-                var nativeWrite = new slatedb_write_options_t() {
-                    await_durable = writeOptions.AwaitDurable
-                };
-                
-                NativeMethods.slatedb_db_put_with_options(
-                    _handle.GetCSdbHandle<slatedb_db_t>(),
-                    keyPtr,
-                    key != null ? (nuint)key.Length : 0,
-                    valuePtr,
-                    value != null ? (nuint)value.Length : 0,
-                    &nativePut, &nativeWrite, 
-                    null).ThrowOnError();
-            }
+        ArgumentNullException.ThrowIfNull(key);
+        ArgumentNullException.ThrowIfNull(value);
+
+        putOptions ??= PutOptions.NoExpiry;
+        writeOptions ??= WriteOptions.Default;
+
+        try
+        {
+            _dbHandle.PutWithOptions(
+                key, value,
+                Interop.OptionsConverters.ToInterop(putOptions),
+                Interop.OptionsConverters.ToInterop(writeOptions)).GetAwaiter().GetResult();
+        }
+        catch (Exception ex) when (ex is not SlateDbException)
+        {
+            throw new SlateDbException($"Put failed: {ex.Message}", ex);
+        }
+    }
+
+    /// <summary>Inserts or overwrites <paramref name="value"/> for <paramref name="key"/> asynchronously, using custom put and write options. Write-mode only.</summary>
+    public Task PutAsync(K key, V value, PutOptions putOptions, WriteOptions writeOptions)
+        => PutAsync(_keyConverter.ConvertClassToBytes(key), _valueConverter.ConvertClassToBytes(value), putOptions, writeOptions);
+
+    /// <summary>Inserts or overwrites <paramref name="value"/> for <paramref name="key"/> asynchronously. Write-mode only.</summary>
+    public Task PutAsync(K key, V value)
+        => PutAsync(_keyConverter.ConvertClassToBytes(key), _valueConverter.ConvertClassToBytes(value), null, null);
+
+    /// <summary>Inserts or overwrites raw bytes for <paramref name="key"/> asynchronously, using custom put and write options. Write-mode only.</summary>
+    public async Task PutAsync(byte[]? key, byte[]? value, PutOptions? putOptions, WriteOptions? writeOptions)
+    {
+        CheckSlateDbMode(true);
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_dbHandle == null)
+            throw new SlateDbException("Database handle is null");
+
+        ArgumentNullException.ThrowIfNull(key);
+        ArgumentNullException.ThrowIfNull(value);
+
+        putOptions ??= PutOptions.NoExpiry;
+        writeOptions ??= WriteOptions.Default;
+
+        try
+        {
+            await _dbHandle.PutWithOptions(
+                key, value,
+                Interop.OptionsConverters.ToInterop(putOptions),
+                Interop.OptionsConverters.ToInterop(writeOptions));
+        }
+        catch (Exception ex) when (ex is not SlateDbException)
+        {
+            throw new SlateDbException($"Put failed: {ex.Message}", ex);
         }
     }
 }
