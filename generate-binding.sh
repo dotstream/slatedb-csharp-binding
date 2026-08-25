@@ -85,6 +85,12 @@ fi
 
 cargo install uniffi-bindgen-cs --git https://github.com/NordSecurity/uniffi-bindgen-cs --tag v0.11.0+v0.31.0
 
+# uniffi-bindgen-cs shells out to csharpier to format the generated bindings
+export PATH="$PATH:$HOME/.dotnet/tools"
+if ! command -v csharpier &>/dev/null; then
+    dotnet tool install -g csharpier
+fi
+
 SUCCEEDED=""
 FAILED=""
 
