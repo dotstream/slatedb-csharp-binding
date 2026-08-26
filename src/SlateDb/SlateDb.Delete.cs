@@ -1,40 +1,75 @@
 using SlateDb.Converter;
-using SlateDb.Handle;
-using SlateDb.Interop;
 using SlateDb.Options;
 
 namespace SlateDb;
 
 public sealed partial class SlateDb<K,V>
 {
-    public void Delete(K key) 
+    /// <summary>Deletes <paramref name="key"/>. Write-mode only.</summary>
+    public void Delete(K key)
         => Delete(key, null);
-    
-    public void Delete(K key, WriteOptions? options) 
+
+    /// <summary>Deletes <paramref name="key"/> using custom write options. Write-mode only.</summary>
+    public void Delete(K key, WriteOptions? options)
         => Delete(_keyConverter.ConvertClassToBytes(key), options);
 
+    /// <summary>Deletes the raw key <paramref name="key"/>. Write-mode only.</summary>
     public void Delete(byte[] key)
         => Delete(key, null);
-    
+
+    /// <summary>Deletes the raw key <paramref name="key"/> using custom write options. Write-mode only.</summary>
     public void Delete(byte[]? key, WriteOptions? options)
     {
-        if (_handle == null) return;
-        
         CheckSlateDbMode(true);
         ObjectDisposedException.ThrowIf(_disposed, this);
-        
-        unsafe
+        if (_dbHandle == null)
+            throw new SlateDbException("Database handle is null");
+
+        ArgumentNullException.ThrowIfNull(key);
+
+        options ??= WriteOptions.Default;
+
+        try
         {
-            options ??= WriteOptions.Default;
-            var nativeWrite = new slatedb_write_options_t() {
-                await_durable = options.AwaitDurable,
-            };
-            
-            fixed (byte* keyPtr = key)
-            {
-                NativeMethods.slatedb_db_delete_with_options(
-                    _handle.GetCSdbHandle<slatedb_db_t>(), keyPtr, (nuint)key.Length, &nativeWrite, null).ThrowOnError();
-            }
+            _dbHandle.DeleteWithOptions(key, Interop.OptionsConverters.ToInterop(options)).GetAwaiter().GetResult();
+        }
+        catch (Exception ex) when (ex is not SlateDbException)
+        {
+            throw new SlateDbException($"Delete failed: {ex.Message}", ex);
+        }
+    }
+
+    /// <summary>Deletes <paramref name="key"/> asynchronously. Write-mode only.</summary>
+    public Task DeleteAsync(K key)
+        => DeleteAsync(key, null);
+
+    /// <summary>Deletes <paramref name="key"/> asynchronously using custom write options. Write-mode only.</summary>
+    public Task DeleteAsync(K key, WriteOptions? options)
+        => DeleteAsync(_keyConverter.ConvertClassToBytes(key), options);
+
+    /// <summary>Deletes the raw key <paramref name="key"/> asynchronously. Write-mode only.</summary>
+    public Task DeleteAsync(byte[] key)
+        => DeleteAsync(key, null);
+
+    /// <summary>Deletes the raw key <paramref name="key"/> asynchronously using custom write options. Write-mode only.</summary>
+    public async Task DeleteAsync(byte[]? key, WriteOptions? options)
+    {
+        CheckSlateDbMode(true);
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_dbHandle == null)
+            throw new SlateDbException("Database handle is null");
+
+        ArgumentNullException.ThrowIfNull(key);
+
+        options ??= WriteOptions.Default;
+
+        try
+        {
+            await _dbHandle.DeleteWithOptions(key, Interop.OptionsConverters.ToInterop(options));
+        }
+        catch (Exception ex) when (ex is not SlateDbException)
+        {
+            throw new SlateDbException($"Delete failed: {ex.Message}", ex);
         }
     }
 }

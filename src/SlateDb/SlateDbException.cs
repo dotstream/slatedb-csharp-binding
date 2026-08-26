@@ -1,14 +1,20 @@
-using SlateDb.Interop;
-
 namespace SlateDb;
 
+/// <summary>
+/// Exception thrown by the SlateDb public API for both misuse (invalid arguments, disposed
+/// handles) and errors surfaced from the underlying SlateDB engine.
+/// </summary>
 public sealed class SlateDbException : Exception
 {
-    private slatedb_result_t result;
-    
-    internal SlateDbException(slatedb_result_t result, String message)
+    /// <summary>Creates a new exception with the given message.</summary>
+    public SlateDbException(string message)
         : base(message)
     {
-        this.result = result;
-    }   
+    }
+
+    /// <summary>Creates a new exception with the given message, wrapping the original cause.</summary>
+    public SlateDbException(string message, Exception innerException)
+        : base(message, innerException)
+    {
+    }
 }

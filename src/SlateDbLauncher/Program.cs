@@ -1,6 +1,4 @@
 ﻿using SlateDb.Configuration;
-using SlateDb.Options;
-using SlateDb.Wal;
 
 using var db = SlateDb.SlateDb
     .Create<string, string>("db")

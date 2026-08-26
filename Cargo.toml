@@ -15,3 +15,6 @@ description = "C# FFI bindings for Slatedb (cdylib for P/Invoke)"
 license = "Apache-2.0"
 repository = "https://github.com/dotstream/slatedb-csharp-binding"
 readme = "README.md"
+
+[workspace.dependencies]
+figment = "0.10.19"

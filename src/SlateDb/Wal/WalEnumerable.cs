@@ -7,11 +7,11 @@ internal class WalEnumerable<K, V> : IEnumerable<WalEntry<K, V>>
     where V : class
     where K : class
 {
-    private readonly IntPtr _iterator;
+    private readonly Interop.WalFileIterator _iterator;
     private readonly ISlateDbConverter<K>? _keyConverter;
     private readonly ISlateDbConverter<V>? _valueConverter;
-    
-    internal WalEnumerable(IntPtr iterator, ISlateDbConverter<K>? keyConverter, ISlateDbConverter<V>? valueConverter)
+
+    internal WalEnumerable(Interop.WalFileIterator iterator, ISlateDbConverter<K>? keyConverter, ISlateDbConverter<V>? valueConverter)
     {
         _iterator = iterator;
         _keyConverter = keyConverter;

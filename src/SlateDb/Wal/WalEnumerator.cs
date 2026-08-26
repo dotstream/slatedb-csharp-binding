@@ -1,62 +1,64 @@
 using System.Collections;
-using System.Runtime.InteropServices;
 using SlateDb.Converter;
-using SlateDb.Interop;
 
 namespace SlateDb.Wal;
 
-internal class WalEnumerator<K, V>(IntPtr iterator, ISlateDbConverter<K>? keyConverter, ISlateDbConverter<V>? valueConverter) 
-    : IEnumerator<WalEntry<K, V>>
+internal class WalEnumerator<K, V> : IEnumerator<WalEntry<K, V>>
     where V : class
     where K : class
 {
+    private readonly Interop.WalFileIterator _iterator;
+    private readonly ISlateDbConverter<K>? _keyConverter;
+    private readonly ISlateDbConverter<V>? _valueConverter;
     private bool _disposed;
     private WalEntry<K, V>? _current;
-    private IntPtr _iterator = iterator;
+
+    internal WalEnumerator(Interop.WalFileIterator iterator, ISlateDbConverter<K>? keyConverter, ISlateDbConverter<V>? valueConverter)
+    {
+        _iterator = iterator;
+        _keyConverter = keyConverter;
+        _valueConverter = valueConverter;
+    }
 
     public bool MoveNext()
     {
-        unsafe
+        try
         {
-            bool present = false;
-            slatedb_row_entry_t raw;
+            var entry = _iterator.Next().GetAwaiter().GetResult();
 
-            NativeMethods.slatedb_wal_file_iterator_next(
-                (slatedb_wal_file_iterator_t*)_iterator,
-                &present,
-                &raw).ThrowOnError();
-            
-            if (!present)
+            if (entry == null)
                 return false;
-            
-            var key = new byte[(int)raw.key_len];
-            Marshal.Copy((IntPtr)raw.key, key, 0, key.Length);
 
-            var value = new byte[(int)raw.value_len];
-            Marshal.Copy((IntPtr)raw.value, value, 0, value.Length);
+            var keyObject = _keyConverter.ConvertBytesToClass(entry.Key);
+            var valueObject = entry.Value != null ? _valueConverter.ConvertBytesToClass(entry.Value) : null;
 
-            NativeMethods.slatedb_row_entry_free(&raw);
-
-            // convert K and V
-            K keyObject = keyConverter.ConvertBytesToClass(key);
-            V valueObject = valueConverter.ConvertBytesToClass(value);
-            
             _current = new WalEntry<K, V>(
                 keyObject,
-                valueObject,
-                (WalEntryKind)raw.kind,
-                raw.seq,
-                raw.create_ts_present ? raw.create_ts : null,
-                raw.expire_ts_present ? raw.expire_ts : null
-            );
-            
+                valueObject!,
+                MapKind(entry.Kind),
+                entry.Seq,
+                entry.CreateTs,
+                entry.ExpireTs);
+
             return true;
+        }
+        catch (Exception ex)
+        {
+            throw new SlateDbException($"WalIterator.MoveNext failed: {ex.Message}", ex);
         }
     }
 
+    private static WalEntryKind MapKind(Interop.RowEntryKind kind) => kind switch
+    {
+        Interop.RowEntryKind.Value => WalEntryKind.Value,
+        Interop.RowEntryKind.Tombstone => WalEntryKind.Tombstone,
+        Interop.RowEntryKind.Merge => WalEntryKind.Merge,
+        _ => throw new ArgumentOutOfRangeException(nameof(kind))
+    };
+
     public void Reset()
     {
-        throw new NotImplementedException();
+        throw new NotSupportedException("Reset is not supported on SlateDB WAL iterators.");
     }
 
     WalEntry<K, V> IEnumerator<WalEntry<K, V>>.Current => _current!;
@@ -64,19 +66,11 @@ internal class WalEnumerator<K, V>(IntPtr iterator, ISlateDbConverter<K>? keyCon
     object? IEnumerator.Current => _current;
 
     public void Dispose()
-    { 
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        
-        _disposed = true;
-
-        if (_iterator != IntPtr.Zero)
+    {
+        if (!_disposed)
         {
-            unsafe
-            {
-                NativeMethods.slatedb_wal_file_iterator_close((slatedb_wal_file_iterator_t*) _iterator);
-            }
-
-            _iterator =  IntPtr.Zero;
+            _iterator?.Dispose();
+            _disposed = true;
         }
     }
 }

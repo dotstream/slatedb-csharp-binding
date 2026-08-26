@@ -11,6 +11,7 @@
         <SignAssembly>true</SignAssembly>
         <AssemblyOriginatorKeyFile>slate-db.snk</AssemblyOriginatorKeyFile>
         <PublicSign>true</PublicSign>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
     </PropertyGroup>
 
   <ItemGroup>

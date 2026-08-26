@@ -1,8 +1,6 @@
-using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
-using SlateDb.Interop;
 
 namespace SlateDb.Options;
 
@@ -29,26 +27,10 @@ internal static class SlateDbSettingsSerializer
          return baseNode.ToJsonString();
      }
 
-     private static unsafe string GetDefaultsJson()
+     private static string GetDefaultsJson()
      {
-         slatedb_settings_t** settingsPtr = stackalloc slatedb_settings_t*[1];
-         NativeMethods
-             .slatedb_settings_default(settingsPtr)
-             .ThrowOnError();
-
-         byte** jsonSettings = stackalloc byte*[1];
-         nuint jsonLength = 0;
-         
-         NativeMethods
-             .slatedb_settings_to_json(*settingsPtr, jsonSettings, &jsonLength)
-             .ThrowOnError();
-             
-         byte* buffer = jsonSettings[0];
-         var json = System.Text.Encoding.UTF8.GetString(buffer, (int)jsonLength);
-         
-         NativeMethods.slatedb_bytes_free(*jsonSettings, jsonLength);
-         
-         return json;
+         using var settings = Interop.Settings.Default();
+         return settings.ToJsonString();
      }
      
      private static string SerializeOverrides(SlateDbSettings s)

@@ -33,10 +33,10 @@ jobs:
           else
             echo "No CRLF found."
           fi
-      - run: ./generate-binding.sh
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.200'
+      - run: ./generate-binding.sh
       - name: Run dotnet tests
         shell: bash
         run: |

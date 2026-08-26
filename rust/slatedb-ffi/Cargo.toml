@@ -3,7 +3,7 @@ name = "slatedb-csharp-ffi"
 version = "0.1.0"
 edition = "2021"
 authors = ["Sylvain Le Gouellec <sylvain.legouellec@gmail.com>"]
-description = "C# FFI bindings for Slatedb (cdylib for P/Invoke)"
+description = "Uniffi C# FFI bindings for Slatedb"
 license = "Apache-2.0"
 repository = "https://github.com/dotstream/slatedb-csharp-binding"
 readme = "../../README.md"
@@ -12,12 +12,13 @@ build = "build.rs"
 
 [lib]
 name = "slatedb_csharp_ffi"
-crate-type = ["cdylib", "rlib"]
+crate-type = ["cdylib"]
 path = "src/lib.rs"
 
 [dependencies] 
 bytes = "1.11.1"
-slatedb = "0.11.2"
+slatedb = "0.12.0"
+slatedb-common = "0.12.0"
 once_cell = "1.21.3"
 object_store = { version = "0.12.3" , features = ["azure", "aws", "fs", "gcp"]}
 tokio = { version = "1.49.0", features = ["full"] }
@@ -26,6 +27,15 @@ log = "0.4.29"
 env_logger = "0.11"
 uuid = "1.19.0"
 humantime = "2.3.0"
+tracing = "0.1.40"
+tracing-log = "0.2"
+tracing-subscriber = { version = "0.3" }
+thiserror = "1.0.63"
+parking_lot = "0.12.4"
+uniffi = { version="0.31.0", features = ["tokio"]}
+
+[dev-dependencies]
+figment = { workspace = true, features = ["test"] }
 
 [build-dependencies]
 csbindgen = "1.9.7"
