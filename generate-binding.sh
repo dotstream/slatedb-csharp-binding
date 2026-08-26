@@ -5,6 +5,7 @@ set -e
 ./get-slatedb-c-bindings.sh
 
 all="${1:-false}"
+generate_bindings="${2:-true}"
 
 RUNTIMES_DIR="src/SlateDb/runtimes"
 SLATEDB_RUST_TOOLCHAIN="${SLATEDB_RUST_TOOLCHAIN:-1.91.1}"
@@ -145,12 +146,13 @@ for i in "${!RIDS[@]}"; do
     if "${BUILD_CMD[@]}" --release -p slatedb-csharp-ffi --verbose --target "$TARGET" \
         --manifest-path "Cargo.toml" 2>&1; then
 
-        SRC="target/$TARGET/release/$LIB_NAME" 
-        
-        uniffi-bindgen-cs --library "$SRC" --out-dir . --config ./rust/slatedb-ffi/uniffi.toml
+        SRC="target/$TARGET/release/$LIB_NAME"
 
-        mv ./slatedb.cs ./src/SlateDb/Interop/UniffiSlateDb.g.cs
-        
+        if [ "$generate_bindings" = true ]; then
+            uniffi-bindgen-cs --library "$SRC" --out-dir . --config ./rust/slatedb-ffi/uniffi.toml
+            mv ./slatedb.cs ./src/SlateDb/Interop/UniffiSlateDb.g.cs
+        fi
+
         if [ -f "$SRC" ]; then
             cp "$SRC" "$OUT_DIR/$LIB_NAME"
 
