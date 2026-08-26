@@ -5,9 +5,6 @@
 
 #nullable enable
 
-
-
-
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -18,34 +15,48 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
+
 namespace SlateDb.Interop;
-
-
 
 // This is a helper for safely working with byte buffers returned from the Rust code.
 // A rust-owned buffer is represented by its capacity, its current length, and a
 // pointer to the underlying data.
 
 [StructLayout(LayoutKind.Sequential)]
-internal struct RustBuffer {
+internal struct RustBuffer
+{
     public ulong capacity;
     public ulong len;
     public IntPtr data;
 
-    public static RustBuffer Alloc(int size) {
-        return _UniffiHelpers.RustCall((ref UniffiRustCallStatus status) => {
-            var buffer = _UniFFILib.ffi_slatedb_csharp_ffi_rustbuffer_alloc(Convert.ToUInt64(size), ref status);
-            if (buffer.data == IntPtr.Zero) {
-                throw new AllocationException($"RustBuffer.Alloc() returned null data pointer (size={size})");
+    public static RustBuffer Alloc(int size)
+    {
+        return _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                var buffer = _UniFFILib.ffi_slatedb_csharp_ffi_rustbuffer_alloc(
+                    Convert.ToUInt64(size),
+                    ref status
+                );
+                if (buffer.data == IntPtr.Zero)
+                {
+                    throw new AllocationException(
+                        $"RustBuffer.Alloc() returned null data pointer (size={size})"
+                    );
+                }
+                return buffer;
             }
-            return buffer;
-        });
+        );
     }
 
-    public static void Free(RustBuffer buffer) {
-        _UniffiHelpers.RustCall((ref UniffiRustCallStatus status) => {
-            _UniFFILib.ffi_slatedb_csharp_ffi_rustbuffer_free(buffer, ref status);
-        });
+    public static void Free(RustBuffer buffer)
+    {
+        _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.ffi_slatedb_csharp_ffi_rustbuffer_free(buffer, ref status);
+            }
+        );
     }
 
     public static BigEndianStream MemoryStream(IntPtr data, long length)
@@ -89,17 +100,18 @@ internal struct RustBuffer {
 // completeness.
 
 [StructLayout(LayoutKind.Sequential)]
-internal struct ForeignBytes {
+internal struct ForeignBytes
+{
     public int length;
     public IntPtr data;
 }
-
 
 // The FfiConverter interface handles converter types to and from the FFI
 //
 // All implementing objects should be public to support external types.  When a
 // type is external we need to import it's FfiConverter.
-internal abstract class FfiConverter<CsType, FfiType> {
+internal abstract class FfiConverter<CsType, FfiType>
+{
     // Convert an FFI type to a C# type
     public abstract CsType Lift(FfiType value);
 
@@ -128,14 +140,18 @@ internal abstract class FfiConverter<CsType, FfiType> {
     // FfiType.  It's used by the callback interface code.  Callback interface
     // returns are always serialized into a `RustBuffer` regardless of their
     // normal FFI type.
-    public RustBuffer LowerIntoRustBuffer(CsType value) {
+    public RustBuffer LowerIntoRustBuffer(CsType value)
+    {
         var rbuf = RustBuffer.Alloc(AllocationSize(value));
-        try {
+        try
+        {
             var stream = rbuf.AsWriteableStream();
             Write(value, stream);
             rbuf.len = Convert.ToUInt64(stream.Position);
             return rbuf;
-        } catch {
+        }
+        catch
+        {
             RustBuffer.Free(rbuf);
             throw;
         }
@@ -145,222 +161,295 @@ internal abstract class FfiConverter<CsType, FfiType> {
     //
     // This here mostly because of the symmetry with `lowerIntoRustBuffer()`.
     // It's currently only used by the `FfiConverterRustBuffer` class below.
-    protected CsType LiftFromRustBuffer(RustBuffer rbuf) {
+    protected CsType LiftFromRustBuffer(RustBuffer rbuf)
+    {
         var stream = rbuf.AsStream();
-        try {
-           var item = Read(stream);
-           if (stream.HasRemaining()) {
-               throw new InternalException("junk remaining in buffer after lifting, something is very wrong!!");
-           }
-           return item;
-        } finally {
+        try
+        {
+            var item = Read(stream);
+            if (stream.HasRemaining())
+            {
+                throw new InternalException(
+                    "junk remaining in buffer after lifting, something is very wrong!!"
+                );
+            }
+            return item;
+        }
+        finally
+        {
             RustBuffer.Free(rbuf);
         }
     }
 }
 
 // FfiConverter that uses `RustBuffer` as the FfiType
-internal abstract class FfiConverterRustBuffer<CsType>: FfiConverter<CsType, RustBuffer> {
-    public override CsType Lift(RustBuffer value) {
+internal abstract class FfiConverterRustBuffer<CsType> : FfiConverter<CsType, RustBuffer>
+{
+    public override CsType Lift(RustBuffer value)
+    {
         return LiftFromRustBuffer(value);
     }
-    public override RustBuffer Lower(CsType value) {
+
+    public override RustBuffer Lower(CsType value)
+    {
         return LowerIntoRustBuffer(value);
     }
 }
-
 
 // A handful of classes and functions to support the generated data structures.
 // This would be a good candidate for isolating in its own ffi-support lib.
 // Error runtime.
 [StructLayout(LayoutKind.Sequential)]
-struct UniffiRustCallStatus {
+struct UniffiRustCallStatus
+{
     public sbyte code;
     public RustBuffer error_buf;
 
-    public bool IsSuccess() {
+    public bool IsSuccess()
+    {
         return code == 0;
     }
 
-    public bool IsError() {
+    public bool IsError()
+    {
         return code == 1;
     }
 
-    public bool IsPanic() {
+    public bool IsPanic()
+    {
         return code == 2;
     }
 }
 
 // Base class for all uniffi exceptions
-internal class UniffiException: System.Exception {
-    public UniffiException(): base() {}
-    public UniffiException(string message): base(message) {}
+internal class UniffiException : System.Exception
+{
+    public UniffiException()
+        : base() { }
+
+    public UniffiException(string message)
+        : base(message) { }
 }
 
-internal class UndeclaredErrorException: UniffiException {
-    public UndeclaredErrorException(string message): base(message) {}
+internal class UndeclaredErrorException : UniffiException
+{
+    public UndeclaredErrorException(string message)
+        : base(message) { }
 }
 
-internal class PanicException: UniffiException {
-    public PanicException(string message): base(message) {}
+internal class PanicException : UniffiException
+{
+    public PanicException(string message)
+        : base(message) { }
 }
 
-internal class AllocationException: UniffiException {
-    public AllocationException(string message): base(message) {}
+internal class AllocationException : UniffiException
+{
+    public AllocationException(string message)
+        : base(message) { }
 }
 
-internal class InternalException: UniffiException {
-    public InternalException(string message): base(message) {}
+internal class InternalException : UniffiException
+{
+    public InternalException(string message)
+        : base(message) { }
 }
 
-internal class InvalidEnumException: InternalException {
-    public InvalidEnumException(string message): base(message) {
-    }
+internal class InvalidEnumException : InternalException
+{
+    public InvalidEnumException(string message)
+        : base(message) { }
 }
 
-internal class UniffiContractVersionException: UniffiException {
-    public UniffiContractVersionException(string message): base(message) {
-    }
+internal class UniffiContractVersionException : UniffiException
+{
+    public UniffiContractVersionException(string message)
+        : base(message) { }
 }
 
-internal class UniffiContractChecksumException: UniffiException {
-    public UniffiContractChecksumException(string message): base(message) {
-    }
+internal class UniffiContractChecksumException : UniffiException
+{
+    public UniffiContractChecksumException(string message)
+        : base(message) { }
 }
 
 // Each top-level error class has a companion object that can lift the error from the call status's rust buffer
-interface CallStatusErrorHandler<E> where E: System.Exception {
+interface CallStatusErrorHandler<E>
+    where E : System.Exception
+{
     E Lift(RustBuffer error_buf);
 }
 
 // CallStatusErrorHandler implementation for times when we don't expect a CALL_ERROR
-class NullCallStatusErrorHandler: CallStatusErrorHandler<UniffiException> {
+class NullCallStatusErrorHandler : CallStatusErrorHandler<UniffiException>
+{
     public static NullCallStatusErrorHandler INSTANCE = new NullCallStatusErrorHandler();
 
-    public UniffiException Lift(RustBuffer error_buf) {
+    public UniffiException Lift(RustBuffer error_buf)
+    {
         RustBuffer.Free(error_buf);
-        return new UndeclaredErrorException("library has returned an error not declared in UNIFFI interface file");
+        return new UndeclaredErrorException(
+            "library has returned an error not declared in UNIFFI interface file"
+        );
     }
 }
 
 // Helpers for calling Rust
 // In practice we usually need to be synchronized to call this safely, so it doesn't
 // synchronize itself
-class _UniffiHelpers {
+class _UniffiHelpers
+{
     public delegate void RustCallAction(ref UniffiRustCallStatus status);
     public delegate U RustCallFunc<out U>(ref UniffiRustCallStatus status);
 
     // Call a rust function that returns a Result<>.  Pass in the Error class companion that corresponds to the Err
-    public static U RustCallWithError<U, E>(CallStatusErrorHandler<E> errorHandler, RustCallFunc<U> callback)
-        where E: System.Exception
+    public static U RustCallWithError<U, E>(
+        CallStatusErrorHandler<E> errorHandler,
+        RustCallFunc<U> callback
+    )
+        where E : System.Exception
     {
         var status = new UniffiRustCallStatus();
         var return_value = callback(ref status);
-        if (status.IsSuccess()) {
+        if (status.IsSuccess())
+        {
             return return_value;
-        } else if (status.IsError()) {
+        }
+        else if (status.IsError())
+        {
             throw errorHandler.Lift(status.error_buf);
-        } else if (status.IsPanic()) {
+        }
+        else if (status.IsPanic())
+        {
             // when the rust code sees a panic, it tries to construct a rustbuffer
             // with the message.  but if that code panics, then it just sends back
             // an empty buffer.
-            if (status.error_buf.len > 0) {
+            if (status.error_buf.len > 0)
+            {
                 throw new PanicException(FfiConverterString.INSTANCE.Lift(status.error_buf));
-            } else {
+            }
+            else
+            {
                 throw new PanicException("Rust panic");
             }
-        } else {
+        }
+        else
+        {
             throw new InternalException($"Unknown rust call status: {status.code}");
         }
     }
 
     // Call a rust function that returns a Result<>.  Pass in the Error class companion that corresponds to the Err
-    public static void RustCallWithError<E>(CallStatusErrorHandler<E> errorHandler, RustCallAction callback)
-        where E: System.Exception
+    public static void RustCallWithError<E>(
+        CallStatusErrorHandler<E> errorHandler,
+        RustCallAction callback
+    )
+        where E : System.Exception
     {
-        _UniffiHelpers.RustCallWithError(errorHandler, (ref UniffiRustCallStatus status) => {
-            callback(ref status);
-            return 0;
-        });
+        _UniffiHelpers.RustCallWithError(
+            errorHandler,
+            (ref UniffiRustCallStatus status) =>
+            {
+                callback(ref status);
+                return 0;
+            }
+        );
     }
 
     // Call a rust function that returns a plain value
-    public static U RustCall<U>(RustCallFunc<U> callback) {
+    public static U RustCall<U>(RustCallFunc<U> callback)
+    {
         return _UniffiHelpers.RustCallWithError(NullCallStatusErrorHandler.INSTANCE, callback);
     }
 
     // Call a rust function that returns a plain value
-    public static void RustCall(RustCallAction callback) {
-        _UniffiHelpers.RustCall((ref UniffiRustCallStatus status) => {
-            callback(ref status);
-            return 0;
-        });
+    public static void RustCall(RustCallAction callback)
+    {
+        _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                callback(ref status);
+                return 0;
+            }
+        );
     }
 }
 
-static class FFIObjectUtil {
-    public static void DisposeAll(params Object?[] list) {
+static class FFIObjectUtil
+{
+    public static void DisposeAll(params Object?[] list)
+    {
         Dispose(list);
     }
 
     // Dispose is implemented by recursive type inspection at runtime. This is because
     // generating correct Dispose calls for recursive complex types, e.g. List<List<int>>
     // is quite cumbersome.
-   private static void Dispose(Object? obj) {
-         if (obj == null) {
-             return;
-         }
+    private static void Dispose(Object? obj)
+    {
+        if (obj == null)
+        {
+            return;
+        }
 
-         if (obj is IDisposable disposable) {
-             disposable.Dispose();
-             return;
-         }
+        if (obj is IDisposable disposable)
+        {
+            disposable.Dispose();
+            return;
+        }
 
-         var objType = obj.GetType();
-         var typeCode = Type.GetTypeCode(objType);
-         if (typeCode != TypeCode.Object) {
-             return;
-         }
+        var objType = obj.GetType();
+        var typeCode = Type.GetTypeCode(objType);
+        if (typeCode != TypeCode.Object)
+        {
+            return;
+        }
 
-         var genericArguments = objType.GetGenericArguments();
-         if (genericArguments.Length == 0 && !objType.IsArray) {
-             return;
-         }
+        var genericArguments = objType.GetGenericArguments();
+        if (genericArguments.Length == 0 && !objType.IsArray)
+        {
+            return;
+        }
 
-         if (obj is System.Collections.IDictionary objDictionary) {
-             //This extra code tests to not call "Dispose" for a Dictionary<something, double>()
-             //for all values as "double" and alike doesn't support interface "IDisposable"
-             var valuesType = objType.GetGenericArguments()[1];
-             var elementValuesTypeCode = Type.GetTypeCode(valuesType);
-             if (elementValuesTypeCode != TypeCode.Object) {
-                 return;
-             }
-             foreach (var value in objDictionary.Values) {
-                 Dispose(value);
-             }
-         }
-         else if (obj is System.Collections.IEnumerable listValues) {
-             //This extra code tests to not call "Dispose" for a List<int>()
-             //for all keys as "int" and alike doesn't support interface "IDisposable"
-             var elementType = objType.IsArray ? objType.GetElementType() : genericArguments[0];
-             var elementValuesTypeCode = Type.GetTypeCode(elementType);
-             if (elementValuesTypeCode != TypeCode.Object) {
-                 return;
-             }
-             foreach (var value in listValues) {
-                 Dispose(value);
-             }
-         }
-     }
+        if (obj is System.Collections.IDictionary objDictionary)
+        {
+            //This extra code tests to not call "Dispose" for a Dictionary<something, double>()
+            //for all values as "double" and alike doesn't support interface "IDisposable"
+            var valuesType = objType.GetGenericArguments()[1];
+            var elementValuesTypeCode = Type.GetTypeCode(valuesType);
+            if (elementValuesTypeCode != TypeCode.Object)
+            {
+                return;
+            }
+            foreach (var value in objDictionary.Values)
+            {
+                Dispose(value);
+            }
+        }
+        else if (obj is System.Collections.IEnumerable listValues)
+        {
+            //This extra code tests to not call "Dispose" for a List<int>()
+            //for all keys as "int" and alike doesn't support interface "IDisposable"
+            var elementType = objType.IsArray ? objType.GetElementType() : genericArguments[0];
+            var elementValuesTypeCode = Type.GetTypeCode(elementType);
+            if (elementValuesTypeCode != TypeCode.Object)
+            {
+                return;
+            }
+            foreach (var value in listValues)
+            {
+                Dispose(value);
+            }
+        }
+    }
 }
-
 
 // Big endian streams are not yet available in dotnet :'(
 // https://github.com/dotnet/runtime/issues/26904
 
-class StreamUnderflowException: System.Exception {
-    public StreamUnderflowException() {
-    }
+class StreamUnderflowException : System.Exception
+{
+    public StreamUnderflowException() { }
 }
 
 static class BigEndianStreamExtensions
@@ -391,10 +480,10 @@ static class BigEndianStreamExtensions
     {
         int bytesToWrite = 8;
 #if NET8_0_OR_GREATER
-         Span<byte> buffer = stackalloc byte[bytesToWrite];
- #else
-         byte[] buffer = new byte[bytesToWrite];
- #endif
+        Span<byte> buffer = stackalloc byte[bytesToWrite];
+#else
+        byte[] buffer = new byte[bytesToWrite];
+#endif
         var posByte = bytesToWrite;
         while (posByte != 0)
         {
@@ -410,11 +499,12 @@ static class BigEndianStreamExtensions
 #endif
     }
 
-    public static uint ReadUint32(this Stream stream, int bytesToRead = 4) {
+    public static uint ReadUint32(this Stream stream, int bytesToRead = 4)
+    {
         CheckRemaining(stream, bytesToRead);
 #if NET8_0_OR_GREATER
-         Span<byte> buffer = stackalloc byte[bytesToRead];
-         stream.Read(buffer);
+        Span<byte> buffer = stackalloc byte[bytesToRead];
+        stream.Read(buffer);
 #else
         byte[] buffer = new byte[bytesToRead];
         stream.Read(buffer, 0, bytesToRead);
@@ -425,19 +515,20 @@ static class BigEndianStreamExtensions
         while (posByte != 0)
         {
             posByte--;
-            result |= buffer[posByte]*digitMultiplier;
+            result |= buffer[posByte] * digitMultiplier;
             digitMultiplier <<= 8;
         }
 
         return result;
     }
 
-    public static ulong ReadUInt64(this Stream stream) {
+    public static ulong ReadUInt64(this Stream stream)
+    {
         int bytesToRead = 8;
         CheckRemaining(stream, bytesToRead);
 #if NET8_0_OR_GREATER
-         Span<byte> buffer = stackalloc byte[bytesToRead];
-         stream.Read(buffer);
+        Span<byte> buffer = stackalloc byte[bytesToRead];
+        stream.Read(buffer);
 #else
         byte[] buffer = new byte[bytesToRead];
         stream.Read(buffer, 0, bytesToRead);
@@ -448,44 +539,54 @@ static class BigEndianStreamExtensions
         while (posByte != 0)
         {
             posByte--;
-            result |= buffer[posByte]*digitMultiplier;
+            result |= buffer[posByte] * digitMultiplier;
             digitMultiplier <<= 8;
         }
 
         return result;
     }
 
-    public static void CheckRemaining(this Stream stream, int length) {
-        if (stream.Length - stream.Position < length) {
+    public static void CheckRemaining(this Stream stream, int length)
+    {
+        if (stream.Length - stream.Position < length)
+        {
             throw new StreamUnderflowException();
         }
     }
 
-    public static void ForEach<T>(this T[] items, Action<T> action){
-        foreach (var item in items) {
+    public static void ForEach<T>(this T[] items, Action<T> action)
+    {
+        foreach (var item in items)
+        {
             action(item);
         }
     }
 }
 
-class BigEndianStream {
+class BigEndianStream
+{
     Stream stream;
-    public BigEndianStream(Stream stream) {
+
+    public BigEndianStream(Stream stream)
+    {
         this.stream = stream;
     }
 
     public Stream InnerStream => stream;
 
-    public bool HasRemaining() {
+    public bool HasRemaining()
+    {
         return (stream.Length - Position) > 0;
     }
 
-    public long Position {
+    public long Position
+    {
         get => stream.Position;
         set => stream.Position = value;
     }
 
-    public void WriteBytes(byte[] buffer) {
+    public void WriteBytes(byte[] buffer)
+    {
 #if NET8_0_OR_GREATER
         stream.Write(buffer);
 #else
@@ -494,25 +595,34 @@ class BigEndianStream {
     }
 
     public void WriteByte(byte value) => stream.WriteInt32(value, bytesToWrite: 1);
+
     public void WriteSByte(sbyte value) => stream.WriteInt32(value, bytesToWrite: 1);
 
     public void WriteUShort(ushort value) => stream.WriteInt32(value, bytesToWrite: 2);
+
     public void WriteShort(short value) => stream.WriteInt32(value, bytesToWrite: 2);
 
     public void WriteUInt(uint value) => stream.WriteInt32((int)value);
+
     public void WriteInt(int value) => stream.WriteInt32(value);
 
     public void WriteULong(ulong value) => stream.WriteInt64((long)value);
+
     public void WriteLong(long value) => stream.WriteInt64(value);
 
-    public void WriteFloat(float value) {
-        unsafe {
+    public void WriteFloat(float value)
+    {
+        unsafe
+        {
             WriteInt(*((int*)&value));
         }
     }
-    public void WriteDouble(double value) => stream.WriteInt64(BitConverter.DoubleToInt64Bits(value));
 
-    public byte[] ReadBytes(int length) {
+    public void WriteDouble(double value) =>
+        stream.WriteInt64(BitConverter.DoubleToInt64Bits(value));
+
+    public byte[] ReadBytes(int length)
+    {
         stream.CheckRemaining(length);
         byte[] result = new byte[length];
         stream.Read(result, 0, length);
@@ -520,216 +630,314 @@ class BigEndianStream {
     }
 
     public byte ReadByte() => (byte)stream.ReadUint32(bytesToRead: 1);
+
     public ushort ReadUShort() => (ushort)stream.ReadUint32(bytesToRead: 2);
+
     public uint ReadUInt() => (uint)stream.ReadUint32(bytesToRead: 4);
+
     public ulong ReadULong() => stream.ReadUInt64();
 
     public sbyte ReadSByte() => (sbyte)ReadByte();
+
     public short ReadShort() => (short)ReadUShort();
+
     public int ReadInt() => (int)ReadUInt();
 
-    public float ReadFloat() {
-        unsafe {
+    public float ReadFloat()
+    {
+        unsafe
+        {
             int value = ReadInt();
             return *((float*)&value);
         }
     }
 
     public long ReadLong() => (long)ReadULong();
+
     public double ReadDouble() => BitConverter.Int64BitsToDouble(ReadLong());
 }
 
 // Contains loading, initialization code,
 // and the FFI Function declarations in a com.sun.jna.Library.
 
-
 // This is an implementation detail that will be called internally by the public API.
 #if NET8_0_OR_GREATER
-static partial class _UniFFILib {
+static partial class _UniFFILib
+{
 #else
-static class _UniFFILib {
+static class _UniFFILib
+{
 #endif
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    public delegate void UniffiRustFutureContinuationCallback(
-        ulong @data,sbyte @pollResult
-    );
+    public delegate void UniffiRustFutureContinuationCallback(ulong @data, sbyte @pollResult);
+
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    public delegate void UniffiForeignFutureDroppedCallback(
-        ulong @handle
-    );
+    public delegate void UniffiForeignFutureDroppedCallback(ulong @handle);
+
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    public delegate void UniffiCallbackInterfaceFree(
-        ulong @handle
-    );
+    public delegate void UniffiCallbackInterfaceFree(ulong @handle);
+
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    public delegate ulong UniffiCallbackInterfaceClone(
-        ulong @handle
-    );
+    public delegate ulong UniffiCallbackInterfaceClone(ulong @handle);
+
     [StructLayout(LayoutKind.Sequential)]
     public struct UniffiForeignFutureDroppedCallbackStruct
     {
         public ulong @handle;
         public IntPtr @free;
     }
+
     [StructLayout(LayoutKind.Sequential)]
     public struct UniffiForeignFutureResultU8
     {
         public byte @returnValue;
         public UniffiRustCallStatus @callStatus;
     }
+
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void UniffiForeignFutureCompleteU8(
-        ulong @callbackData,_UniFFILib.UniffiForeignFutureResultU8 @result
+        ulong @callbackData,
+        _UniFFILib.UniffiForeignFutureResultU8 @result
     );
+
     [StructLayout(LayoutKind.Sequential)]
     public struct UniffiForeignFutureResultI8
     {
         public sbyte @returnValue;
         public UniffiRustCallStatus @callStatus;
     }
+
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void UniffiForeignFutureCompleteI8(
-        ulong @callbackData,_UniFFILib.UniffiForeignFutureResultI8 @result
+        ulong @callbackData,
+        _UniFFILib.UniffiForeignFutureResultI8 @result
     );
+
     [StructLayout(LayoutKind.Sequential)]
     public struct UniffiForeignFutureResultU16
     {
         public ushort @returnValue;
         public UniffiRustCallStatus @callStatus;
     }
+
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void UniffiForeignFutureCompleteU16(
-        ulong @callbackData,_UniFFILib.UniffiForeignFutureResultU16 @result
+        ulong @callbackData,
+        _UniFFILib.UniffiForeignFutureResultU16 @result
     );
+
     [StructLayout(LayoutKind.Sequential)]
     public struct UniffiForeignFutureResultI16
     {
         public short @returnValue;
         public UniffiRustCallStatus @callStatus;
     }
+
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void UniffiForeignFutureCompleteI16(
-        ulong @callbackData,_UniFFILib.UniffiForeignFutureResultI16 @result
+        ulong @callbackData,
+        _UniFFILib.UniffiForeignFutureResultI16 @result
     );
+
     [StructLayout(LayoutKind.Sequential)]
     public struct UniffiForeignFutureResultU32
     {
         public uint @returnValue;
         public UniffiRustCallStatus @callStatus;
     }
+
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void UniffiForeignFutureCompleteU32(
-        ulong @callbackData,_UniFFILib.UniffiForeignFutureResultU32 @result
+        ulong @callbackData,
+        _UniFFILib.UniffiForeignFutureResultU32 @result
     );
+
     [StructLayout(LayoutKind.Sequential)]
     public struct UniffiForeignFutureResultI32
     {
         public int @returnValue;
         public UniffiRustCallStatus @callStatus;
     }
+
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void UniffiForeignFutureCompleteI32(
-        ulong @callbackData,_UniFFILib.UniffiForeignFutureResultI32 @result
+        ulong @callbackData,
+        _UniFFILib.UniffiForeignFutureResultI32 @result
     );
+
     [StructLayout(LayoutKind.Sequential)]
     public struct UniffiForeignFutureResultU64
     {
         public ulong @returnValue;
         public UniffiRustCallStatus @callStatus;
     }
+
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void UniffiForeignFutureCompleteU64(
-        ulong @callbackData,_UniFFILib.UniffiForeignFutureResultU64 @result
+        ulong @callbackData,
+        _UniFFILib.UniffiForeignFutureResultU64 @result
     );
+
     [StructLayout(LayoutKind.Sequential)]
     public struct UniffiForeignFutureResultI64
     {
         public long @returnValue;
         public UniffiRustCallStatus @callStatus;
     }
+
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void UniffiForeignFutureCompleteI64(
-        ulong @callbackData,_UniFFILib.UniffiForeignFutureResultI64 @result
+        ulong @callbackData,
+        _UniFFILib.UniffiForeignFutureResultI64 @result
     );
+
     [StructLayout(LayoutKind.Sequential)]
     public struct UniffiForeignFutureResultF32
     {
         public float @returnValue;
         public UniffiRustCallStatus @callStatus;
     }
+
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void UniffiForeignFutureCompleteF32(
-        ulong @callbackData,_UniFFILib.UniffiForeignFutureResultF32 @result
+        ulong @callbackData,
+        _UniFFILib.UniffiForeignFutureResultF32 @result
     );
+
     [StructLayout(LayoutKind.Sequential)]
     public struct UniffiForeignFutureResultF64
     {
         public double @returnValue;
         public UniffiRustCallStatus @callStatus;
     }
+
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void UniffiForeignFutureCompleteF64(
-        ulong @callbackData,_UniFFILib.UniffiForeignFutureResultF64 @result
+        ulong @callbackData,
+        _UniFFILib.UniffiForeignFutureResultF64 @result
     );
+
     [StructLayout(LayoutKind.Sequential)]
     public struct UniffiForeignFutureResultRustBuffer
     {
         public RustBuffer @returnValue;
         public UniffiRustCallStatus @callStatus;
     }
+
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void UniffiForeignFutureCompleteRustBuffer(
-        ulong @callbackData,_UniFFILib.UniffiForeignFutureResultRustBuffer @result
+        ulong @callbackData,
+        _UniFFILib.UniffiForeignFutureResultRustBuffer @result
     );
+
     [StructLayout(LayoutKind.Sequential)]
     public struct UniffiForeignFutureResultVoid
     {
         public UniffiRustCallStatus @callStatus;
     }
+
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void UniffiForeignFutureCompleteVoid(
-        ulong @callbackData,_UniFFILib.UniffiForeignFutureResultVoid @result
+        ulong @callbackData,
+        _UniFFILib.UniffiForeignFutureResultVoid @result
     );
+
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void UniffiCallbackInterfaceLogCallbackMethod0(
-        ulong @uniffiHandle,RustBuffer @record,IntPtr @uniffiOutReturn,ref UniffiRustCallStatus _uniffi_out_err
+        ulong @uniffiHandle,
+        RustBuffer @record,
+        IntPtr @uniffiOutReturn,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
+
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void UniffiCallbackInterfaceMergeOperatorMethod0(
-        ulong @uniffiHandle,RustBuffer @key,RustBuffer @existingValue,RustBuffer @operand,IntPtr /*RustBuffer*/ @uniffiOutReturn,ref UniffiRustCallStatus _uniffi_out_err
+        ulong @uniffiHandle,
+        RustBuffer @key,
+        RustBuffer @existingValue,
+        RustBuffer @operand,
+        IntPtr /*RustBuffer*/
+        @uniffiOutReturn,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
+
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void UniffiCallbackInterfaceCounterMethod0(
-        ulong @uniffiHandle,ulong @value,IntPtr @uniffiOutReturn,ref UniffiRustCallStatus _uniffi_out_err
+        ulong @uniffiHandle,
+        ulong @value,
+        IntPtr @uniffiOutReturn,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
+
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void UniffiCallbackInterfaceGaugeMethod0(
-        ulong @uniffiHandle,long @value,IntPtr @uniffiOutReturn,ref UniffiRustCallStatus _uniffi_out_err
+        ulong @uniffiHandle,
+        long @value,
+        IntPtr @uniffiOutReturn,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
+
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void UniffiCallbackInterfaceHistogramMethod0(
-        ulong @uniffiHandle,double @value,IntPtr @uniffiOutReturn,ref UniffiRustCallStatus _uniffi_out_err
+        ulong @uniffiHandle,
+        double @value,
+        IntPtr @uniffiOutReturn,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
+
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void UniffiCallbackInterfaceMetricsRecorderMethod0(
-        ulong @uniffiHandle,RustBuffer @name,RustBuffer @description,RustBuffer @labels,IntPtr /*ulong*/ @uniffiOutReturn,ref UniffiRustCallStatus _uniffi_out_err
+        ulong @uniffiHandle,
+        RustBuffer @name,
+        RustBuffer @description,
+        RustBuffer @labels,
+        IntPtr /*ulong*/
+        @uniffiOutReturn,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
+
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void UniffiCallbackInterfaceMetricsRecorderMethod1(
-        ulong @uniffiHandle,RustBuffer @name,RustBuffer @description,RustBuffer @labels,IntPtr /*ulong*/ @uniffiOutReturn,ref UniffiRustCallStatus _uniffi_out_err
+        ulong @uniffiHandle,
+        RustBuffer @name,
+        RustBuffer @description,
+        RustBuffer @labels,
+        IntPtr /*ulong*/
+        @uniffiOutReturn,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
+
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void UniffiCallbackInterfaceMetricsRecorderMethod2(
-        ulong @uniffiHandle,RustBuffer @name,RustBuffer @description,RustBuffer @labels,IntPtr /*ulong*/ @uniffiOutReturn,ref UniffiRustCallStatus _uniffi_out_err
+        ulong @uniffiHandle,
+        RustBuffer @name,
+        RustBuffer @description,
+        RustBuffer @labels,
+        IntPtr /*ulong*/
+        @uniffiOutReturn,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
+
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void UniffiCallbackInterfaceMetricsRecorderMethod3(
-        ulong @uniffiHandle,RustBuffer @name,RustBuffer @description,RustBuffer @labels,RustBuffer @boundaries,IntPtr /*ulong*/ @uniffiOutReturn,ref UniffiRustCallStatus _uniffi_out_err
+        ulong @uniffiHandle,
+        RustBuffer @name,
+        RustBuffer @description,
+        RustBuffer @labels,
+        RustBuffer @boundaries,
+        IntPtr /*ulong*/
+        @uniffiOutReturn,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
+
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void UniffiCallbackInterfaceUpDownCounterMethod0(
-        ulong @uniffiHandle,long @value,IntPtr @uniffiOutReturn,ref UniffiRustCallStatus _uniffi_out_err
+        ulong @uniffiHandle,
+        long @value,
+        IntPtr @uniffiOutReturn,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
+
     [StructLayout(LayoutKind.Sequential)]
     public struct UniffiVTableCallbackInterfaceLogCallback
     {
@@ -737,6 +945,7 @@ static class _UniFFILib {
         public IntPtr @uniffiClone;
         public IntPtr @log;
     }
+
     [StructLayout(LayoutKind.Sequential)]
     public struct UniffiVTableCallbackInterfaceMergeOperator
     {
@@ -744,6 +953,7 @@ static class _UniFFILib {
         public IntPtr @uniffiClone;
         public IntPtr @merge;
     }
+
     [StructLayout(LayoutKind.Sequential)]
     public struct UniffiVTableCallbackInterfaceCounter
     {
@@ -751,6 +961,7 @@ static class _UniFFILib {
         public IntPtr @uniffiClone;
         public IntPtr @increment;
     }
+
     [StructLayout(LayoutKind.Sequential)]
     public struct UniffiVTableCallbackInterfaceGauge
     {
@@ -758,6 +969,7 @@ static class _UniFFILib {
         public IntPtr @uniffiClone;
         public IntPtr @set;
     }
+
     [StructLayout(LayoutKind.Sequential)]
     public struct UniffiVTableCallbackInterfaceHistogram
     {
@@ -765,6 +977,7 @@ static class _UniFFILib {
         public IntPtr @uniffiClone;
         public IntPtr @record;
     }
+
     [StructLayout(LayoutKind.Sequential)]
     public struct UniffiVTableCallbackInterfaceMetricsRecorder
     {
@@ -775,6 +988,7 @@ static class _UniFFILib {
         public IntPtr @registerUpDownCounter;
         public IntPtr @registerHistogram;
     }
+
     [StructLayout(LayoutKind.Sequential)]
     public struct UniffiVTableCallbackInterfaceUpDownCounter
     {
@@ -782,361 +996,12 @@ static class _UniFFILib {
         public IntPtr @uniffiClone;
         public IntPtr @increment;
     }
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
 
-    static _UniFFILib() {
+    static _UniFFILib()
+    {
         _UniFFILib.uniffiCheckContractApiVersion();
         _UniFFILib.uniffiCheckApiChecksums();
-        
+
         UniffiCallbackInterfaceCounter.Register();
         UniffiCallbackInterfaceGauge.Register();
         UniffiCallbackInterfaceHistogram.Register();
@@ -1144,9 +1009,9 @@ static class _UniFFILib {
         UniffiCallbackInterfaceMergeOperator.Register();
         UniffiCallbackInterfaceMetricsRecorder.Register();
         UniffiCallbackInterfaceUpDownCounter.Register();
-        }
+    }
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1154,10 +1019,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_clone_dbbuilder(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_clone_dbbuilder(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1165,10 +1032,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_free_dbbuilder(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    void uniffi_slatedb_csharp_ffi_fn_free_dbbuilder(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1176,10 +1045,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_constructor_dbbuilder_new(RustBuffer @path,ulong @objectStore,ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_constructor_dbbuilder_new(
+        RustBuffer @path,
+        ulong @objectStore,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1187,10 +1059,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_dbbuilder_build(ulong @ptr
-    );
+    ulong uniffi_slatedb_csharp_ffi_fn_method_dbbuilder_build(ulong @ptr);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1198,10 +1069,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_method_dbbuilder_with_db_cache_disabled(ulong @ptr,ref UniffiRustCallStatus _uniffi_out_err
+    void uniffi_slatedb_csharp_ffi_fn_method_dbbuilder_with_db_cache_disabled(
+        ulong @ptr,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1209,10 +1082,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_method_dbbuilder_with_merge_operator(ulong @ptr,ulong @mergeOperator,ref UniffiRustCallStatus _uniffi_out_err
+    void uniffi_slatedb_csharp_ffi_fn_method_dbbuilder_with_merge_operator(
+        ulong @ptr,
+        ulong @mergeOperator,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1220,10 +1096,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_method_dbbuilder_with_metrics_recorder(ulong @ptr,ulong @metricsRecorder,ref UniffiRustCallStatus _uniffi_out_err
+    void uniffi_slatedb_csharp_ffi_fn_method_dbbuilder_with_metrics_recorder(
+        ulong @ptr,
+        ulong @metricsRecorder,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1231,10 +1110,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_method_dbbuilder_with_seed(ulong @ptr,ulong @seed,ref UniffiRustCallStatus _uniffi_out_err
+    void uniffi_slatedb_csharp_ffi_fn_method_dbbuilder_with_seed(
+        ulong @ptr,
+        ulong @seed,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1242,10 +1124,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_method_dbbuilder_with_settings(ulong @ptr,ulong @settings,ref UniffiRustCallStatus _uniffi_out_err
+    void uniffi_slatedb_csharp_ffi_fn_method_dbbuilder_with_settings(
+        ulong @ptr,
+        ulong @settings,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1253,10 +1138,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_method_dbbuilder_with_sst_block_size(ulong @ptr,RustBuffer @sstBlockSize,ref UniffiRustCallStatus _uniffi_out_err
+    void uniffi_slatedb_csharp_ffi_fn_method_dbbuilder_with_sst_block_size(
+        ulong @ptr,
+        RustBuffer @sstBlockSize,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1264,10 +1152,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_method_dbbuilder_with_wal_object_store(ulong @ptr,ulong @walObjectStore,ref UniffiRustCallStatus _uniffi_out_err
+    void uniffi_slatedb_csharp_ffi_fn_method_dbbuilder_with_wal_object_store(
+        ulong @ptr,
+        ulong @walObjectStore,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1275,10 +1166,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_clone_dbreaderbuilder(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_clone_dbreaderbuilder(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1286,10 +1179,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_free_dbreaderbuilder(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    void uniffi_slatedb_csharp_ffi_fn_free_dbreaderbuilder(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1297,10 +1192,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_constructor_dbreaderbuilder_new(RustBuffer @path,ulong @objectStore,ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_constructor_dbreaderbuilder_new(
+        RustBuffer @path,
+        ulong @objectStore,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1308,10 +1206,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_dbreaderbuilder_build(ulong @ptr
-    );
+    ulong uniffi_slatedb_csharp_ffi_fn_method_dbreaderbuilder_build(ulong @ptr);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1319,10 +1216,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_method_dbreaderbuilder_with_checkpoint_id(ulong @ptr,RustBuffer @checkpointId,ref UniffiRustCallStatus _uniffi_out_err
+    void uniffi_slatedb_csharp_ffi_fn_method_dbreaderbuilder_with_checkpoint_id(
+        ulong @ptr,
+        RustBuffer @checkpointId,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1330,10 +1230,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_method_dbreaderbuilder_with_merge_operator(ulong @ptr,ulong @mergeOperator,ref UniffiRustCallStatus _uniffi_out_err
+    void uniffi_slatedb_csharp_ffi_fn_method_dbreaderbuilder_with_merge_operator(
+        ulong @ptr,
+        ulong @mergeOperator,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1341,10 +1244,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_method_dbreaderbuilder_with_metrics_recorder(ulong @ptr,ulong @metricsRecorder,ref UniffiRustCallStatus _uniffi_out_err
+    void uniffi_slatedb_csharp_ffi_fn_method_dbreaderbuilder_with_metrics_recorder(
+        ulong @ptr,
+        ulong @metricsRecorder,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1352,10 +1258,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_method_dbreaderbuilder_with_options(ulong @ptr,RustBuffer @options,ref UniffiRustCallStatus _uniffi_out_err
+    void uniffi_slatedb_csharp_ffi_fn_method_dbreaderbuilder_with_options(
+        ulong @ptr,
+        RustBuffer @options,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1363,10 +1272,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_method_dbreaderbuilder_with_wal_object_store(ulong @ptr,ulong @walObjectStore,ref UniffiRustCallStatus _uniffi_out_err
+    void uniffi_slatedb_csharp_ffi_fn_method_dbreaderbuilder_with_wal_object_store(
+        ulong @ptr,
+        ulong @walObjectStore,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1374,10 +1286,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_clone_db(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_clone_db(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1385,10 +1299,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_free_db(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    void uniffi_slatedb_csharp_ffi_fn_free_db(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1396,10 +1312,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_db_begin(ulong @ptr,RustBuffer @isolationLevel
-    );
+    ulong uniffi_slatedb_csharp_ffi_fn_method_db_begin(ulong @ptr, RustBuffer @isolationLevel);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1407,10 +1322,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_db_delete(ulong @ptr,RustBuffer @key
-    );
+    ulong uniffi_slatedb_csharp_ffi_fn_method_db_delete(ulong @ptr, RustBuffer @key);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1418,10 +1332,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_db_delete_with_options(ulong @ptr,RustBuffer @key,RustBuffer @options
+    ulong uniffi_slatedb_csharp_ffi_fn_method_db_delete_with_options(
+        ulong @ptr,
+        RustBuffer @key,
+        RustBuffer @options
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1429,10 +1346,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_db_flush(ulong @ptr
-    );
+    ulong uniffi_slatedb_csharp_ffi_fn_method_db_flush(ulong @ptr);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1440,10 +1356,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_db_flush_with_options(ulong @ptr,RustBuffer @options
+    ulong uniffi_slatedb_csharp_ffi_fn_method_db_flush_with_options(
+        ulong @ptr,
+        RustBuffer @options
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1451,10 +1369,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_db_get(ulong @ptr,RustBuffer @key
-    );
+    ulong uniffi_slatedb_csharp_ffi_fn_method_db_get(ulong @ptr, RustBuffer @key);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1462,10 +1379,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_db_get_key_value(ulong @ptr,RustBuffer @key
-    );
+    ulong uniffi_slatedb_csharp_ffi_fn_method_db_get_key_value(ulong @ptr, RustBuffer @key);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1473,10 +1389,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_db_get_key_value_with_options(ulong @ptr,RustBuffer @key,RustBuffer @options
+    ulong uniffi_slatedb_csharp_ffi_fn_method_db_get_key_value_with_options(
+        ulong @ptr,
+        RustBuffer @key,
+        RustBuffer @options
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1484,10 +1403,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_db_get_with_options(ulong @ptr,RustBuffer @key,RustBuffer @options
+    ulong uniffi_slatedb_csharp_ffi_fn_method_db_get_with_options(
+        ulong @ptr,
+        RustBuffer @key,
+        RustBuffer @options
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1495,10 +1417,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_db_merge(ulong @ptr,RustBuffer @key,RustBuffer @operand
+    ulong uniffi_slatedb_csharp_ffi_fn_method_db_merge(
+        ulong @ptr,
+        RustBuffer @key,
+        RustBuffer @operand
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1506,10 +1431,15 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_db_merge_with_options(ulong @ptr,RustBuffer @key,RustBuffer @operand,RustBuffer @mergeOptions,RustBuffer @writeOptions
+    ulong uniffi_slatedb_csharp_ffi_fn_method_db_merge_with_options(
+        ulong @ptr,
+        RustBuffer @key,
+        RustBuffer @operand,
+        RustBuffer @mergeOptions,
+        RustBuffer @writeOptions
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1517,10 +1447,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_db_put(ulong @ptr,RustBuffer @key,RustBuffer @value
+    ulong uniffi_slatedb_csharp_ffi_fn_method_db_put(
+        ulong @ptr,
+        RustBuffer @key,
+        RustBuffer @value
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1528,10 +1461,15 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_db_put_with_options(ulong @ptr,RustBuffer @key,RustBuffer @value,RustBuffer @putOptions,RustBuffer @writeOptions
+    ulong uniffi_slatedb_csharp_ffi_fn_method_db_put_with_options(
+        ulong @ptr,
+        RustBuffer @key,
+        RustBuffer @value,
+        RustBuffer @putOptions,
+        RustBuffer @writeOptions
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1539,10 +1477,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_db_scan(ulong @ptr,RustBuffer @range
-    );
+    ulong uniffi_slatedb_csharp_ffi_fn_method_db_scan(ulong @ptr, RustBuffer @range);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1550,10 +1487,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_db_scan_prefix(ulong @ptr,RustBuffer @prefix
-    );
+    ulong uniffi_slatedb_csharp_ffi_fn_method_db_scan_prefix(ulong @ptr, RustBuffer @prefix);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1561,10 +1497,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_db_scan_prefix_with_options(ulong @ptr,RustBuffer @prefix,RustBuffer @options
+    ulong uniffi_slatedb_csharp_ffi_fn_method_db_scan_prefix_with_options(
+        ulong @ptr,
+        RustBuffer @prefix,
+        RustBuffer @options
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1572,10 +1511,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_db_scan_with_options(ulong @ptr,RustBuffer @range,RustBuffer @options
+    ulong uniffi_slatedb_csharp_ffi_fn_method_db_scan_with_options(
+        ulong @ptr,
+        RustBuffer @range,
+        RustBuffer @options
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1583,10 +1525,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_db_shutdown(ulong @ptr
-    );
+    ulong uniffi_slatedb_csharp_ffi_fn_method_db_shutdown(ulong @ptr);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1594,10 +1535,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_db_snapshot(ulong @ptr
-    );
+    ulong uniffi_slatedb_csharp_ffi_fn_method_db_snapshot(ulong @ptr);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1605,10 +1545,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     RustBuffer uniffi_slatedb_csharp_ffi_fn_method_db_status(ulong @ptr,ref UniffiRustCallStatus _uniffi_out_err
+    RustBuffer uniffi_slatedb_csharp_ffi_fn_method_db_status(
+        ulong @ptr,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1616,10 +1558,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_db_write(ulong @ptr,ulong @batch
-    );
+    ulong uniffi_slatedb_csharp_ffi_fn_method_db_write(ulong @ptr, ulong @batch);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1627,10 +1568,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_db_write_with_options(ulong @ptr,ulong @batch,RustBuffer @options
+    ulong uniffi_slatedb_csharp_ffi_fn_method_db_write_with_options(
+        ulong @ptr,
+        ulong @batch,
+        RustBuffer @options
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1638,10 +1582,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_clone_dbreader(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_clone_dbreader(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1649,10 +1595,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_free_dbreader(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    void uniffi_slatedb_csharp_ffi_fn_free_dbreader(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1660,10 +1608,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_dbreader_get(ulong @ptr,RustBuffer @key
-    );
+    ulong uniffi_slatedb_csharp_ffi_fn_method_dbreader_get(ulong @ptr, RustBuffer @key);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1671,10 +1618,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_dbreader_get_with_options(ulong @ptr,RustBuffer @key,RustBuffer @options
+    ulong uniffi_slatedb_csharp_ffi_fn_method_dbreader_get_with_options(
+        ulong @ptr,
+        RustBuffer @key,
+        RustBuffer @options
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1682,10 +1632,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_dbreader_scan(ulong @ptr,RustBuffer @range
-    );
+    ulong uniffi_slatedb_csharp_ffi_fn_method_dbreader_scan(ulong @ptr, RustBuffer @range);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1693,10 +1642,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_dbreader_scan_prefix(ulong @ptr,RustBuffer @prefix
-    );
+    ulong uniffi_slatedb_csharp_ffi_fn_method_dbreader_scan_prefix(ulong @ptr, RustBuffer @prefix);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1704,10 +1652,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_dbreader_scan_prefix_with_options(ulong @ptr,RustBuffer @prefix,RustBuffer @options
+    ulong uniffi_slatedb_csharp_ffi_fn_method_dbreader_scan_prefix_with_options(
+        ulong @ptr,
+        RustBuffer @prefix,
+        RustBuffer @options
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1715,10 +1666,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_dbreader_scan_with_options(ulong @ptr,RustBuffer @range,RustBuffer @options
+    ulong uniffi_slatedb_csharp_ffi_fn_method_dbreader_scan_with_options(
+        ulong @ptr,
+        RustBuffer @range,
+        RustBuffer @options
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1726,10 +1680,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_dbreader_shutdown(ulong @ptr
-    );
+    ulong uniffi_slatedb_csharp_ffi_fn_method_dbreader_shutdown(ulong @ptr);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1737,10 +1690,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     RustBuffer uniffi_slatedb_csharp_ffi_fn_method_dbreader_status(ulong @ptr,ref UniffiRustCallStatus _uniffi_out_err
+    RustBuffer uniffi_slatedb_csharp_ffi_fn_method_dbreader_status(
+        ulong @ptr,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1748,10 +1703,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_clone_dbsnapshot(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_clone_dbsnapshot(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1759,10 +1716,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_free_dbsnapshot(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    void uniffi_slatedb_csharp_ffi_fn_free_dbsnapshot(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1770,10 +1729,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_dbsnapshot_get(ulong @ptr,RustBuffer @key
-    );
+    ulong uniffi_slatedb_csharp_ffi_fn_method_dbsnapshot_get(ulong @ptr, RustBuffer @key);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1781,10 +1739,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_dbsnapshot_get_key_value(ulong @ptr,RustBuffer @key
-    );
+    ulong uniffi_slatedb_csharp_ffi_fn_method_dbsnapshot_get_key_value(ulong @ptr, RustBuffer @key);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1792,10 +1749,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_dbsnapshot_get_key_value_with_options(ulong @ptr,RustBuffer @key,RustBuffer @options
+    ulong uniffi_slatedb_csharp_ffi_fn_method_dbsnapshot_get_key_value_with_options(
+        ulong @ptr,
+        RustBuffer @key,
+        RustBuffer @options
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1803,10 +1763,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_dbsnapshot_get_with_options(ulong @ptr,RustBuffer @key,RustBuffer @options
+    ulong uniffi_slatedb_csharp_ffi_fn_method_dbsnapshot_get_with_options(
+        ulong @ptr,
+        RustBuffer @key,
+        RustBuffer @options
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1814,10 +1777,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_dbsnapshot_scan(ulong @ptr,RustBuffer @range
-    );
+    ulong uniffi_slatedb_csharp_ffi_fn_method_dbsnapshot_scan(ulong @ptr, RustBuffer @range);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1825,10 +1787,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_dbsnapshot_scan_prefix(ulong @ptr,RustBuffer @prefix
+    ulong uniffi_slatedb_csharp_ffi_fn_method_dbsnapshot_scan_prefix(
+        ulong @ptr,
+        RustBuffer @prefix
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1836,10 +1800,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_dbsnapshot_scan_prefix_with_options(ulong @ptr,RustBuffer @prefix,RustBuffer @options
+    ulong uniffi_slatedb_csharp_ffi_fn_method_dbsnapshot_scan_prefix_with_options(
+        ulong @ptr,
+        RustBuffer @prefix,
+        RustBuffer @options
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1847,10 +1814,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_dbsnapshot_scan_with_options(ulong @ptr,RustBuffer @range,RustBuffer @options
+    ulong uniffi_slatedb_csharp_ffi_fn_method_dbsnapshot_scan_with_options(
+        ulong @ptr,
+        RustBuffer @range,
+        RustBuffer @options
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1858,10 +1828,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_clone_dbtransaction(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_clone_dbtransaction(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1869,10 +1841,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_free_dbtransaction(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    void uniffi_slatedb_csharp_ffi_fn_free_dbtransaction(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1880,10 +1854,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_commit(ulong @ptr
-    );
+    ulong uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_commit(ulong @ptr);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1891,10 +1864,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_commit_with_options(ulong @ptr,RustBuffer @options
+    ulong uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_commit_with_options(
+        ulong @ptr,
+        RustBuffer @options
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1902,10 +1877,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_delete(ulong @ptr,RustBuffer @key
-    );
+    ulong uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_delete(ulong @ptr, RustBuffer @key);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1913,10 +1887,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_get(ulong @ptr,RustBuffer @key
-    );
+    ulong uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_get(ulong @ptr, RustBuffer @key);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1924,10 +1897,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_get_key_value(ulong @ptr,RustBuffer @key
+    ulong uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_get_key_value(
+        ulong @ptr,
+        RustBuffer @key
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1935,10 +1910,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_get_key_value_with_options(ulong @ptr,RustBuffer @key,RustBuffer @options
+    ulong uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_get_key_value_with_options(
+        ulong @ptr,
+        RustBuffer @key,
+        RustBuffer @options
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1946,10 +1924,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_get_with_options(ulong @ptr,RustBuffer @key,RustBuffer @options
+    ulong uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_get_with_options(
+        ulong @ptr,
+        RustBuffer @key,
+        RustBuffer @options
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1957,10 +1938,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     RustBuffer uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_id(ulong @ptr,ref UniffiRustCallStatus _uniffi_out_err
+    RustBuffer uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_id(
+        ulong @ptr,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1968,10 +1951,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_mark_read(ulong @ptr,RustBuffer @keys
-    );
+    ulong uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_mark_read(ulong @ptr, RustBuffer @keys);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1979,10 +1961,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_merge(ulong @ptr,RustBuffer @key,RustBuffer @operand
+    ulong uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_merge(
+        ulong @ptr,
+        RustBuffer @key,
+        RustBuffer @operand
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -1990,10 +1975,14 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_merge_with_options(ulong @ptr,RustBuffer @key,RustBuffer @operand,RustBuffer @options
+    ulong uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_merge_with_options(
+        ulong @ptr,
+        RustBuffer @key,
+        RustBuffer @operand,
+        RustBuffer @options
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2001,10 +1990,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_put(ulong @ptr,RustBuffer @key,RustBuffer @value
+    ulong uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_put(
+        ulong @ptr,
+        RustBuffer @key,
+        RustBuffer @value
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2012,10 +2004,14 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_put_with_options(ulong @ptr,RustBuffer @key,RustBuffer @value,RustBuffer @options
+    ulong uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_put_with_options(
+        ulong @ptr,
+        RustBuffer @key,
+        RustBuffer @value,
+        RustBuffer @options
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2023,10 +2019,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_rollback(ulong @ptr
-    );
+    ulong uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_rollback(ulong @ptr);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2034,10 +2029,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_scan(ulong @ptr,RustBuffer @range
-    );
+    ulong uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_scan(ulong @ptr, RustBuffer @range);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2045,10 +2039,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_scan_prefix(ulong @ptr,RustBuffer @prefix
+    ulong uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_scan_prefix(
+        ulong @ptr,
+        RustBuffer @prefix
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2056,10 +2052,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_scan_prefix_with_options(ulong @ptr,RustBuffer @prefix,RustBuffer @options
+    ulong uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_scan_prefix_with_options(
+        ulong @ptr,
+        RustBuffer @prefix,
+        RustBuffer @options
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2067,10 +2066,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_scan_with_options(ulong @ptr,RustBuffer @range,RustBuffer @options
+    ulong uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_scan_with_options(
+        ulong @ptr,
+        RustBuffer @range,
+        RustBuffer @options
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2078,10 +2080,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_seqnum(ulong @ptr,ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_seqnum(
+        ulong @ptr,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2089,10 +2093,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_unmark_write(ulong @ptr,RustBuffer @keys
+    ulong uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_unmark_write(
+        ulong @ptr,
+        RustBuffer @keys
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2100,10 +2106,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_clone_dbiterator(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_clone_dbiterator(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2111,10 +2119,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_free_dbiterator(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    void uniffi_slatedb_csharp_ffi_fn_free_dbiterator(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2122,10 +2132,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_dbiterator_next(ulong @ptr
-    );
+    ulong uniffi_slatedb_csharp_ffi_fn_method_dbiterator_next(ulong @ptr);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2133,10 +2142,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_dbiterator_seek(ulong @ptr,RustBuffer @key
-    );
+    ulong uniffi_slatedb_csharp_ffi_fn_method_dbiterator_seek(ulong @ptr, RustBuffer @key);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2144,10 +2152,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_dbiterator_seek_to_beginning(ulong @ptr
-    );
+    ulong uniffi_slatedb_csharp_ffi_fn_method_dbiterator_seek_to_beginning(ulong @ptr);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2155,10 +2162,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_clone_logcallback(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_clone_logcallback(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2166,10 +2175,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_free_logcallback(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    void uniffi_slatedb_csharp_ffi_fn_free_logcallback(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2177,10 +2188,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_init_callback_vtable_logcallback(IntPtr /*_UniFFILib.UniffiVTableCallbackInterfaceLogCallback*/ @vtable
+    void uniffi_slatedb_csharp_ffi_fn_init_callback_vtable_logcallback(
+        IntPtr /*_UniFFILib.UniffiVTableCallbackInterfaceLogCallback*/
+        @vtable
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2188,10 +2201,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_method_logcallback_log(ulong @ptr,RustBuffer @record,ref UniffiRustCallStatus _uniffi_out_err
+    void uniffi_slatedb_csharp_ffi_fn_method_logcallback_log(
+        ulong @ptr,
+        RustBuffer @record,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2199,10 +2215,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_clone_mergeoperator(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_clone_mergeoperator(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2210,10 +2228,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_free_mergeoperator(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    void uniffi_slatedb_csharp_ffi_fn_free_mergeoperator(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2221,10 +2241,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_init_callback_vtable_mergeoperator(IntPtr /*_UniFFILib.UniffiVTableCallbackInterfaceMergeOperator*/ @vtable
+    void uniffi_slatedb_csharp_ffi_fn_init_callback_vtable_mergeoperator(
+        IntPtr /*_UniFFILib.UniffiVTableCallbackInterfaceMergeOperator*/
+        @vtable
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2232,10 +2254,15 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     RustBuffer uniffi_slatedb_csharp_ffi_fn_method_mergeoperator_merge(ulong @ptr,RustBuffer @key,RustBuffer @existingValue,RustBuffer @operand,ref UniffiRustCallStatus _uniffi_out_err
+    RustBuffer uniffi_slatedb_csharp_ffi_fn_method_mergeoperator_merge(
+        ulong @ptr,
+        RustBuffer @key,
+        RustBuffer @existingValue,
+        RustBuffer @operand,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2243,10 +2270,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_clone_counter(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_clone_counter(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2254,10 +2283,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_free_counter(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    void uniffi_slatedb_csharp_ffi_fn_free_counter(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2265,10 +2296,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_init_callback_vtable_counter(IntPtr /*_UniFFILib.UniffiVTableCallbackInterfaceCounter*/ @vtable
+    void uniffi_slatedb_csharp_ffi_fn_init_callback_vtable_counter(
+        IntPtr /*_UniFFILib.UniffiVTableCallbackInterfaceCounter*/
+        @vtable
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2276,10 +2309,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_method_counter_increment(ulong @ptr,ulong @value,ref UniffiRustCallStatus _uniffi_out_err
+    void uniffi_slatedb_csharp_ffi_fn_method_counter_increment(
+        ulong @ptr,
+        ulong @value,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2287,10 +2323,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_clone_defaultmetricsrecorder(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_clone_defaultmetricsrecorder(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2298,10 +2336,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_free_defaultmetricsrecorder(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    void uniffi_slatedb_csharp_ffi_fn_free_defaultmetricsrecorder(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2309,10 +2349,11 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_constructor_defaultmetricsrecorder_new(ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_constructor_defaultmetricsrecorder_new(
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2320,10 +2361,14 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     RustBuffer uniffi_slatedb_csharp_ffi_fn_method_defaultmetricsrecorder_metric_by_name_and_labels(ulong @ptr,RustBuffer @name,RustBuffer @labels,ref UniffiRustCallStatus _uniffi_out_err
+    RustBuffer uniffi_slatedb_csharp_ffi_fn_method_defaultmetricsrecorder_metric_by_name_and_labels(
+        ulong @ptr,
+        RustBuffer @name,
+        RustBuffer @labels,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2331,10 +2376,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     RustBuffer uniffi_slatedb_csharp_ffi_fn_method_defaultmetricsrecorder_metrics_by_name(ulong @ptr,RustBuffer @name,ref UniffiRustCallStatus _uniffi_out_err
+    RustBuffer uniffi_slatedb_csharp_ffi_fn_method_defaultmetricsrecorder_metrics_by_name(
+        ulong @ptr,
+        RustBuffer @name,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2342,10 +2390,15 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_defaultmetricsrecorder_register_counter(ulong @ptr,RustBuffer @name,RustBuffer @description,RustBuffer @labels,ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_method_defaultmetricsrecorder_register_counter(
+        ulong @ptr,
+        RustBuffer @name,
+        RustBuffer @description,
+        RustBuffer @labels,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2353,10 +2406,15 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_defaultmetricsrecorder_register_gauge(ulong @ptr,RustBuffer @name,RustBuffer @description,RustBuffer @labels,ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_method_defaultmetricsrecorder_register_gauge(
+        ulong @ptr,
+        RustBuffer @name,
+        RustBuffer @description,
+        RustBuffer @labels,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2364,10 +2422,16 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_defaultmetricsrecorder_register_histogram(ulong @ptr,RustBuffer @name,RustBuffer @description,RustBuffer @labels,RustBuffer @boundaries,ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_method_defaultmetricsrecorder_register_histogram(
+        ulong @ptr,
+        RustBuffer @name,
+        RustBuffer @description,
+        RustBuffer @labels,
+        RustBuffer @boundaries,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2375,10 +2439,15 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_defaultmetricsrecorder_register_up_down_counter(ulong @ptr,RustBuffer @name,RustBuffer @description,RustBuffer @labels,ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_method_defaultmetricsrecorder_register_up_down_counter(
+        ulong @ptr,
+        RustBuffer @name,
+        RustBuffer @description,
+        RustBuffer @labels,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2386,10 +2455,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     RustBuffer uniffi_slatedb_csharp_ffi_fn_method_defaultmetricsrecorder_snapshot(ulong @ptr,ref UniffiRustCallStatus _uniffi_out_err
+    RustBuffer uniffi_slatedb_csharp_ffi_fn_method_defaultmetricsrecorder_snapshot(
+        ulong @ptr,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2397,10 +2468,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_clone_gauge(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_clone_gauge(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2408,10 +2481,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_free_gauge(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    void uniffi_slatedb_csharp_ffi_fn_free_gauge(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2419,10 +2494,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_init_callback_vtable_gauge(IntPtr /*_UniFFILib.UniffiVTableCallbackInterfaceGauge*/ @vtable
+    void uniffi_slatedb_csharp_ffi_fn_init_callback_vtable_gauge(
+        IntPtr /*_UniFFILib.UniffiVTableCallbackInterfaceGauge*/
+        @vtable
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2430,10 +2507,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_method_gauge_set(ulong @ptr,long @value,ref UniffiRustCallStatus _uniffi_out_err
+    void uniffi_slatedb_csharp_ffi_fn_method_gauge_set(
+        ulong @ptr,
+        long @value,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2441,10 +2521,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_clone_histogram(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_clone_histogram(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2452,10 +2534,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_free_histogram(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    void uniffi_slatedb_csharp_ffi_fn_free_histogram(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2463,10 +2547,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_init_callback_vtable_histogram(IntPtr /*_UniFFILib.UniffiVTableCallbackInterfaceHistogram*/ @vtable
+    void uniffi_slatedb_csharp_ffi_fn_init_callback_vtable_histogram(
+        IntPtr /*_UniFFILib.UniffiVTableCallbackInterfaceHistogram*/
+        @vtable
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2474,10 +2560,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_method_histogram_record(ulong @ptr,double @value,ref UniffiRustCallStatus _uniffi_out_err
+    void uniffi_slatedb_csharp_ffi_fn_method_histogram_record(
+        ulong @ptr,
+        double @value,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2485,10 +2574,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_clone_metricsrecorder(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_clone_metricsrecorder(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2496,10 +2587,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_free_metricsrecorder(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    void uniffi_slatedb_csharp_ffi_fn_free_metricsrecorder(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2507,10 +2600,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_init_callback_vtable_metricsrecorder(IntPtr /*_UniFFILib.UniffiVTableCallbackInterfaceMetricsRecorder*/ @vtable
+    void uniffi_slatedb_csharp_ffi_fn_init_callback_vtable_metricsrecorder(
+        IntPtr /*_UniFFILib.UniffiVTableCallbackInterfaceMetricsRecorder*/
+        @vtable
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2518,10 +2613,15 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_metricsrecorder_register_counter(ulong @ptr,RustBuffer @name,RustBuffer @description,RustBuffer @labels,ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_method_metricsrecorder_register_counter(
+        ulong @ptr,
+        RustBuffer @name,
+        RustBuffer @description,
+        RustBuffer @labels,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2529,10 +2629,15 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_metricsrecorder_register_gauge(ulong @ptr,RustBuffer @name,RustBuffer @description,RustBuffer @labels,ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_method_metricsrecorder_register_gauge(
+        ulong @ptr,
+        RustBuffer @name,
+        RustBuffer @description,
+        RustBuffer @labels,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2540,10 +2645,15 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_metricsrecorder_register_up_down_counter(ulong @ptr,RustBuffer @name,RustBuffer @description,RustBuffer @labels,ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_method_metricsrecorder_register_up_down_counter(
+        ulong @ptr,
+        RustBuffer @name,
+        RustBuffer @description,
+        RustBuffer @labels,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2551,10 +2661,16 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_metricsrecorder_register_histogram(ulong @ptr,RustBuffer @name,RustBuffer @description,RustBuffer @labels,RustBuffer @boundaries,ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_method_metricsrecorder_register_histogram(
+        ulong @ptr,
+        RustBuffer @name,
+        RustBuffer @description,
+        RustBuffer @labels,
+        RustBuffer @boundaries,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2562,10 +2678,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_clone_updowncounter(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_clone_updowncounter(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2573,10 +2691,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_free_updowncounter(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    void uniffi_slatedb_csharp_ffi_fn_free_updowncounter(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2584,10 +2704,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_init_callback_vtable_updowncounter(IntPtr /*_UniFFILib.UniffiVTableCallbackInterfaceUpDownCounter*/ @vtable
+    void uniffi_slatedb_csharp_ffi_fn_init_callback_vtable_updowncounter(
+        IntPtr /*_UniFFILib.UniffiVTableCallbackInterfaceUpDownCounter*/
+        @vtable
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2595,10 +2717,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_method_updowncounter_increment(ulong @ptr,long @value,ref UniffiRustCallStatus _uniffi_out_err
+    void uniffi_slatedb_csharp_ffi_fn_method_updowncounter_increment(
+        ulong @ptr,
+        long @value,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2606,10 +2731,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_clone_objectstore(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_clone_objectstore(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2617,10 +2744,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_free_objectstore(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    void uniffi_slatedb_csharp_ffi_fn_free_objectstore(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2628,10 +2757,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_constructor_objectstore_from_env(RustBuffer @envFile,ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_constructor_objectstore_from_env(
+        RustBuffer @envFile,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2639,10 +2770,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_constructor_objectstore_resolve(RustBuffer @url,ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_constructor_objectstore_resolve(
+        RustBuffer @url,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2650,10 +2783,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_clone_objectstorebuilder(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_clone_objectstorebuilder(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2661,10 +2796,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_free_objectstorebuilder(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    void uniffi_slatedb_csharp_ffi_fn_free_objectstorebuilder(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2672,10 +2809,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_constructor_objectstorebuilder_new(RustBuffer @storeType,RustBuffer @config,ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_constructor_objectstorebuilder_new(
+        RustBuffer @storeType,
+        RustBuffer @config,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2683,10 +2823,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_objectstorebuilder_build(ulong @ptr,ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_method_objectstorebuilder_build(
+        ulong @ptr,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2694,10 +2836,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_clone_settings(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_clone_settings(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2705,10 +2849,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_free_settings(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    void uniffi_slatedb_csharp_ffi_fn_free_settings(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2716,10 +2862,11 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_constructor_settings_default(ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_constructor_settings_default(
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2727,10 +2874,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_constructor_settings_from_env(RustBuffer @prefix,ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_constructor_settings_from_env(
+        RustBuffer @prefix,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2738,10 +2887,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_constructor_settings_from_env_with_default(RustBuffer @prefix,ulong @defaultSettings,ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_constructor_settings_from_env_with_default(
+        RustBuffer @prefix,
+        ulong @defaultSettings,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2749,10 +2901,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_constructor_settings_from_file(RustBuffer @path,ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_constructor_settings_from_file(
+        RustBuffer @path,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2760,10 +2914,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_constructor_settings_from_json_string(RustBuffer @json,ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_constructor_settings_from_json_string(
+        RustBuffer @json,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2771,10 +2927,11 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_constructor_settings_load(ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_constructor_settings_load(
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2782,10 +2939,14 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_method_settings_set(ulong @ptr,RustBuffer @key,RustBuffer @valueJson,ref UniffiRustCallStatus _uniffi_out_err
+    void uniffi_slatedb_csharp_ffi_fn_method_settings_set(
+        ulong @ptr,
+        RustBuffer @key,
+        RustBuffer @valueJson,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2793,10 +2954,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     RustBuffer uniffi_slatedb_csharp_ffi_fn_method_settings_to_json_string(ulong @ptr,ref UniffiRustCallStatus _uniffi_out_err
+    RustBuffer uniffi_slatedb_csharp_ffi_fn_method_settings_to_json_string(
+        ulong @ptr,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2804,10 +2967,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_clone_walfile(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_clone_walfile(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2815,10 +2980,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_free_walfile(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    void uniffi_slatedb_csharp_ffi_fn_free_walfile(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2826,10 +2993,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_walfile_id(ulong @ptr,ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_method_walfile_id(
+        ulong @ptr,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2837,10 +3006,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_walfile_iterator(ulong @ptr
-    );
+    ulong uniffi_slatedb_csharp_ffi_fn_method_walfile_iterator(ulong @ptr);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2848,10 +3016,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_walfile_metadata(ulong @ptr
-    );
+    ulong uniffi_slatedb_csharp_ffi_fn_method_walfile_metadata(ulong @ptr);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2859,10 +3026,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_walfile_next_file(ulong @ptr,ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_method_walfile_next_file(
+        ulong @ptr,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2870,10 +3039,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_walfile_next_id(ulong @ptr,ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_method_walfile_next_id(
+        ulong @ptr,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2881,10 +3052,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_clone_walfileiterator(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_clone_walfileiterator(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2892,10 +3065,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_free_walfileiterator(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    void uniffi_slatedb_csharp_ffi_fn_free_walfileiterator(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2903,10 +3078,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_walfileiterator_next(ulong @ptr
-    );
+    ulong uniffi_slatedb_csharp_ffi_fn_method_walfileiterator_next(ulong @ptr);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2914,10 +3088,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_clone_walreader(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_clone_walreader(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2925,10 +3101,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_free_walreader(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    void uniffi_slatedb_csharp_ffi_fn_free_walreader(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2936,10 +3114,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_constructor_walreader_new(RustBuffer @path,ulong @objectStore,ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_constructor_walreader_new(
+        RustBuffer @path,
+        ulong @objectStore,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2947,10 +3128,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_walreader_get(ulong @ptr,ulong @id,ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_method_walreader_get(
+        ulong @ptr,
+        ulong @id,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2958,10 +3142,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_method_walreader_list(ulong @ptr,RustBuffer @startId,RustBuffer @endId
+    ulong uniffi_slatedb_csharp_ffi_fn_method_walreader_list(
+        ulong @ptr,
+        RustBuffer @startId,
+        RustBuffer @endId
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2969,10 +3156,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_clone_writebatch(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_clone_writebatch(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2980,10 +3169,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_free_writebatch(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    void uniffi_slatedb_csharp_ffi_fn_free_writebatch(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -2991,10 +3182,11 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong uniffi_slatedb_csharp_ffi_fn_constructor_writebatch_new(ref UniffiRustCallStatus _uniffi_out_err
+    ulong uniffi_slatedb_csharp_ffi_fn_constructor_writebatch_new(
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3002,10 +3194,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_method_writebatch_delete(ulong @ptr,RustBuffer @key,ref UniffiRustCallStatus _uniffi_out_err
+    void uniffi_slatedb_csharp_ffi_fn_method_writebatch_delete(
+        ulong @ptr,
+        RustBuffer @key,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3013,10 +3208,14 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_method_writebatch_merge(ulong @ptr,RustBuffer @key,RustBuffer @operand,ref UniffiRustCallStatus _uniffi_out_err
+    void uniffi_slatedb_csharp_ffi_fn_method_writebatch_merge(
+        ulong @ptr,
+        RustBuffer @key,
+        RustBuffer @operand,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3024,10 +3223,15 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_method_writebatch_merge_with_options(ulong @ptr,RustBuffer @key,RustBuffer @operand,RustBuffer @options,ref UniffiRustCallStatus _uniffi_out_err
+    void uniffi_slatedb_csharp_ffi_fn_method_writebatch_merge_with_options(
+        ulong @ptr,
+        RustBuffer @key,
+        RustBuffer @operand,
+        RustBuffer @options,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3035,10 +3239,14 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_method_writebatch_put(ulong @ptr,RustBuffer @key,RustBuffer @value,ref UniffiRustCallStatus _uniffi_out_err
+    void uniffi_slatedb_csharp_ffi_fn_method_writebatch_put(
+        ulong @ptr,
+        RustBuffer @key,
+        RustBuffer @value,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3046,10 +3254,15 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_method_writebatch_put_with_options(ulong @ptr,RustBuffer @key,RustBuffer @value,RustBuffer @options,ref UniffiRustCallStatus _uniffi_out_err
+    void uniffi_slatedb_csharp_ffi_fn_method_writebatch_put_with_options(
+        ulong @ptr,
+        RustBuffer @key,
+        RustBuffer @value,
+        RustBuffer @options,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3057,10 +3270,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void uniffi_slatedb_csharp_ffi_fn_func_init_logging(RustBuffer @level,RustBuffer @callback,ref UniffiRustCallStatus _uniffi_out_err
+    void uniffi_slatedb_csharp_ffi_fn_func_init_logging(
+        RustBuffer @level,
+        RustBuffer @callback,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3068,10 +3284,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     RustBuffer ffi_slatedb_csharp_ffi_rustbuffer_alloc(ulong @size,ref UniffiRustCallStatus _uniffi_out_err
+    RustBuffer ffi_slatedb_csharp_ffi_rustbuffer_alloc(
+        ulong @size,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3079,10 +3297,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     RustBuffer ffi_slatedb_csharp_ffi_rustbuffer_from_bytes(ForeignBytes @bytes,ref UniffiRustCallStatus _uniffi_out_err
+    RustBuffer ffi_slatedb_csharp_ffi_rustbuffer_from_bytes(
+        ForeignBytes @bytes,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3090,10 +3310,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void ffi_slatedb_csharp_ffi_rustbuffer_free(RustBuffer @buf,ref UniffiRustCallStatus _uniffi_out_err
+    void ffi_slatedb_csharp_ffi_rustbuffer_free(
+        RustBuffer @buf,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3101,10 +3323,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     RustBuffer ffi_slatedb_csharp_ffi_rustbuffer_reserve(RustBuffer @buf,ulong @additional,ref UniffiRustCallStatus _uniffi_out_err
+    RustBuffer ffi_slatedb_csharp_ffi_rustbuffer_reserve(
+        RustBuffer @buf,
+        ulong @additional,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3112,10 +3337,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void ffi_slatedb_csharp_ffi_rust_future_poll_u8(ulong @handle,IntPtr @callback,ulong @callbackData
+    void ffi_slatedb_csharp_ffi_rust_future_poll_u8(
+        ulong @handle,
+        IntPtr @callback,
+        ulong @callbackData
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3123,10 +3351,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void ffi_slatedb_csharp_ffi_rust_future_cancel_u8(ulong @handle
-    );
+    void ffi_slatedb_csharp_ffi_rust_future_cancel_u8(ulong @handle);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3134,10 +3361,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void ffi_slatedb_csharp_ffi_rust_future_free_u8(ulong @handle
-    );
+    void ffi_slatedb_csharp_ffi_rust_future_free_u8(ulong @handle);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3145,10 +3371,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     byte ffi_slatedb_csharp_ffi_rust_future_complete_u8(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    byte ffi_slatedb_csharp_ffi_rust_future_complete_u8(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3156,10 +3384,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void ffi_slatedb_csharp_ffi_rust_future_poll_i8(ulong @handle,IntPtr @callback,ulong @callbackData
+    void ffi_slatedb_csharp_ffi_rust_future_poll_i8(
+        ulong @handle,
+        IntPtr @callback,
+        ulong @callbackData
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3167,10 +3398,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void ffi_slatedb_csharp_ffi_rust_future_cancel_i8(ulong @handle
-    );
+    void ffi_slatedb_csharp_ffi_rust_future_cancel_i8(ulong @handle);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3178,10 +3408,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void ffi_slatedb_csharp_ffi_rust_future_free_i8(ulong @handle
-    );
+    void ffi_slatedb_csharp_ffi_rust_future_free_i8(ulong @handle);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3189,10 +3418,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     sbyte ffi_slatedb_csharp_ffi_rust_future_complete_i8(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    sbyte ffi_slatedb_csharp_ffi_rust_future_complete_i8(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3200,10 +3431,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void ffi_slatedb_csharp_ffi_rust_future_poll_u16(ulong @handle,IntPtr @callback,ulong @callbackData
+    void ffi_slatedb_csharp_ffi_rust_future_poll_u16(
+        ulong @handle,
+        IntPtr @callback,
+        ulong @callbackData
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3211,10 +3445,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void ffi_slatedb_csharp_ffi_rust_future_cancel_u16(ulong @handle
-    );
+    void ffi_slatedb_csharp_ffi_rust_future_cancel_u16(ulong @handle);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3222,10 +3455,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void ffi_slatedb_csharp_ffi_rust_future_free_u16(ulong @handle
-    );
+    void ffi_slatedb_csharp_ffi_rust_future_free_u16(ulong @handle);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3233,10 +3465,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort ffi_slatedb_csharp_ffi_rust_future_complete_u16(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    ushort ffi_slatedb_csharp_ffi_rust_future_complete_u16(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3244,10 +3478,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void ffi_slatedb_csharp_ffi_rust_future_poll_i16(ulong @handle,IntPtr @callback,ulong @callbackData
+    void ffi_slatedb_csharp_ffi_rust_future_poll_i16(
+        ulong @handle,
+        IntPtr @callback,
+        ulong @callbackData
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3255,10 +3492,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void ffi_slatedb_csharp_ffi_rust_future_cancel_i16(ulong @handle
-    );
+    void ffi_slatedb_csharp_ffi_rust_future_cancel_i16(ulong @handle);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3266,10 +3502,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void ffi_slatedb_csharp_ffi_rust_future_free_i16(ulong @handle
-    );
+    void ffi_slatedb_csharp_ffi_rust_future_free_i16(ulong @handle);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3277,10 +3512,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     short ffi_slatedb_csharp_ffi_rust_future_complete_i16(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    short ffi_slatedb_csharp_ffi_rust_future_complete_i16(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3288,10 +3525,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void ffi_slatedb_csharp_ffi_rust_future_poll_u32(ulong @handle,IntPtr @callback,ulong @callbackData
+    void ffi_slatedb_csharp_ffi_rust_future_poll_u32(
+        ulong @handle,
+        IntPtr @callback,
+        ulong @callbackData
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3299,10 +3539,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void ffi_slatedb_csharp_ffi_rust_future_cancel_u32(ulong @handle
-    );
+    void ffi_slatedb_csharp_ffi_rust_future_cancel_u32(ulong @handle);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3310,10 +3549,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void ffi_slatedb_csharp_ffi_rust_future_free_u32(ulong @handle
-    );
+    void ffi_slatedb_csharp_ffi_rust_future_free_u32(ulong @handle);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3321,10 +3559,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     uint ffi_slatedb_csharp_ffi_rust_future_complete_u32(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    uint ffi_slatedb_csharp_ffi_rust_future_complete_u32(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3332,10 +3572,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void ffi_slatedb_csharp_ffi_rust_future_poll_i32(ulong @handle,IntPtr @callback,ulong @callbackData
+    void ffi_slatedb_csharp_ffi_rust_future_poll_i32(
+        ulong @handle,
+        IntPtr @callback,
+        ulong @callbackData
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3343,10 +3586,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void ffi_slatedb_csharp_ffi_rust_future_cancel_i32(ulong @handle
-    );
+    void ffi_slatedb_csharp_ffi_rust_future_cancel_i32(ulong @handle);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3354,10 +3596,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void ffi_slatedb_csharp_ffi_rust_future_free_i32(ulong @handle
-    );
+    void ffi_slatedb_csharp_ffi_rust_future_free_i32(ulong @handle);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3365,10 +3606,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     int ffi_slatedb_csharp_ffi_rust_future_complete_i32(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    int ffi_slatedb_csharp_ffi_rust_future_complete_i32(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3376,10 +3619,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void ffi_slatedb_csharp_ffi_rust_future_poll_u64(ulong @handle,IntPtr @callback,ulong @callbackData
+    void ffi_slatedb_csharp_ffi_rust_future_poll_u64(
+        ulong @handle,
+        IntPtr @callback,
+        ulong @callbackData
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3387,10 +3633,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void ffi_slatedb_csharp_ffi_rust_future_cancel_u64(ulong @handle
-    );
+    void ffi_slatedb_csharp_ffi_rust_future_cancel_u64(ulong @handle);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3398,10 +3643,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void ffi_slatedb_csharp_ffi_rust_future_free_u64(ulong @handle
-    );
+    void ffi_slatedb_csharp_ffi_rust_future_free_u64(ulong @handle);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3409,10 +3653,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ulong ffi_slatedb_csharp_ffi_rust_future_complete_u64(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    ulong ffi_slatedb_csharp_ffi_rust_future_complete_u64(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3420,10 +3666,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void ffi_slatedb_csharp_ffi_rust_future_poll_i64(ulong @handle,IntPtr @callback,ulong @callbackData
+    void ffi_slatedb_csharp_ffi_rust_future_poll_i64(
+        ulong @handle,
+        IntPtr @callback,
+        ulong @callbackData
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3431,10 +3680,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void ffi_slatedb_csharp_ffi_rust_future_cancel_i64(ulong @handle
-    );
+    void ffi_slatedb_csharp_ffi_rust_future_cancel_i64(ulong @handle);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3442,10 +3690,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void ffi_slatedb_csharp_ffi_rust_future_free_i64(ulong @handle
-    );
+    void ffi_slatedb_csharp_ffi_rust_future_free_i64(ulong @handle);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3453,10 +3700,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     long ffi_slatedb_csharp_ffi_rust_future_complete_i64(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    long ffi_slatedb_csharp_ffi_rust_future_complete_i64(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3464,10 +3713,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void ffi_slatedb_csharp_ffi_rust_future_poll_f32(ulong @handle,IntPtr @callback,ulong @callbackData
+    void ffi_slatedb_csharp_ffi_rust_future_poll_f32(
+        ulong @handle,
+        IntPtr @callback,
+        ulong @callbackData
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3475,10 +3727,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void ffi_slatedb_csharp_ffi_rust_future_cancel_f32(ulong @handle
-    );
+    void ffi_slatedb_csharp_ffi_rust_future_cancel_f32(ulong @handle);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3486,10 +3737,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void ffi_slatedb_csharp_ffi_rust_future_free_f32(ulong @handle
-    );
+    void ffi_slatedb_csharp_ffi_rust_future_free_f32(ulong @handle);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3497,10 +3747,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     float ffi_slatedb_csharp_ffi_rust_future_complete_f32(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    float ffi_slatedb_csharp_ffi_rust_future_complete_f32(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3508,10 +3760,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void ffi_slatedb_csharp_ffi_rust_future_poll_f64(ulong @handle,IntPtr @callback,ulong @callbackData
+    void ffi_slatedb_csharp_ffi_rust_future_poll_f64(
+        ulong @handle,
+        IntPtr @callback,
+        ulong @callbackData
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3519,10 +3774,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void ffi_slatedb_csharp_ffi_rust_future_cancel_f64(ulong @handle
-    );
+    void ffi_slatedb_csharp_ffi_rust_future_cancel_f64(ulong @handle);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3530,10 +3784,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void ffi_slatedb_csharp_ffi_rust_future_free_f64(ulong @handle
-    );
+    void ffi_slatedb_csharp_ffi_rust_future_free_f64(ulong @handle);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3541,10 +3794,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     double ffi_slatedb_csharp_ffi_rust_future_complete_f64(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    double ffi_slatedb_csharp_ffi_rust_future_complete_f64(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3552,10 +3807,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(ulong @handle,IntPtr @callback,ulong @callbackData
+    void ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(
+        ulong @handle,
+        IntPtr @callback,
+        ulong @callbackData
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3563,10 +3821,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void ffi_slatedb_csharp_ffi_rust_future_cancel_rust_buffer(ulong @handle
-    );
+    void ffi_slatedb_csharp_ffi_rust_future_cancel_rust_buffer(ulong @handle);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3574,10 +3831,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(ulong @handle
-    );
+    void ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(ulong @handle);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3585,10 +3841,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     RustBuffer ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    RustBuffer ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3596,10 +3854,13 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void ffi_slatedb_csharp_ffi_rust_future_poll_void(ulong @handle,IntPtr @callback,ulong @callbackData
+    void ffi_slatedb_csharp_ffi_rust_future_poll_void(
+        ulong @handle,
+        IntPtr @callback,
+        ulong @callbackData
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3607,10 +3868,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void ffi_slatedb_csharp_ffi_rust_future_cancel_void(ulong @handle
-    );
+    void ffi_slatedb_csharp_ffi_rust_future_cancel_void(ulong @handle);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3618,10 +3878,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void ffi_slatedb_csharp_ffi_rust_future_free_void(ulong @handle
-    );
+    void ffi_slatedb_csharp_ffi_rust_future_free_void(ulong @handle);
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3629,10 +3888,12 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     void ffi_slatedb_csharp_ffi_rust_future_complete_void(ulong @handle,ref UniffiRustCallStatus _uniffi_out_err
+    void ffi_slatedb_csharp_ffi_rust_future_complete_void(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3640,10 +3901,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_func_init_logging(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_func_init_logging();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3651,10 +3911,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_build(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_build();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3662,10 +3921,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_db_cache_disabled(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_db_cache_disabled();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3673,10 +3931,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_merge_operator(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_merge_operator();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3684,10 +3941,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_metrics_recorder(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_metrics_recorder();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3695,10 +3951,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_seed(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_seed();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3706,10 +3961,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_settings(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_settings();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3717,10 +3971,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_sst_block_size(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_sst_block_size();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3728,10 +3981,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_wal_object_store(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_wal_object_store();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3739,10 +3991,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbreaderbuilder_build(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbreaderbuilder_build();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3750,10 +4001,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbreaderbuilder_with_checkpoint_id(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbreaderbuilder_with_checkpoint_id();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3761,10 +4011,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbreaderbuilder_with_merge_operator(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbreaderbuilder_with_merge_operator();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3772,10 +4021,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbreaderbuilder_with_metrics_recorder(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbreaderbuilder_with_metrics_recorder();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3783,10 +4031,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbreaderbuilder_with_options(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbreaderbuilder_with_options();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3794,10 +4041,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbreaderbuilder_with_wal_object_store(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbreaderbuilder_with_wal_object_store();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3805,10 +4051,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_db_begin(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_db_begin();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3816,10 +4061,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_db_delete(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_db_delete();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3827,10 +4071,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_db_delete_with_options(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_db_delete_with_options();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3838,10 +4081,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_db_flush(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_db_flush();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3849,10 +4091,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_db_flush_with_options(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_db_flush_with_options();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3860,10 +4101,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_db_get(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_db_get();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3871,10 +4111,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_db_get_key_value(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_db_get_key_value();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3882,10 +4121,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_db_get_key_value_with_options(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_db_get_key_value_with_options();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3893,10 +4131,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_db_get_with_options(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_db_get_with_options();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3904,10 +4141,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_db_merge(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_db_merge();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3915,10 +4151,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_db_merge_with_options(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_db_merge_with_options();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3926,10 +4161,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_db_put(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_db_put();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3937,10 +4171,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_db_put_with_options(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_db_put_with_options();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3948,10 +4181,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_db_scan(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_db_scan();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3959,10 +4191,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_db_scan_prefix(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_db_scan_prefix();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3970,10 +4201,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_db_scan_prefix_with_options(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_db_scan_prefix_with_options();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3981,10 +4211,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_db_scan_with_options(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_db_scan_with_options();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -3992,10 +4221,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_db_shutdown(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_db_shutdown();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4003,10 +4231,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_db_snapshot(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_db_snapshot();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4014,10 +4241,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_db_status(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_db_status();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4025,10 +4251,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_db_write(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_db_write();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4036,10 +4261,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_db_write_with_options(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_db_write_with_options();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4047,10 +4271,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbreader_get(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbreader_get();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4058,10 +4281,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbreader_get_with_options(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbreader_get_with_options();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4069,10 +4291,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbreader_scan(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbreader_scan();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4080,10 +4301,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbreader_scan_prefix(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbreader_scan_prefix();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4091,10 +4311,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbreader_scan_prefix_with_options(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbreader_scan_prefix_with_options();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4102,10 +4321,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbreader_scan_with_options(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbreader_scan_with_options();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4113,10 +4331,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbreader_shutdown(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbreader_shutdown();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4124,10 +4341,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbreader_status(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbreader_status();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4135,10 +4351,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_get(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_get();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4146,10 +4361,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_get_key_value(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_get_key_value();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4157,10 +4371,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_get_key_value_with_options(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_get_key_value_with_options();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4168,10 +4381,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_get_with_options(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_get_with_options();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4179,10 +4391,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_scan(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_scan();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4190,10 +4401,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_scan_prefix(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_scan_prefix();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4201,10 +4411,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_scan_prefix_with_options(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_scan_prefix_with_options();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4212,10 +4421,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_scan_with_options(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_scan_with_options();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4223,10 +4431,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_commit(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_commit();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4234,10 +4441,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_commit_with_options(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_commit_with_options();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4245,10 +4451,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_delete(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_delete();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4256,10 +4461,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_get(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_get();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4267,10 +4471,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_get_key_value(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_get_key_value();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4278,10 +4481,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_get_key_value_with_options(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_get_key_value_with_options();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4289,10 +4491,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_get_with_options(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_get_with_options();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4300,10 +4501,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_id(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_id();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4311,10 +4511,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_mark_read(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_mark_read();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4322,10 +4521,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_merge(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_merge();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4333,10 +4531,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_merge_with_options(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_merge_with_options();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4344,10 +4541,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_put(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_put();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4355,10 +4551,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_put_with_options(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_put_with_options();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4366,10 +4561,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_rollback(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_rollback();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4377,10 +4571,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_scan(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_scan();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4388,10 +4581,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_scan_prefix(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_scan_prefix();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4399,10 +4591,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_scan_prefix_with_options(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_scan_prefix_with_options();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4410,10 +4601,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_scan_with_options(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_scan_with_options();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4421,10 +4611,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_seqnum(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_seqnum();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4432,10 +4621,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_unmark_write(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_unmark_write();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4443,10 +4631,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbiterator_next(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbiterator_next();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4454,10 +4641,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbiterator_seek(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbiterator_seek();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4465,10 +4651,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbiterator_seek_to_beginning(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbiterator_seek_to_beginning();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4476,10 +4661,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_logcallback_log(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_logcallback_log();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4487,10 +4671,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_mergeoperator_merge(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_mergeoperator_merge();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4498,10 +4681,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_counter_increment(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_counter_increment();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4509,10 +4691,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_metric_by_name_and_labels(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_metric_by_name_and_labels();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4520,10 +4701,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_metrics_by_name(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_metrics_by_name();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4531,10 +4711,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_register_counter(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_register_counter();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4542,10 +4721,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_register_gauge(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_register_gauge();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4553,10 +4731,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_register_histogram(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_register_histogram();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4564,10 +4741,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_register_up_down_counter(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_register_up_down_counter();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4575,10 +4751,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_snapshot(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_snapshot();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4586,10 +4761,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_gauge_set(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_gauge_set();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4597,10 +4771,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_histogram_record(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_histogram_record();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4608,10 +4781,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_metricsrecorder_register_counter(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_metricsrecorder_register_counter();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4619,10 +4791,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_metricsrecorder_register_gauge(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_metricsrecorder_register_gauge();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4630,10 +4801,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_metricsrecorder_register_up_down_counter(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_metricsrecorder_register_up_down_counter();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4641,10 +4811,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_metricsrecorder_register_histogram(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_metricsrecorder_register_histogram();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4652,10 +4821,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_updowncounter_increment(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_updowncounter_increment();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4663,10 +4831,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_objectstorebuilder_build(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_objectstorebuilder_build();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4674,10 +4841,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_settings_set(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_settings_set();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4685,10 +4851,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_settings_to_json_string(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_settings_to_json_string();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4696,10 +4861,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_walfile_id(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_walfile_id();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4707,10 +4871,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_walfile_iterator(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_walfile_iterator();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4718,10 +4881,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_walfile_metadata(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_walfile_metadata();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4729,10 +4891,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_walfile_next_file(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_walfile_next_file();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4740,10 +4901,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_walfile_next_id(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_walfile_next_id();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4751,10 +4911,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_walfileiterator_next(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_walfileiterator_next();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4762,10 +4921,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_walreader_get(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_walreader_get();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4773,10 +4931,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_walreader_list(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_walreader_list();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4784,10 +4941,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_writebatch_delete(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_writebatch_delete();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4795,10 +4951,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_writebatch_merge(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_writebatch_merge();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4806,10 +4961,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_writebatch_merge_with_options(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_writebatch_merge_with_options();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4817,10 +4971,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_writebatch_put(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_writebatch_put();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4828,10 +4981,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_method_writebatch_put_with_options(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_writebatch_put_with_options();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4839,10 +4991,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_constructor_dbbuilder_new(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_constructor_dbbuilder_new();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4850,10 +5001,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_constructor_dbreaderbuilder_new(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_constructor_dbreaderbuilder_new();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4861,10 +5011,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_constructor_defaultmetricsrecorder_new(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_constructor_defaultmetricsrecorder_new();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4872,10 +5021,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_constructor_objectstore_from_env(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_constructor_objectstore_from_env();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4883,10 +5031,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_constructor_objectstore_resolve(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_constructor_objectstore_resolve();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4894,10 +5041,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_constructor_objectstorebuilder_new(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_constructor_objectstorebuilder_new();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4905,10 +5051,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_constructor_settings_default(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_constructor_settings_default();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4916,10 +5061,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_constructor_settings_from_env(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_constructor_settings_from_env();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4927,10 +5071,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_constructor_settings_from_env_with_default(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_constructor_settings_from_env_with_default();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4938,10 +5081,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_constructor_settings_from_file(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_constructor_settings_from_file();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4949,10 +5091,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_constructor_settings_from_json_string(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_constructor_settings_from_json_string();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4960,10 +5101,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_constructor_settings_load(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_constructor_settings_load();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4971,10 +5111,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_constructor_walreader_new(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_constructor_walreader_new();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4982,10 +5121,9 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     ushort uniffi_slatedb_csharp_ffi_checksum_constructor_writebatch_new(
-    );
+    ushort uniffi_slatedb_csharp_ffi_checksum_constructor_writebatch_new();
 
-    #if NET8_0_OR_GREATER
+#if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
     [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
     public static partial
@@ -4993,754 +5131,1209 @@ static class _UniFFILib {
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-     uint ffi_slatedb_csharp_ffi_uniffi_contract_version(
-    );
-
-    
+    uint ffi_slatedb_csharp_ffi_uniffi_contract_version();
 
-    static void uniffiCheckContractApiVersion() {
-        var scaffolding_contract_version = _UniFFILib.ffi_slatedb_csharp_ffi_uniffi_contract_version();
-        if (30 != scaffolding_contract_version) {
-            throw new UniffiContractVersionException($"SlateDb.Interop: uniffi bindings expected version `30`, library returned `{scaffolding_contract_version}`");
+    static void uniffiCheckContractApiVersion()
+    {
+        var scaffolding_contract_version =
+            _UniFFILib.ffi_slatedb_csharp_ffi_uniffi_contract_version();
+        if (30 != scaffolding_contract_version)
+        {
+            throw new UniffiContractVersionException(
+                $"SlateDb.Interop: uniffi bindings expected version `30`, library returned `{scaffolding_contract_version}`"
+            );
         }
     }
-    static void uniffiCheckApiChecksums() {
+
+    static void uniffiCheckApiChecksums()
+    {
         {
             var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_func_init_logging();
-            if (checksum != 34772) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_func_init_logging` checksum `34772`, library returned `{checksum}`");
+            if (checksum != 34772)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_func_init_logging` checksum `34772`, library returned `{checksum}`"
+                );
             }
         }
         {
             var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_build();
-            if (checksum != 27767) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_build` checksum `27767`, library returned `{checksum}`");
+            if (checksum != 27767)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_build` checksum `27767`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_db_cache_disabled();
-            if (checksum != 4055) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_db_cache_disabled` checksum `4055`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_db_cache_disabled();
+            if (checksum != 4055)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_db_cache_disabled` checksum `4055`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_merge_operator();
-            if (checksum != 43163) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_merge_operator` checksum `43163`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_merge_operator();
+            if (checksum != 43163)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_merge_operator` checksum `43163`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_metrics_recorder();
-            if (checksum != 52930) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_metrics_recorder` checksum `52930`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_metrics_recorder();
+            if (checksum != 52930)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_metrics_recorder` checksum `52930`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_seed();
-            if (checksum != 15404) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_seed` checksum `15404`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_seed();
+            if (checksum != 15404)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_seed` checksum `15404`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_settings();
-            if (checksum != 40845) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_settings` checksum `40845`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_settings();
+            if (checksum != 40845)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_settings` checksum `40845`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_sst_block_size();
-            if (checksum != 20464) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_sst_block_size` checksum `20464`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_sst_block_size();
+            if (checksum != 20464)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_sst_block_size` checksum `20464`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_wal_object_store();
-            if (checksum != 62081) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_wal_object_store` checksum `62081`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_wal_object_store();
+            if (checksum != 62081)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_wal_object_store` checksum `62081`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbreaderbuilder_build();
-            if (checksum != 29474) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbreaderbuilder_build` checksum `29474`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbreaderbuilder_build();
+            if (checksum != 29474)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbreaderbuilder_build` checksum `29474`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbreaderbuilder_with_checkpoint_id();
-            if (checksum != 50632) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbreaderbuilder_with_checkpoint_id` checksum `50632`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbreaderbuilder_with_checkpoint_id();
+            if (checksum != 50632)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbreaderbuilder_with_checkpoint_id` checksum `50632`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbreaderbuilder_with_merge_operator();
-            if (checksum != 38297) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbreaderbuilder_with_merge_operator` checksum `38297`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbreaderbuilder_with_merge_operator();
+            if (checksum != 38297)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbreaderbuilder_with_merge_operator` checksum `38297`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbreaderbuilder_with_metrics_recorder();
-            if (checksum != 4805) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbreaderbuilder_with_metrics_recorder` checksum `4805`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbreaderbuilder_with_metrics_recorder();
+            if (checksum != 4805)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbreaderbuilder_with_metrics_recorder` checksum `4805`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbreaderbuilder_with_options();
-            if (checksum != 48457) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbreaderbuilder_with_options` checksum `48457`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbreaderbuilder_with_options();
+            if (checksum != 48457)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbreaderbuilder_with_options` checksum `48457`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbreaderbuilder_with_wal_object_store();
-            if (checksum != 44646) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbreaderbuilder_with_wal_object_store` checksum `44646`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbreaderbuilder_with_wal_object_store();
+            if (checksum != 44646)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbreaderbuilder_with_wal_object_store` checksum `44646`, library returned `{checksum}`"
+                );
             }
         }
         {
             var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_db_begin();
-            if (checksum != 46908) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_begin` checksum `46908`, library returned `{checksum}`");
+            if (checksum != 46908)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_begin` checksum `46908`, library returned `{checksum}`"
+                );
             }
         }
         {
             var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_db_delete();
-            if (checksum != 3588) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_delete` checksum `3588`, library returned `{checksum}`");
+            if (checksum != 3588)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_delete` checksum `3588`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_db_delete_with_options();
-            if (checksum != 41334) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_delete_with_options` checksum `41334`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_db_delete_with_options();
+            if (checksum != 41334)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_delete_with_options` checksum `41334`, library returned `{checksum}`"
+                );
             }
         }
         {
             var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_db_flush();
-            if (checksum != 55130) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_flush` checksum `55130`, library returned `{checksum}`");
+            if (checksum != 55130)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_flush` checksum `55130`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_db_flush_with_options();
-            if (checksum != 16068) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_flush_with_options` checksum `16068`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_db_flush_with_options();
+            if (checksum != 16068)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_flush_with_options` checksum `16068`, library returned `{checksum}`"
+                );
             }
         }
         {
             var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_db_get();
-            if (checksum != 47791) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_get` checksum `47791`, library returned `{checksum}`");
+            if (checksum != 47791)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_get` checksum `47791`, library returned `{checksum}`"
+                );
             }
         }
         {
             var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_db_get_key_value();
-            if (checksum != 31169) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_get_key_value` checksum `31169`, library returned `{checksum}`");
+            if (checksum != 31169)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_get_key_value` checksum `31169`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_db_get_key_value_with_options();
-            if (checksum != 12486) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_get_key_value_with_options` checksum `12486`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_db_get_key_value_with_options();
+            if (checksum != 12486)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_get_key_value_with_options` checksum `12486`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_db_get_with_options();
-            if (checksum != 17208) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_get_with_options` checksum `17208`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_db_get_with_options();
+            if (checksum != 17208)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_get_with_options` checksum `17208`, library returned `{checksum}`"
+                );
             }
         }
         {
             var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_db_merge();
-            if (checksum != 13124) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_merge` checksum `13124`, library returned `{checksum}`");
+            if (checksum != 13124)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_merge` checksum `13124`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_db_merge_with_options();
-            if (checksum != 24004) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_merge_with_options` checksum `24004`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_db_merge_with_options();
+            if (checksum != 24004)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_merge_with_options` checksum `24004`, library returned `{checksum}`"
+                );
             }
         }
         {
             var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_db_put();
-            if (checksum != 25993) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_put` checksum `25993`, library returned `{checksum}`");
+            if (checksum != 25993)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_put` checksum `25993`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_db_put_with_options();
-            if (checksum != 47357) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_put_with_options` checksum `47357`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_db_put_with_options();
+            if (checksum != 47357)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_put_with_options` checksum `47357`, library returned `{checksum}`"
+                );
             }
         }
         {
             var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_db_scan();
-            if (checksum != 39767) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_scan` checksum `39767`, library returned `{checksum}`");
+            if (checksum != 39767)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_scan` checksum `39767`, library returned `{checksum}`"
+                );
             }
         }
         {
             var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_db_scan_prefix();
-            if (checksum != 41436) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_scan_prefix` checksum `41436`, library returned `{checksum}`");
+            if (checksum != 41436)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_scan_prefix` checksum `41436`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_db_scan_prefix_with_options();
-            if (checksum != 47629) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_scan_prefix_with_options` checksum `47629`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_db_scan_prefix_with_options();
+            if (checksum != 47629)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_scan_prefix_with_options` checksum `47629`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_db_scan_with_options();
-            if (checksum != 53326) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_scan_with_options` checksum `53326`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_db_scan_with_options();
+            if (checksum != 53326)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_scan_with_options` checksum `53326`, library returned `{checksum}`"
+                );
             }
         }
         {
             var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_db_shutdown();
-            if (checksum != 56942) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_shutdown` checksum `56942`, library returned `{checksum}`");
+            if (checksum != 56942)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_shutdown` checksum `56942`, library returned `{checksum}`"
+                );
             }
         }
         {
             var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_db_snapshot();
-            if (checksum != 21720) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_snapshot` checksum `21720`, library returned `{checksum}`");
+            if (checksum != 21720)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_snapshot` checksum `21720`, library returned `{checksum}`"
+                );
             }
         }
         {
             var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_db_status();
-            if (checksum != 46493) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_status` checksum `46493`, library returned `{checksum}`");
+            if (checksum != 46493)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_status` checksum `46493`, library returned `{checksum}`"
+                );
             }
         }
         {
             var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_db_write();
-            if (checksum != 18870) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_write` checksum `18870`, library returned `{checksum}`");
+            if (checksum != 18870)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_write` checksum `18870`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_db_write_with_options();
-            if (checksum != 33330) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_write_with_options` checksum `33330`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_db_write_with_options();
+            if (checksum != 33330)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_write_with_options` checksum `33330`, library returned `{checksum}`"
+                );
             }
         }
         {
             var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbreader_get();
-            if (checksum != 13359) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbreader_get` checksum `13359`, library returned `{checksum}`");
+            if (checksum != 13359)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbreader_get` checksum `13359`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbreader_get_with_options();
-            if (checksum != 16363) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbreader_get_with_options` checksum `16363`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbreader_get_with_options();
+            if (checksum != 16363)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbreader_get_with_options` checksum `16363`, library returned `{checksum}`"
+                );
             }
         }
         {
             var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbreader_scan();
-            if (checksum != 14328) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbreader_scan` checksum `14328`, library returned `{checksum}`");
+            if (checksum != 14328)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbreader_scan` checksum `14328`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbreader_scan_prefix();
-            if (checksum != 37992) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbreader_scan_prefix` checksum `37992`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbreader_scan_prefix();
+            if (checksum != 37992)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbreader_scan_prefix` checksum `37992`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbreader_scan_prefix_with_options();
-            if (checksum != 24940) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbreader_scan_prefix_with_options` checksum `24940`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbreader_scan_prefix_with_options();
+            if (checksum != 24940)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbreader_scan_prefix_with_options` checksum `24940`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbreader_scan_with_options();
-            if (checksum != 57267) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbreader_scan_with_options` checksum `57267`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbreader_scan_with_options();
+            if (checksum != 57267)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbreader_scan_with_options` checksum `57267`, library returned `{checksum}`"
+                );
             }
         }
         {
             var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbreader_shutdown();
-            if (checksum != 3787) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbreader_shutdown` checksum `3787`, library returned `{checksum}`");
+            if (checksum != 3787)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbreader_shutdown` checksum `3787`, library returned `{checksum}`"
+                );
             }
         }
         {
             var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbreader_status();
-            if (checksum != 22747) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbreader_status` checksum `22747`, library returned `{checksum}`");
+            if (checksum != 22747)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbreader_status` checksum `22747`, library returned `{checksum}`"
+                );
             }
         }
         {
             var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_get();
-            if (checksum != 8148) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_get` checksum `8148`, library returned `{checksum}`");
+            if (checksum != 8148)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_get` checksum `8148`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_get_key_value();
-            if (checksum != 38032) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_get_key_value` checksum `38032`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_get_key_value();
+            if (checksum != 38032)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_get_key_value` checksum `38032`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_get_key_value_with_options();
-            if (checksum != 45325) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_get_key_value_with_options` checksum `45325`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_get_key_value_with_options();
+            if (checksum != 45325)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_get_key_value_with_options` checksum `45325`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_get_with_options();
-            if (checksum != 46396) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_get_with_options` checksum `46396`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_get_with_options();
+            if (checksum != 46396)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_get_with_options` checksum `46396`, library returned `{checksum}`"
+                );
             }
         }
         {
             var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_scan();
-            if (checksum != 20841) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_scan` checksum `20841`, library returned `{checksum}`");
+            if (checksum != 20841)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_scan` checksum `20841`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_scan_prefix();
-            if (checksum != 13037) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_scan_prefix` checksum `13037`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_scan_prefix();
+            if (checksum != 13037)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_scan_prefix` checksum `13037`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_scan_prefix_with_options();
-            if (checksum != 35868) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_scan_prefix_with_options` checksum `35868`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_scan_prefix_with_options();
+            if (checksum != 35868)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_scan_prefix_with_options` checksum `35868`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_scan_with_options();
-            if (checksum != 39967) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_scan_with_options` checksum `39967`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_scan_with_options();
+            if (checksum != 39967)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_scan_with_options` checksum `39967`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_commit();
-            if (checksum != 61290) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_commit` checksum `61290`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_commit();
+            if (checksum != 61290)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_commit` checksum `61290`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_commit_with_options();
-            if (checksum != 32370) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_commit_with_options` checksum `32370`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_commit_with_options();
+            if (checksum != 32370)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_commit_with_options` checksum `32370`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_delete();
-            if (checksum != 27083) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_delete` checksum `27083`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_delete();
+            if (checksum != 27083)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_delete` checksum `27083`, library returned `{checksum}`"
+                );
             }
         }
         {
             var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_get();
-            if (checksum != 8822) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_get` checksum `8822`, library returned `{checksum}`");
+            if (checksum != 8822)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_get` checksum `8822`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_get_key_value();
-            if (checksum != 7348) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_get_key_value` checksum `7348`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_get_key_value();
+            if (checksum != 7348)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_get_key_value` checksum `7348`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_get_key_value_with_options();
-            if (checksum != 8426) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_get_key_value_with_options` checksum `8426`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_get_key_value_with_options();
+            if (checksum != 8426)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_get_key_value_with_options` checksum `8426`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_get_with_options();
-            if (checksum != 8402) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_get_with_options` checksum `8402`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_get_with_options();
+            if (checksum != 8402)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_get_with_options` checksum `8402`, library returned `{checksum}`"
+                );
             }
         }
         {
             var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_id();
-            if (checksum != 52605) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_id` checksum `52605`, library returned `{checksum}`");
+            if (checksum != 52605)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_id` checksum `52605`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_mark_read();
-            if (checksum != 1579) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_mark_read` checksum `1579`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_mark_read();
+            if (checksum != 1579)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_mark_read` checksum `1579`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_merge();
-            if (checksum != 44561) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_merge` checksum `44561`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_merge();
+            if (checksum != 44561)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_merge` checksum `44561`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_merge_with_options();
-            if (checksum != 11249) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_merge_with_options` checksum `11249`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_merge_with_options();
+            if (checksum != 11249)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_merge_with_options` checksum `11249`, library returned `{checksum}`"
+                );
             }
         }
         {
             var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_put();
-            if (checksum != 32517) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_put` checksum `32517`, library returned `{checksum}`");
+            if (checksum != 32517)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_put` checksum `32517`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_put_with_options();
-            if (checksum != 48721) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_put_with_options` checksum `48721`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_put_with_options();
+            if (checksum != 48721)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_put_with_options` checksum `48721`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_rollback();
-            if (checksum != 49612) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_rollback` checksum `49612`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_rollback();
+            if (checksum != 49612)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_rollback` checksum `49612`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_scan();
-            if (checksum != 27697) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_scan` checksum `27697`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_scan();
+            if (checksum != 27697)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_scan` checksum `27697`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_scan_prefix();
-            if (checksum != 18727) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_scan_prefix` checksum `18727`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_scan_prefix();
+            if (checksum != 18727)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_scan_prefix` checksum `18727`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_scan_prefix_with_options();
-            if (checksum != 32240) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_scan_prefix_with_options` checksum `32240`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_scan_prefix_with_options();
+            if (checksum != 32240)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_scan_prefix_with_options` checksum `32240`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_scan_with_options();
-            if (checksum != 28886) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_scan_with_options` checksum `28886`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_scan_with_options();
+            if (checksum != 28886)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_scan_with_options` checksum `28886`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_seqnum();
-            if (checksum != 39856) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_seqnum` checksum `39856`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_seqnum();
+            if (checksum != 39856)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_seqnum` checksum `39856`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_unmark_write();
-            if (checksum != 34469) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_unmark_write` checksum `34469`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_unmark_write();
+            if (checksum != 34469)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_unmark_write` checksum `34469`, library returned `{checksum}`"
+                );
             }
         }
         {
             var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbiterator_next();
-            if (checksum != 16172) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbiterator_next` checksum `16172`, library returned `{checksum}`");
+            if (checksum != 16172)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbiterator_next` checksum `16172`, library returned `{checksum}`"
+                );
             }
         }
         {
             var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbiterator_seek();
-            if (checksum != 11130) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbiterator_seek` checksum `11130`, library returned `{checksum}`");
+            if (checksum != 11130)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbiterator_seek` checksum `11130`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbiterator_seek_to_beginning();
-            if (checksum != 17269) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbiterator_seek_to_beginning` checksum `17269`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbiterator_seek_to_beginning();
+            if (checksum != 17269)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbiterator_seek_to_beginning` checksum `17269`, library returned `{checksum}`"
+                );
             }
         }
         {
             var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_logcallback_log();
-            if (checksum != 29876) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_logcallback_log` checksum `29876`, library returned `{checksum}`");
+            if (checksum != 29876)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_logcallback_log` checksum `29876`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_mergeoperator_merge();
-            if (checksum != 25984) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_mergeoperator_merge` checksum `25984`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_mergeoperator_merge();
+            if (checksum != 25984)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_mergeoperator_merge` checksum `25984`, library returned `{checksum}`"
+                );
             }
         }
         {
             var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_counter_increment();
-            if (checksum != 47989) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_counter_increment` checksum `47989`, library returned `{checksum}`");
+            if (checksum != 47989)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_counter_increment` checksum `47989`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_metric_by_name_and_labels();
-            if (checksum != 29579) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_metric_by_name_and_labels` checksum `29579`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_metric_by_name_and_labels();
+            if (checksum != 29579)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_metric_by_name_and_labels` checksum `29579`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_metrics_by_name();
-            if (checksum != 27932) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_metrics_by_name` checksum `27932`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_metrics_by_name();
+            if (checksum != 27932)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_metrics_by_name` checksum `27932`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_register_counter();
-            if (checksum != 21940) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_register_counter` checksum `21940`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_register_counter();
+            if (checksum != 21940)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_register_counter` checksum `21940`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_register_gauge();
-            if (checksum != 4823) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_register_gauge` checksum `4823`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_register_gauge();
+            if (checksum != 4823)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_register_gauge` checksum `4823`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_register_histogram();
-            if (checksum != 10344) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_register_histogram` checksum `10344`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_register_histogram();
+            if (checksum != 10344)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_register_histogram` checksum `10344`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_register_up_down_counter();
-            if (checksum != 47083) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_register_up_down_counter` checksum `47083`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_register_up_down_counter();
+            if (checksum != 47083)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_register_up_down_counter` checksum `47083`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_snapshot();
-            if (checksum != 31026) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_snapshot` checksum `31026`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_snapshot();
+            if (checksum != 31026)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_snapshot` checksum `31026`, library returned `{checksum}`"
+                );
             }
         }
         {
             var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_gauge_set();
-            if (checksum != 12864) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_gauge_set` checksum `12864`, library returned `{checksum}`");
+            if (checksum != 12864)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_gauge_set` checksum `12864`, library returned `{checksum}`"
+                );
             }
         }
         {
             var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_histogram_record();
-            if (checksum != 19250) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_histogram_record` checksum `19250`, library returned `{checksum}`");
+            if (checksum != 19250)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_histogram_record` checksum `19250`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_metricsrecorder_register_counter();
-            if (checksum != 125) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_metricsrecorder_register_counter` checksum `125`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_metricsrecorder_register_counter();
+            if (checksum != 125)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_metricsrecorder_register_counter` checksum `125`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_metricsrecorder_register_gauge();
-            if (checksum != 21688) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_metricsrecorder_register_gauge` checksum `21688`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_metricsrecorder_register_gauge();
+            if (checksum != 21688)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_metricsrecorder_register_gauge` checksum `21688`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_metricsrecorder_register_up_down_counter();
-            if (checksum != 62296) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_metricsrecorder_register_up_down_counter` checksum `62296`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_metricsrecorder_register_up_down_counter();
+            if (checksum != 62296)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_metricsrecorder_register_up_down_counter` checksum `62296`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_metricsrecorder_register_histogram();
-            if (checksum != 13591) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_metricsrecorder_register_histogram` checksum `13591`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_metricsrecorder_register_histogram();
+            if (checksum != 13591)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_metricsrecorder_register_histogram` checksum `13591`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_updowncounter_increment();
-            if (checksum != 30786) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_updowncounter_increment` checksum `30786`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_updowncounter_increment();
+            if (checksum != 30786)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_updowncounter_increment` checksum `30786`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_objectstorebuilder_build();
-            if (checksum != 44612) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_objectstorebuilder_build` checksum `44612`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_objectstorebuilder_build();
+            if (checksum != 44612)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_objectstorebuilder_build` checksum `44612`, library returned `{checksum}`"
+                );
             }
         }
         {
             var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_settings_set();
-            if (checksum != 28317) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_settings_set` checksum `28317`, library returned `{checksum}`");
+            if (checksum != 28317)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_settings_set` checksum `28317`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_settings_to_json_string();
-            if (checksum != 643) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_settings_to_json_string` checksum `643`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_settings_to_json_string();
+            if (checksum != 643)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_settings_to_json_string` checksum `643`, library returned `{checksum}`"
+                );
             }
         }
         {
             var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_walfile_id();
-            if (checksum != 14803) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_walfile_id` checksum `14803`, library returned `{checksum}`");
+            if (checksum != 14803)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_walfile_id` checksum `14803`, library returned `{checksum}`"
+                );
             }
         }
         {
             var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_walfile_iterator();
-            if (checksum != 42069) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_walfile_iterator` checksum `42069`, library returned `{checksum}`");
+            if (checksum != 42069)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_walfile_iterator` checksum `42069`, library returned `{checksum}`"
+                );
             }
         }
         {
             var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_walfile_metadata();
-            if (checksum != 43305) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_walfile_metadata` checksum `43305`, library returned `{checksum}`");
+            if (checksum != 43305)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_walfile_metadata` checksum `43305`, library returned `{checksum}`"
+                );
             }
         }
         {
             var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_walfile_next_file();
-            if (checksum != 58135) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_walfile_next_file` checksum `58135`, library returned `{checksum}`");
+            if (checksum != 58135)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_walfile_next_file` checksum `58135`, library returned `{checksum}`"
+                );
             }
         }
         {
             var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_walfile_next_id();
-            if (checksum != 65463) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_walfile_next_id` checksum `65463`, library returned `{checksum}`");
+            if (checksum != 65463)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_walfile_next_id` checksum `65463`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_walfileiterator_next();
-            if (checksum != 2387) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_walfileiterator_next` checksum `2387`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_walfileiterator_next();
+            if (checksum != 2387)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_walfileiterator_next` checksum `2387`, library returned `{checksum}`"
+                );
             }
         }
         {
             var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_walreader_get();
-            if (checksum != 46118) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_walreader_get` checksum `46118`, library returned `{checksum}`");
+            if (checksum != 46118)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_walreader_get` checksum `46118`, library returned `{checksum}`"
+                );
             }
         }
         {
             var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_walreader_list();
-            if (checksum != 35990) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_walreader_list` checksum `35990`, library returned `{checksum}`");
+            if (checksum != 35990)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_walreader_list` checksum `35990`, library returned `{checksum}`"
+                );
             }
         }
         {
             var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_writebatch_delete();
-            if (checksum != 20108) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_writebatch_delete` checksum `20108`, library returned `{checksum}`");
+            if (checksum != 20108)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_writebatch_delete` checksum `20108`, library returned `{checksum}`"
+                );
             }
         }
         {
             var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_writebatch_merge();
-            if (checksum != 54572) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_writebatch_merge` checksum `54572`, library returned `{checksum}`");
+            if (checksum != 54572)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_writebatch_merge` checksum `54572`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_writebatch_merge_with_options();
-            if (checksum != 64124) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_writebatch_merge_with_options` checksum `64124`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_writebatch_merge_with_options();
+            if (checksum != 64124)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_writebatch_merge_with_options` checksum `64124`, library returned `{checksum}`"
+                );
             }
         }
         {
             var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_writebatch_put();
-            if (checksum != 16284) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_writebatch_put` checksum `16284`, library returned `{checksum}`");
+            if (checksum != 16284)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_writebatch_put` checksum `16284`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_writebatch_put_with_options();
-            if (checksum != 26033) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_writebatch_put_with_options` checksum `26033`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_writebatch_put_with_options();
+            if (checksum != 26033)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_writebatch_put_with_options` checksum `26033`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_constructor_dbbuilder_new();
-            if (checksum != 9442) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_constructor_dbbuilder_new` checksum `9442`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_constructor_dbbuilder_new();
+            if (checksum != 9442)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_constructor_dbbuilder_new` checksum `9442`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_constructor_dbreaderbuilder_new();
-            if (checksum != 24635) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_constructor_dbreaderbuilder_new` checksum `24635`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_constructor_dbreaderbuilder_new();
+            if (checksum != 24635)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_constructor_dbreaderbuilder_new` checksum `24635`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_constructor_defaultmetricsrecorder_new();
-            if (checksum != 4811) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_constructor_defaultmetricsrecorder_new` checksum `4811`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_constructor_defaultmetricsrecorder_new();
+            if (checksum != 4811)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_constructor_defaultmetricsrecorder_new` checksum `4811`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_constructor_objectstore_from_env();
-            if (checksum != 27011) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_constructor_objectstore_from_env` checksum `27011`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_constructor_objectstore_from_env();
+            if (checksum != 27011)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_constructor_objectstore_from_env` checksum `27011`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_constructor_objectstore_resolve();
-            if (checksum != 62698) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_constructor_objectstore_resolve` checksum `62698`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_constructor_objectstore_resolve();
+            if (checksum != 62698)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_constructor_objectstore_resolve` checksum `62698`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_constructor_objectstorebuilder_new();
-            if (checksum != 27527) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_constructor_objectstorebuilder_new` checksum `27527`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_constructor_objectstorebuilder_new();
+            if (checksum != 27527)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_constructor_objectstorebuilder_new` checksum `27527`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_constructor_settings_default();
-            if (checksum != 41358) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_constructor_settings_default` checksum `41358`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_constructor_settings_default();
+            if (checksum != 41358)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_constructor_settings_default` checksum `41358`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_constructor_settings_from_env();
-            if (checksum != 58161) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_constructor_settings_from_env` checksum `58161`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_constructor_settings_from_env();
+            if (checksum != 58161)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_constructor_settings_from_env` checksum `58161`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_constructor_settings_from_env_with_default();
-            if (checksum != 7045) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_constructor_settings_from_env_with_default` checksum `7045`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_constructor_settings_from_env_with_default();
+            if (checksum != 7045)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_constructor_settings_from_env_with_default` checksum `7045`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_constructor_settings_from_file();
-            if (checksum != 56471) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_constructor_settings_from_file` checksum `56471`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_constructor_settings_from_file();
+            if (checksum != 56471)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_constructor_settings_from_file` checksum `56471`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_constructor_settings_from_json_string();
-            if (checksum != 44800) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_constructor_settings_from_json_string` checksum `44800`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_constructor_settings_from_json_string();
+            if (checksum != 44800)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_constructor_settings_from_json_string` checksum `44800`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_constructor_settings_load();
-            if (checksum != 62367) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_constructor_settings_load` checksum `62367`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_constructor_settings_load();
+            if (checksum != 62367)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_constructor_settings_load` checksum `62367`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_constructor_walreader_new();
-            if (checksum != 23501) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_constructor_walreader_new` checksum `23501`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_constructor_walreader_new();
+            if (checksum != 23501)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_constructor_walreader_new` checksum `23501`, library returned `{checksum}`"
+                );
             }
         }
         {
-            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_constructor_writebatch_new();
-            if (checksum != 5084) {
-                throw new UniffiContractChecksumException($"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_constructor_writebatch_new` checksum `5084`, library returned `{checksum}`");
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_constructor_writebatch_new();
+            if (checksum != 5084)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_constructor_writebatch_new` checksum `5084`, library returned `{checksum}`"
+                );
             }
         }
     }
@@ -5750,161 +6343,185 @@ static class _UniFFILib {
 
 #pragma warning disable 8625
 
-
-
-
-class FfiConverterUInt32: FfiConverter<uint, uint> {
+class FfiConverterUInt32 : FfiConverter<uint, uint>
+{
     public static FfiConverterUInt32 INSTANCE = new FfiConverterUInt32();
 
-    public override uint Lift(uint value) {
+    public override uint Lift(uint value)
+    {
         return value;
     }
 
-    public override uint Read(BigEndianStream stream) {
+    public override uint Read(BigEndianStream stream)
+    {
         return stream.ReadUInt();
     }
 
-    public override uint Lower(uint value) {
+    public override uint Lower(uint value)
+    {
         return value;
     }
 
-    public override int AllocationSize(uint value) {
+    public override int AllocationSize(uint value)
+    {
         return 4;
     }
 
-    public override void Write(uint value, BigEndianStream stream) {
+    public override void Write(uint value, BigEndianStream stream)
+    {
         stream.WriteUInt(value);
     }
 }
 
-
-
-class FfiConverterUInt64: FfiConverter<ulong, ulong> {
+class FfiConverterUInt64 : FfiConverter<ulong, ulong>
+{
     public static FfiConverterUInt64 INSTANCE = new FfiConverterUInt64();
 
-    public override ulong Lift(ulong value) {
+    public override ulong Lift(ulong value)
+    {
         return value;
     }
 
-    public override ulong Read(BigEndianStream stream) {
+    public override ulong Read(BigEndianStream stream)
+    {
         return stream.ReadULong();
     }
 
-    public override ulong Lower(ulong value) {
+    public override ulong Lower(ulong value)
+    {
         return value;
     }
 
-    public override int AllocationSize(ulong value) {
+    public override int AllocationSize(ulong value)
+    {
         return 8;
     }
 
-    public override void Write(ulong value, BigEndianStream stream) {
+    public override void Write(ulong value, BigEndianStream stream)
+    {
         stream.WriteULong(value);
     }
 }
 
-
-
-class FfiConverterInt64: FfiConverter<long, long> {
+class FfiConverterInt64 : FfiConverter<long, long>
+{
     public static FfiConverterInt64 INSTANCE = new FfiConverterInt64();
 
-    public override long Lift(long value) {
+    public override long Lift(long value)
+    {
         return value;
     }
 
-    public override long Read(BigEndianStream stream) {
+    public override long Read(BigEndianStream stream)
+    {
         return stream.ReadLong();
     }
 
-    public override long Lower(long value) {
+    public override long Lower(long value)
+    {
         return value;
     }
 
-    public override int AllocationSize(long value) {
+    public override int AllocationSize(long value)
+    {
         return 8;
     }
 
-    public override void Write(long value, BigEndianStream stream) {
+    public override void Write(long value, BigEndianStream stream)
+    {
         stream.WriteLong(value);
     }
 }
 
-
-
-class FfiConverterDouble: FfiConverter<double, double> {
+class FfiConverterDouble : FfiConverter<double, double>
+{
     public static FfiConverterDouble INSTANCE = new FfiConverterDouble();
 
-    public override double Lift(double value) {
+    public override double Lift(double value)
+    {
         return value;
     }
 
-    public override double Read(BigEndianStream stream) {
+    public override double Read(BigEndianStream stream)
+    {
         return stream.ReadDouble();
     }
 
-    public override double Lower(double value) {
+    public override double Lower(double value)
+    {
         return value;
     }
 
-    public override int AllocationSize(double value) {
+    public override int AllocationSize(double value)
+    {
         return 8;
     }
 
-    public override void Write(double value, BigEndianStream stream) {
+    public override void Write(double value, BigEndianStream stream)
+    {
         stream.WriteDouble(value);
     }
 }
 
-
-
-class FfiConverterBoolean: FfiConverter<bool, sbyte> {
+class FfiConverterBoolean : FfiConverter<bool, sbyte>
+{
     public static FfiConverterBoolean INSTANCE = new FfiConverterBoolean();
 
-    public override bool Lift(sbyte value) {
+    public override bool Lift(sbyte value)
+    {
         return value != 0;
     }
 
-    public override bool Read(BigEndianStream stream) {
+    public override bool Read(BigEndianStream stream)
+    {
         return Lift(stream.ReadSByte());
     }
 
-    public override sbyte Lower(bool value) {
+    public override sbyte Lower(bool value)
+    {
         return value ? (sbyte)1 : (sbyte)0;
     }
 
-    public override int AllocationSize(bool value) {
+    public override int AllocationSize(bool value)
+    {
         return (sbyte)1;
     }
 
-    public override void Write(bool value, BigEndianStream stream) {
+    public override void Write(bool value, BigEndianStream stream)
+    {
         stream.WriteSByte(Lower(value));
     }
 }
 
-
-
-class FfiConverterString: FfiConverter<string, RustBuffer> {
+class FfiConverterString : FfiConverter<string, RustBuffer>
+{
     public static FfiConverterString INSTANCE = new FfiConverterString();
 
     // Note: we don't inherit from FfiConverterRustBuffer, because we use a
     // special encoding when lowering/lifting.  We can use `RustBuffer.len` to
     // store our length and avoid writing it out to the buffer.
-    public override string Lift(RustBuffer value) {
-        try {
+    public override string Lift(RustBuffer value)
+    {
+        try
+        {
             var bytes = value.AsStream().ReadBytes(Convert.ToInt32(value.len));
             return System.Text.Encoding.UTF8.GetString(bytes);
-        } finally {
+        }
+        finally
+        {
             RustBuffer.Free(value);
         }
     }
 
-    public override string Read(BigEndianStream stream) {
+    public override string Read(BigEndianStream stream)
+    {
         var length = stream.ReadInt();
         var bytes = stream.ReadBytes(length);
         return System.Text.Encoding.UTF8.GetString(bytes);
     }
 
-    public override RustBuffer Lower(string value) {
+    public override RustBuffer Lower(string value)
+    {
         var bytes = System.Text.Encoding.UTF8.GetBytes(value);
         var rbuf = RustBuffer.Alloc(bytes.Length);
         rbuf.AsWriteableStream().WriteBytes(bytes);
@@ -5915,77 +6532,94 @@ class FfiConverterString: FfiConverter<string, RustBuffer> {
     // We aren't sure exactly how many bytes our string will be once it's UTF-8
     // encoded.  Allocate 3 bytes per unicode codepoint which will always be
     // enough.
-    public override int AllocationSize(string value) {
+    public override int AllocationSize(string value)
+    {
         const int sizeForLength = 4;
         var sizeForString = System.Text.Encoding.UTF8.GetByteCount(value);
         return sizeForLength + sizeForString;
     }
 
-    public override void Write(string value, BigEndianStream stream) {
+    public override void Write(string value, BigEndianStream stream)
+    {
         var bytes = System.Text.Encoding.UTF8.GetBytes(value);
         stream.WriteInt(bytes.Length);
         stream.WriteBytes(bytes);
     }
 }
 
-
-
-
-class FfiConverterByteArray: FfiConverterRustBuffer<byte[]> {
+class FfiConverterByteArray : FfiConverterRustBuffer<byte[]>
+{
     public static FfiConverterByteArray INSTANCE = new FfiConverterByteArray();
 
-    public override byte[] Read(BigEndianStream stream) {
+    public override byte[] Read(BigEndianStream stream)
+    {
         var length = stream.ReadInt();
         return stream.ReadBytes(length);
     }
 
-    public override int AllocationSize(byte[] value) {
+    public override int AllocationSize(byte[] value)
+    {
         return 4 + value.Length;
     }
 
-    public override void Write(byte[] value, BigEndianStream stream) {
+    public override void Write(byte[] value, BigEndianStream stream)
+    {
         stream.WriteInt(value.Length);
         stream.WriteBytes(value);
     }
 }
 
-
-
 /// <summary>
 /// Handle for a monotonic counter metric.
 /// </summary>
-internal interface Counter {
+internal interface Counter
+{
     /// <summary>
     /// Adds `value` to the counter.
     /// </summary>
     void Increment(ulong @value);
 }
+
 /// <summary>
 /// Handle for a monotonic counter metric.
 /// </summary>
-internal class CounterImpl : Counter, IDisposable {
+internal class CounterImpl : Counter, IDisposable
+{
     protected ulong pointer;
     private int _wasDestroyed = 0;
     private long _callCounter = 1;
 
-    public CounterImpl(ulong pointer) {
+    public CounterImpl(ulong pointer)
+    {
         this.pointer = pointer;
     }
 
-    ~CounterImpl() {
+    ~CounterImpl()
+    {
         Destroy();
     }
 
-    protected void FreeRustArcPtr() {
-        _UniffiHelpers.RustCall((ref UniffiRustCallStatus status) => {
-            _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_counter(this.pointer, ref status);
-        });
+    protected void FreeRustArcPtr()
+    {
+        _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_counter(this.pointer, ref status);
+            }
+        );
     }
 
-    protected ulong CloneRustArcPtr() {
-        return _UniffiHelpers.RustCall((ref UniffiRustCallStatus status) => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_counter(this.pointer, ref status);
-        });
+    protected ulong CloneRustArcPtr()
+    {
+        return _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_counter(
+                    this.pointer,
+                    ref status
+                );
+            }
+        );
     }
 
     public void Destroy()
@@ -6007,7 +6641,7 @@ internal class CounterImpl : Counter, IDisposable {
         GC.SuppressFinalize(this); // Suppress finalization to avoid unnecessary GC overhead.
     }
 
-    private void IncrementCallCounter() 
+    private void IncrementCallCounter()
     {
         // Check and increment the call counter, to keep the object alive.
         // This needs a compare-and-set retry loop in case of concurrent updates.
@@ -6015,16 +6649,22 @@ internal class CounterImpl : Counter, IDisposable {
         do
         {
             count = Interlocked.Read(ref _callCounter);
-            if (count == 0L) throw new System.ObjectDisposedException(String.Format("'{0}' object has already been destroyed", this.GetType().Name));
-            if (count == long.MaxValue) throw new System.OverflowException(String.Format("'{0}' call counter would overflow", this.GetType().Name));
-
+            if (count == 0L)
+                throw new System.ObjectDisposedException(
+                    String.Format("'{0}' object has already been destroyed", this.GetType().Name)
+                );
+            if (count == long.MaxValue)
+                throw new System.OverflowException(
+                    String.Format("'{0}' call counter would overflow", this.GetType().Name)
+                );
         } while (Interlocked.CompareExchange(ref _callCounter, count + 1, count) != count);
     }
 
-    private void DecrementCallCounter() 
+    private void DecrementCallCounter()
     {
         // This decrement always matches the increment we performed above.
-        if (Interlocked.Decrement(ref _callCounter) == 0) {
+        if (Interlocked.Decrement(ref _callCounter) == 0)
+        {
             FreeRustArcPtr();
         }
     }
@@ -6032,101 +6672,132 @@ internal class CounterImpl : Counter, IDisposable {
     internal void CallWithPointer(Action<ulong> action)
     {
         IncrementCallCounter();
-        try {
+        try
+        {
             action(CloneRustArcPtr());
         }
-        finally {
+        finally
+        {
             DecrementCallCounter();
         }
     }
 
     internal T CallWithPointer<T>(Func<ulong, T> func)
-    {   
+    {
         IncrementCallCounter();
-        try {
+        try
+        {
             return func(CloneRustArcPtr());
         }
-        finally {
+        finally
+        {
             DecrementCallCounter();
         }
     }
 
-    
     /// <summary>
     /// Adds `value` to the counter.
     /// </summary>
-    public void Increment(ulong @value) {
+    public void Increment(ulong @value)
+    {
         CallWithPointer(thisPtr =>
-    _UniffiHelpers.RustCall( (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_counter_increment(thisPtr, FfiConverterUInt64.INSTANCE.Lower(@value), ref _status)
-));
+            _UniffiHelpers.RustCall(
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_counter_increment(
+                        thisPtr,
+                        FfiConverterUInt64.INSTANCE.Lower(@value),
+                        ref _status
+                    )
+            )
+        );
     }
-    
-    
-    
-
-    
 }
-class UniffiCallbackInterfaceCounter {
-    static void Increment(ulong @uniffiHandle,ulong @value,IntPtr @uniffiOutReturn,ref UniffiRustCallStatus _uniffi_out_err) {
+
+class UniffiCallbackInterfaceCounter
+{
+    static void Increment(
+        ulong @uniffiHandle,
+        ulong @value,
+        IntPtr @uniffiOutReturn,
+        ref UniffiRustCallStatus _uniffi_out_err
+    )
+    {
         var handle = @uniffiHandle;
-        try {
-            if (!FfiConverterTypeCounter.INSTANCE.handleMap.TryGet(handle, out var uniffiObject)) {
+        try
+        {
+            if (!FfiConverterTypeCounter.INSTANCE.handleMap.TryGet(handle, out var uniffiObject))
+            {
                 throw new InternalException($"No callback in handlemap '{handle}'");
             }
-            uniffiObject.Increment(
-                FfiConverterUInt64.INSTANCE.Lift(@value));
+            uniffiObject.Increment(FfiConverterUInt64.INSTANCE.Lift(@value));
 
             _uniffi_out_err.code = UniffiCallbackResponseStatus.SUCCESS;
         }
-        catch (System.Exception e){
+        catch (System.Exception e)
+        {
             _uniffi_out_err.code = UniffiCallbackResponseStatus.UNEXPECTED_ERROR;
-            try {
+            try
+            {
                 _uniffi_out_err.error_buf = FfiConverterString.INSTANCE.Lower(e.Message);
             }
-            catch {
-            }
+            catch { }
         }
     }
 
-    static void UniffiFree(ulong @handle) {
+    static void UniffiFree(ulong @handle)
+    {
         FfiConverterTypeCounter.INSTANCE.handleMap.Remove(@handle);
     }
 
-    static ulong UniffiClone(ulong @handle) {
-        try {
-            if (!FfiConverterTypeCounter.INSTANCE.handleMap.TryGet(@handle, out var obj)) {
+    static ulong UniffiClone(ulong @handle)
+    {
+        try
+        {
+            if (!FfiConverterTypeCounter.INSTANCE.handleMap.TryGet(@handle, out var obj))
+            {
                 throw new InternalException($"No callback in handlemap '{@handle}'");
             }
             return FfiConverterTypeCounter.INSTANCE.handleMap.Insert(obj);
-        } catch (System.Exception) {
+        }
+        catch (System.Exception)
+        {
             return 0; // 0 is never a valid handle; ConcurrentHandleMap starts at 1
         }
     }
-    static _UniFFILib.UniffiCallbackInterfaceCounterMethod0 _m0 = new _UniFFILib.UniffiCallbackInterfaceCounterMethod0(Increment);
-    static _UniFFILib.UniffiCallbackInterfaceFree _callback_interface_free = new _UniFFILib.UniffiCallbackInterfaceFree(UniffiFree);
-    static _UniFFILib.UniffiCallbackInterfaceClone _callback_interface_clone = new _UniFFILib.UniffiCallbackInterfaceClone(UniffiClone);
+
+    static _UniFFILib.UniffiCallbackInterfaceCounterMethod0 _m0 =
+        new _UniFFILib.UniffiCallbackInterfaceCounterMethod0(Increment);
+    static _UniFFILib.UniffiCallbackInterfaceFree _callback_interface_free =
+        new _UniFFILib.UniffiCallbackInterfaceFree(UniffiFree);
+    static _UniFFILib.UniffiCallbackInterfaceClone _callback_interface_clone =
+        new _UniFFILib.UniffiCallbackInterfaceClone(UniffiClone);
 
     private static GCHandle? _vtablePin;
 
-    public static void Register() {
-        if (_vtablePin.HasValue) return;
-        _UniFFILib.UniffiVTableCallbackInterfaceCounter _vtable = new _UniFFILib.UniffiVTableCallbackInterfaceCounter {
-            @increment = Marshal.GetFunctionPointerForDelegate(_m0),
-            @uniffiFree = Marshal.GetFunctionPointerForDelegate(_callback_interface_free),
-            @uniffiClone = Marshal.GetFunctionPointerForDelegate(_callback_interface_clone),
-        };
+    public static void Register()
+    {
+        if (_vtablePin.HasValue)
+            return;
+        _UniFFILib.UniffiVTableCallbackInterfaceCounter _vtable =
+            new _UniFFILib.UniffiVTableCallbackInterfaceCounter
+            {
+                @increment = Marshal.GetFunctionPointerForDelegate(_m0),
+                @uniffiFree = Marshal.GetFunctionPointerForDelegate(_callback_interface_free),
+                @uniffiClone = Marshal.GetFunctionPointerForDelegate(_callback_interface_clone),
+            };
 
         // Pin the vtable so the GC never moves it. The GCHandle is intentionally never freed —
         // this pin must remain valid for the process lifetime.
         _vtablePin = GCHandle.Alloc(_vtable, GCHandleType.Pinned);
-        _UniFFILib.uniffi_slatedb_csharp_ffi_fn_init_callback_vtable_counter(_vtablePin.Value.AddrOfPinnedObject());
+        _UniFFILib.uniffi_slatedb_csharp_ffi_fn_init_callback_vtable_counter(
+            _vtablePin.Value.AddrOfPinnedObject()
+        );
     }
 }
 
-
-
-class ConcurrentHandleMap<T> where T: notnull {
+class ConcurrentHandleMap<T>
+    where T : notnull
+{
     readonly ConcurrentDictionary<ulong, T> _map = new();
 
     // Handles are odd numbers (1, 3, 5, ...) — the lowest bit must always be set.
@@ -6136,147 +6807,189 @@ class ConcurrentHandleMap<T> where T: notnull {
     const long HANDLE_DELTA = 2;
     long _currentHandle = HANDLE_INITIAL - HANDLE_DELTA;
 
-    public ulong Insert(T obj) {
+    public ulong Insert(T obj)
+    {
         var handle = (ulong)Interlocked.Add(ref _currentHandle, HANDLE_DELTA);
-        if (!_map.TryAdd(handle, obj)) {
+        if (!_map.TryAdd(handle, obj))
+        {
             throw new InternalException("ConcurrentHandleMap: Duplicate handle");
         }
         return handle;
     }
 
-    public bool TryGet(ulong handle, [NotNullWhen(true)] out T? result) {
+    public bool TryGet(ulong handle, [NotNullWhen(true)] out T? result)
+    {
         return _map.TryGetValue(handle, out result);
     }
 
-    public T Get(ulong handle) {
-        if (_map.TryGetValue(handle, out var result)) {
+    public T Get(ulong handle)
+    {
+        if (_map.TryGetValue(handle, out var result))
+        {
             return result;
-        } else {
+        }
+        else
+        {
             throw new InternalException("ConcurrentHandleMap: Invalid handle");
         }
     }
 
-    public bool Remove(ulong handle) {
+    public bool Remove(ulong handle)
+    {
         return _map.TryRemove(handle, out _);
     }
 
-    public bool Remove(ulong handle, [NotNullWhen(true)] out T? result) {
+    public bool Remove(ulong handle, [NotNullWhen(true)] out T? result)
+    {
         return _map.TryRemove(handle, out result);
     }
 }
-static class UniffiCallbackResponseStatus {
+
+static class UniffiCallbackResponseStatus
+{
     public static sbyte SUCCESS = 0;
     public static sbyte ERROR = 1;
     public static sbyte UNEXPECTED_ERROR = 2;
 }
 
-class FfiConverterTypeCounter: FfiConverter<Counter, ulong> {
+class FfiConverterTypeCounter : FfiConverter<Counter, ulong>
+{
     public ConcurrentHandleMap<Counter> handleMap = new ConcurrentHandleMap<Counter>();
-    
+
     public static FfiConverterTypeCounter INSTANCE = new FfiConverterTypeCounter();
 
-    static FfiConverterTypeCounter() {
+    static FfiConverterTypeCounter()
+    {
         UniffiCallbackInterfaceCounter.Register();
     }
 
-    public override ulong Lower(Counter value) {
-        if (value is CounterImpl rustObj) {
+    public override ulong Lower(Counter value)
+    {
+        if (value is CounterImpl rustObj)
+        {
             // Rust-implemented object. Clone the handle and return it.
             return rustObj.CallWithPointer(thisPtr => thisPtr);
-        } else {
+        }
+        else
+        {
             // C# object, generate a new handle map entry and return it.
             return handleMap.Insert(value);
         }
     }
 
-    public override Counter Lift(ulong value) {
-        if ((value & 1UL) == 0UL) {
+    public override Counter Lift(ulong value)
+    {
+        if ((value & 1UL) == 0UL)
+        {
             // Rust-generated handle, construct a new wrapper.
             return new CounterImpl(value);
-        } else {
+        }
+        else
+        {
             // C#-generated handle, retrieve and remove from the handle map.
-            if (handleMap.Remove(value, out var obj)) {
+            if (handleMap.Remove(value, out var obj))
+            {
                 return obj;
-            } else {
+            }
+            else
+            {
                 throw new InternalException($"No callback in handlemap '{value}'");
             }
         }
     }
 
-    public override Counter Read(BigEndianStream stream) {
+    public override Counter Read(BigEndianStream stream)
+    {
         return Lift(stream.ReadULong());
     }
 
-    public override int AllocationSize(Counter value) {
+    public override int AllocationSize(Counter value)
+    {
         return 8;
     }
 
-    public override void Write(Counter value, BigEndianStream stream) {
+    public override void Write(Counter value, BigEndianStream stream)
+    {
         stream.WriteULong(Lower(value));
     }
 }
 
-
-
 /// <summary>
 /// A writable SlateDB handle.
 /// </summary>
-internal interface IDb {
+internal interface IDb
+{
     /// <summary>
     /// Starts a transaction at the requested isolation level.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task<DbTransaction> Begin(IsolationLevel @isolationLevel);
+
     /// <summary>
     /// Deletes `key` and returns metadata for the write.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task<WriteHandle> Delete(byte[] @key);
+
     /// <summary>
     /// Deletes `key` using custom write options.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task<WriteHandle> DeleteWithOptions(byte[] @key, WriteOptions @options);
+
     /// <summary>
     /// Flushes the default storage layer.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task Flush();
+
     /// <summary>
     /// Flushes according to the provided flush options.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task FlushWithOptions(FlushOptions @options);
+
     /// <summary>
     /// Reads the current value for `key`.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task<byte[]?> Get(byte[] @key);
+
     /// <summary>
     /// Reads the current row version for `key`, including metadata.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task<KeyValue?> GetKeyValue(byte[] @key);
+
     /// <summary>
     /// Reads the current row version for `key` using custom read options.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task<KeyValue?> GetKeyValueWithOptions(byte[] @key, ReadOptions @options);
+
     /// <summary>
     /// Reads the current value for `key` using custom read options.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task<byte[]?> GetWithOptions(byte[] @key, ReadOptions @options);
+
     /// <summary>
     /// Appends a merge operand for `key` and returns metadata for the write.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task<WriteHandle> Merge(byte[] @key, byte[] @operand);
+
     /// <summary>
     /// Appends a merge operand using custom merge and write options.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    Task<WriteHandle> MergeWithOptions(byte[] @key, byte[] @operand, MergeOptions @mergeOptions, WriteOptions @writeOptions);
+    Task<WriteHandle> MergeWithOptions(
+        byte[] @key,
+        byte[] @operand,
+        MergeOptions @mergeOptions,
+        WriteOptions @writeOptions
+    );
+
     /// <summary>
     /// Inserts or overwrites a value and returns metadata for the write.
     ///
@@ -6285,45 +6998,59 @@ internal interface IDb {
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task<WriteHandle> Put(byte[] @key, byte[] @value);
+
     /// <summary>
     /// Inserts or overwrites a value using custom put and write options.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    Task<WriteHandle> PutWithOptions(byte[] @key, byte[] @value, PutOptions @putOptions, WriteOptions @writeOptions);
+    Task<WriteHandle> PutWithOptions(
+        byte[] @key,
+        byte[] @value,
+        PutOptions @putOptions,
+        WriteOptions @writeOptions
+    );
+
     /// <summary>
     /// Scans rows inside `range`.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task<DbIterator> Scan(KeyRange @range);
+
     /// <summary>
     /// Scans rows whose keys start with `prefix`.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task<DbIterator> ScanPrefix(byte[] @prefix);
+
     /// <summary>
     /// Scans rows whose keys start with `prefix` using custom scan options.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task<DbIterator> ScanPrefixWithOptions(byte[] @prefix, ScanOptions @options);
+
     /// <summary>
     /// Scans rows inside `range` using custom scan options.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task<DbIterator> ScanWithOptions(KeyRange @range, ScanOptions @options);
+
     /// <summary>
     /// Flushes outstanding work and closes the database.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task Shutdown();
+
     /// <summary>
     /// Creates a read-only snapshot representing a consistent point in time.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task<DbSnapshot> Snapshot();
+
     /// <summary>
     /// Returns the latest database status snapshot.
     /// </summary>
     DbStatus Status();
+
     /// <summary>
     /// Applies all operations in `batch` atomically.
     ///
@@ -6331,6 +7058,7 @@ internal interface IDb {
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task<WriteHandle> Write(WriteBatch @batch);
+
     /// <summary>
     /// Applies all operations in `batch` atomically using custom write options.
     ///
@@ -6339,32 +7067,44 @@ internal interface IDb {
     /// <exception cref="Exception"></exception>
     Task<WriteHandle> WriteWithOptions(WriteBatch @batch, WriteOptions @options);
 }
+
 /// <summary>
 /// A writable SlateDB handle.
 /// </summary>
-internal class Db : IDb, IDisposable {
+internal class Db : IDb, IDisposable
+{
     protected ulong pointer;
     private int _wasDestroyed = 0;
     private long _callCounter = 1;
 
-    public Db(ulong pointer) {
+    public Db(ulong pointer)
+    {
         this.pointer = pointer;
     }
 
-    ~Db() {
+    ~Db()
+    {
         Destroy();
     }
 
-    protected void FreeRustArcPtr() {
-        _UniffiHelpers.RustCall((ref UniffiRustCallStatus status) => {
-            _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_db(this.pointer, ref status);
-        });
+    protected void FreeRustArcPtr()
+    {
+        _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_db(this.pointer, ref status);
+            }
+        );
     }
 
-    protected ulong CloneRustArcPtr() {
-        return _UniffiHelpers.RustCall((ref UniffiRustCallStatus status) => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_db(this.pointer, ref status);
-        });
+    protected ulong CloneRustArcPtr()
+    {
+        return _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_db(this.pointer, ref status);
+            }
+        );
     }
 
     public void Destroy()
@@ -6386,7 +7126,7 @@ internal class Db : IDb, IDisposable {
         GC.SuppressFinalize(this); // Suppress finalization to avoid unnecessary GC overhead.
     }
 
-    private void IncrementCallCounter() 
+    private void IncrementCallCounter()
     {
         // Check and increment the call counter, to keep the object alive.
         // This needs a compare-and-set retry loop in case of concurrent updates.
@@ -6394,16 +7134,22 @@ internal class Db : IDb, IDisposable {
         do
         {
             count = Interlocked.Read(ref _callCounter);
-            if (count == 0L) throw new System.ObjectDisposedException(String.Format("'{0}' object has already been destroyed", this.GetType().Name));
-            if (count == long.MaxValue) throw new System.OverflowException(String.Format("'{0}' call counter would overflow", this.GetType().Name));
-
+            if (count == 0L)
+                throw new System.ObjectDisposedException(
+                    String.Format("'{0}' object has already been destroyed", this.GetType().Name)
+                );
+            if (count == long.MaxValue)
+                throw new System.OverflowException(
+                    String.Format("'{0}' call counter would overflow", this.GetType().Name)
+                );
         } while (Interlocked.CompareExchange(ref _callCounter, count + 1, count) != count);
     }
 
-    private void DecrementCallCounter() 
+    private void DecrementCallCounter()
     {
         // This decrement always matches the increment we performed above.
-        if (Interlocked.Decrement(ref _callCounter) == 0) {
+        if (Interlocked.Decrement(ref _callCounter) == 0)
+        {
             FreeRustArcPtr();
         }
     }
@@ -6411,293 +7157,453 @@ internal class Db : IDb, IDisposable {
     internal void CallWithPointer(Action<ulong> action)
     {
         IncrementCallCounter();
-        try {
+        try
+        {
             action(CloneRustArcPtr());
         }
-        finally {
+        finally
+        {
             DecrementCallCounter();
         }
     }
 
     internal T CallWithPointer<T>(Func<ulong, T> func)
-    {   
+    {
         IncrementCallCounter();
-        try {
+        try
+        {
             return func(CloneRustArcPtr());
         }
-        finally {
+        finally
+        {
             DecrementCallCounter();
         }
     }
 
-    
     /// <summary>
     /// Starts a transaction at the requested isolation level.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<DbTransaction> Begin(IsolationLevel @isolationLevel) {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_db_begin(thisPtr, FfiConverterTypeIsolationLevel.INSTANCE.Lower(@isolationLevel));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_u64(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_u64(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_u64(future),
-        // Lift
-        (result) => FfiConverterTypeDbTransaction.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<DbTransaction> Begin(IsolationLevel @isolationLevel)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_db_begin(
+                    thisPtr,
+                    FfiConverterTypeIsolationLevel.INSTANCE.Lower(@isolationLevel)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_u64(future, continuation, data),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_u64(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_u64(future),
+            // Lift
+            (result) => FfiConverterTypeDbTransaction.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Deletes `key` and returns metadata for the write.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<WriteHandle> Delete(byte[] @key) {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_db_delete(thisPtr, FfiConverterByteArray.INSTANCE.Lower(@key));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
-        // Lift
-        (result) => FfiConverterTypeWriteHandle.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<WriteHandle> Delete(byte[] @key)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_db_delete(
+                    thisPtr,
+                    FfiConverterByteArray.INSTANCE.Lower(@key)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(
+                    future,
+                    continuation,
+                    data
+                ),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
+            // Lift
+            (result) => FfiConverterTypeWriteHandle.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Deletes `key` using custom write options.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<WriteHandle> DeleteWithOptions(byte[] @key, WriteOptions @options) {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_db_delete_with_options(thisPtr, FfiConverterByteArray.INSTANCE.Lower(@key), FfiConverterTypeWriteOptions.INSTANCE.Lower(@options));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
-        // Lift
-        (result) => FfiConverterTypeWriteHandle.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<WriteHandle> DeleteWithOptions(byte[] @key, WriteOptions @options)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_db_delete_with_options(
+                    thisPtr,
+                    FfiConverterByteArray.INSTANCE.Lower(@key),
+                    FfiConverterTypeWriteOptions.INSTANCE.Lower(@options)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(
+                    future,
+                    continuation,
+                    data
+                ),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
+            // Lift
+            (result) => FfiConverterTypeWriteHandle.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Flushes the default storage layer.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task Flush() {await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_db_flush(thisPtr);
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_void(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {_UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_void(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_void(future),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task Flush()
+    {
+        await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_db_flush(thisPtr);
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_void(future, continuation, data),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_void(future, ref status);
+            },
+            // Free
+            (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_void(future),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Flushes according to the provided flush options.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task FlushWithOptions(FlushOptions @options) {await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_db_flush_with_options(thisPtr, FfiConverterTypeFlushOptions.INSTANCE.Lower(@options));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_void(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {_UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_void(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_void(future),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task FlushWithOptions(FlushOptions @options)
+    {
+        await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_db_flush_with_options(
+                    thisPtr,
+                    FfiConverterTypeFlushOptions.INSTANCE.Lower(@options)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_void(future, continuation, data),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_void(future, ref status);
+            },
+            // Free
+            (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_void(future),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Reads the current value for `key`.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<byte[]?> Get(byte[] @key) {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_db_get(thisPtr, FfiConverterByteArray.INSTANCE.Lower(@key));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
-        // Lift
-        (result) => FfiConverterOptionalByteArray.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<byte[]?> Get(byte[] @key)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_db_get(
+                    thisPtr,
+                    FfiConverterByteArray.INSTANCE.Lower(@key)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(
+                    future,
+                    continuation,
+                    data
+                ),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
+            // Lift
+            (result) => FfiConverterOptionalByteArray.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Reads the current row version for `key`, including metadata.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<KeyValue?> GetKeyValue(byte[] @key) {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_db_get_key_value(thisPtr, FfiConverterByteArray.INSTANCE.Lower(@key));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
-        // Lift
-        (result) => FfiConverterOptionalTypeKeyValue.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<KeyValue?> GetKeyValue(byte[] @key)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_db_get_key_value(
+                    thisPtr,
+                    FfiConverterByteArray.INSTANCE.Lower(@key)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(
+                    future,
+                    continuation,
+                    data
+                ),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
+            // Lift
+            (result) => FfiConverterOptionalTypeKeyValue.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Reads the current row version for `key` using custom read options.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<KeyValue?> GetKeyValueWithOptions(byte[] @key, ReadOptions @options) {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_db_get_key_value_with_options(thisPtr, FfiConverterByteArray.INSTANCE.Lower(@key), FfiConverterTypeReadOptions.INSTANCE.Lower(@options));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
-        // Lift
-        (result) => FfiConverterOptionalTypeKeyValue.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<KeyValue?> GetKeyValueWithOptions(byte[] @key, ReadOptions @options)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_db_get_key_value_with_options(
+                    thisPtr,
+                    FfiConverterByteArray.INSTANCE.Lower(@key),
+                    FfiConverterTypeReadOptions.INSTANCE.Lower(@options)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(
+                    future,
+                    continuation,
+                    data
+                ),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
+            // Lift
+            (result) => FfiConverterOptionalTypeKeyValue.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Reads the current value for `key` using custom read options.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<byte[]?> GetWithOptions(byte[] @key, ReadOptions @options) {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_db_get_with_options(thisPtr, FfiConverterByteArray.INSTANCE.Lower(@key), FfiConverterTypeReadOptions.INSTANCE.Lower(@options));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
-        // Lift
-        (result) => FfiConverterOptionalByteArray.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<byte[]?> GetWithOptions(byte[] @key, ReadOptions @options)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_db_get_with_options(
+                    thisPtr,
+                    FfiConverterByteArray.INSTANCE.Lower(@key),
+                    FfiConverterTypeReadOptions.INSTANCE.Lower(@options)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(
+                    future,
+                    continuation,
+                    data
+                ),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
+            // Lift
+            (result) => FfiConverterOptionalByteArray.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Appends a merge operand for `key` and returns metadata for the write.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<WriteHandle> Merge(byte[] @key, byte[] @operand) {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_db_merge(thisPtr, FfiConverterByteArray.INSTANCE.Lower(@key), FfiConverterByteArray.INSTANCE.Lower(@operand));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
-        // Lift
-        (result) => FfiConverterTypeWriteHandle.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<WriteHandle> Merge(byte[] @key, byte[] @operand)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_db_merge(
+                    thisPtr,
+                    FfiConverterByteArray.INSTANCE.Lower(@key),
+                    FfiConverterByteArray.INSTANCE.Lower(@operand)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(
+                    future,
+                    continuation,
+                    data
+                ),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
+            // Lift
+            (result) => FfiConverterTypeWriteHandle.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Appends a merge operand using custom merge and write options.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<WriteHandle> MergeWithOptions(byte[] @key, byte[] @operand, MergeOptions @mergeOptions, WriteOptions @writeOptions) {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_db_merge_with_options(thisPtr, FfiConverterByteArray.INSTANCE.Lower(@key), FfiConverterByteArray.INSTANCE.Lower(@operand), FfiConverterTypeMergeOptions.INSTANCE.Lower(@mergeOptions), FfiConverterTypeWriteOptions.INSTANCE.Lower(@writeOptions));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
-        // Lift
-        (result) => FfiConverterTypeWriteHandle.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<WriteHandle> MergeWithOptions(
+        byte[] @key,
+        byte[] @operand,
+        MergeOptions @mergeOptions,
+        WriteOptions @writeOptions
+    )
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_db_merge_with_options(
+                    thisPtr,
+                    FfiConverterByteArray.INSTANCE.Lower(@key),
+                    FfiConverterByteArray.INSTANCE.Lower(@operand),
+                    FfiConverterTypeMergeOptions.INSTANCE.Lower(@mergeOptions),
+                    FfiConverterTypeWriteOptions.INSTANCE.Lower(@writeOptions)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(
+                    future,
+                    continuation,
+                    data
+                ),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
+            // Lift
+            (result) => FfiConverterTypeWriteHandle.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Inserts or overwrites a value and returns metadata for the write.
     ///
@@ -6705,376 +7611,539 @@ internal class Db : IDb, IDisposable {
     /// most `u32::MAX` bytes.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<WriteHandle> Put(byte[] @key, byte[] @value) {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_db_put(thisPtr, FfiConverterByteArray.INSTANCE.Lower(@key), FfiConverterByteArray.INSTANCE.Lower(@value));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
-        // Lift
-        (result) => FfiConverterTypeWriteHandle.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<WriteHandle> Put(byte[] @key, byte[] @value)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_db_put(
+                    thisPtr,
+                    FfiConverterByteArray.INSTANCE.Lower(@key),
+                    FfiConverterByteArray.INSTANCE.Lower(@value)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(
+                    future,
+                    continuation,
+                    data
+                ),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
+            // Lift
+            (result) => FfiConverterTypeWriteHandle.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Inserts or overwrites a value using custom put and write options.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<WriteHandle> PutWithOptions(byte[] @key, byte[] @value, PutOptions @putOptions, WriteOptions @writeOptions) {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_db_put_with_options(thisPtr, FfiConverterByteArray.INSTANCE.Lower(@key), FfiConverterByteArray.INSTANCE.Lower(@value), FfiConverterTypePutOptions.INSTANCE.Lower(@putOptions), FfiConverterTypeWriteOptions.INSTANCE.Lower(@writeOptions));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
-        // Lift
-        (result) => FfiConverterTypeWriteHandle.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<WriteHandle> PutWithOptions(
+        byte[] @key,
+        byte[] @value,
+        PutOptions @putOptions,
+        WriteOptions @writeOptions
+    )
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_db_put_with_options(
+                    thisPtr,
+                    FfiConverterByteArray.INSTANCE.Lower(@key),
+                    FfiConverterByteArray.INSTANCE.Lower(@value),
+                    FfiConverterTypePutOptions.INSTANCE.Lower(@putOptions),
+                    FfiConverterTypeWriteOptions.INSTANCE.Lower(@writeOptions)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(
+                    future,
+                    continuation,
+                    data
+                ),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
+            // Lift
+            (result) => FfiConverterTypeWriteHandle.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Scans rows inside `range`.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<DbIterator> Scan(KeyRange @range) {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_db_scan(thisPtr, FfiConverterTypeKeyRange.INSTANCE.Lower(@range));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_u64(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_u64(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_u64(future),
-        // Lift
-        (result) => FfiConverterTypeDbIterator.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<DbIterator> Scan(KeyRange @range)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_db_scan(
+                    thisPtr,
+                    FfiConverterTypeKeyRange.INSTANCE.Lower(@range)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_u64(future, continuation, data),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_u64(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_u64(future),
+            // Lift
+            (result) => FfiConverterTypeDbIterator.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Scans rows whose keys start with `prefix`.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<DbIterator> ScanPrefix(byte[] @prefix) {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_db_scan_prefix(thisPtr, FfiConverterByteArray.INSTANCE.Lower(@prefix));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_u64(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_u64(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_u64(future),
-        // Lift
-        (result) => FfiConverterTypeDbIterator.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<DbIterator> ScanPrefix(byte[] @prefix)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_db_scan_prefix(
+                    thisPtr,
+                    FfiConverterByteArray.INSTANCE.Lower(@prefix)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_u64(future, continuation, data),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_u64(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_u64(future),
+            // Lift
+            (result) => FfiConverterTypeDbIterator.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Scans rows whose keys start with `prefix` using custom scan options.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<DbIterator> ScanPrefixWithOptions(byte[] @prefix, ScanOptions @options) {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_db_scan_prefix_with_options(thisPtr, FfiConverterByteArray.INSTANCE.Lower(@prefix), FfiConverterTypeScanOptions.INSTANCE.Lower(@options));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_u64(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_u64(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_u64(future),
-        // Lift
-        (result) => FfiConverterTypeDbIterator.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<DbIterator> ScanPrefixWithOptions(byte[] @prefix, ScanOptions @options)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_db_scan_prefix_with_options(
+                    thisPtr,
+                    FfiConverterByteArray.INSTANCE.Lower(@prefix),
+                    FfiConverterTypeScanOptions.INSTANCE.Lower(@options)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_u64(future, continuation, data),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_u64(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_u64(future),
+            // Lift
+            (result) => FfiConverterTypeDbIterator.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Scans rows inside `range` using custom scan options.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<DbIterator> ScanWithOptions(KeyRange @range, ScanOptions @options) {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_db_scan_with_options(thisPtr, FfiConverterTypeKeyRange.INSTANCE.Lower(@range), FfiConverterTypeScanOptions.INSTANCE.Lower(@options));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_u64(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_u64(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_u64(future),
-        // Lift
-        (result) => FfiConverterTypeDbIterator.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<DbIterator> ScanWithOptions(KeyRange @range, ScanOptions @options)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_db_scan_with_options(
+                    thisPtr,
+                    FfiConverterTypeKeyRange.INSTANCE.Lower(@range),
+                    FfiConverterTypeScanOptions.INSTANCE.Lower(@options)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_u64(future, continuation, data),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_u64(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_u64(future),
+            // Lift
+            (result) => FfiConverterTypeDbIterator.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Flushes outstanding work and closes the database.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task Shutdown() {await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_db_shutdown(thisPtr);
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_void(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {_UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_void(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_void(future),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task Shutdown()
+    {
+        await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_db_shutdown(thisPtr);
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_void(future, continuation, data),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_void(future, ref status);
+            },
+            // Free
+            (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_void(future),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Creates a read-only snapshot representing a consistent point in time.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<DbSnapshot> Snapshot() {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_db_snapshot(thisPtr);
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_u64(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_u64(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_u64(future),
-        // Lift
-        (result) => FfiConverterTypeDbSnapshot.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<DbSnapshot> Snapshot()
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_db_snapshot(thisPtr);
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_u64(future, continuation, data),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_u64(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_u64(future),
+            // Lift
+            (result) => FfiConverterTypeDbSnapshot.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Returns the latest database status snapshot.
     /// </summary>
-    public DbStatus Status() {
-        return CallWithPointer(thisPtr => FfiConverterTypeDbStatus.INSTANCE.Lift(
-    _UniffiHelpers.RustCall( (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_db_status(thisPtr,  ref _status)
-)));
+    public DbStatus Status()
+    {
+        return CallWithPointer(thisPtr =>
+            FfiConverterTypeDbStatus.INSTANCE.Lift(
+                _UniffiHelpers.RustCall(
+                    (ref UniffiRustCallStatus _status) =>
+                        _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_db_status(
+                            thisPtr,
+                            ref _status
+                        )
+                )
+            )
+        );
     }
-    
-    
+
     /// <summary>
     /// Applies all operations in `batch` atomically.
     ///
     /// The provided batch is consumed and cannot be reused afterwards.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<WriteHandle> Write(WriteBatch @batch) {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_db_write(thisPtr, FfiConverterTypeWriteBatch.INSTANCE.Lower(@batch));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
-        // Lift
-        (result) => FfiConverterTypeWriteHandle.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<WriteHandle> Write(WriteBatch @batch)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_db_write(
+                    thisPtr,
+                    FfiConverterTypeWriteBatch.INSTANCE.Lower(@batch)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(
+                    future,
+                    continuation,
+                    data
+                ),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
+            // Lift
+            (result) => FfiConverterTypeWriteHandle.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Applies all operations in `batch` atomically using custom write options.
     ///
     /// The provided batch is consumed and cannot be reused afterwards.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<WriteHandle> WriteWithOptions(WriteBatch @batch, WriteOptions @options) {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_db_write_with_options(thisPtr, FfiConverterTypeWriteBatch.INSTANCE.Lower(@batch), FfiConverterTypeWriteOptions.INSTANCE.Lower(@options));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
-        // Lift
-        (result) => FfiConverterTypeWriteHandle.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<WriteHandle> WriteWithOptions(WriteBatch @batch, WriteOptions @options)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_db_write_with_options(
+                    thisPtr,
+                    FfiConverterTypeWriteBatch.INSTANCE.Lower(@batch),
+                    FfiConverterTypeWriteOptions.INSTANCE.Lower(@options)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(
+                    future,
+                    continuation,
+                    data
+                ),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
+            // Lift
+            (result) => FfiConverterTypeWriteHandle.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
-
-    
 }
-class FfiConverterTypeDb: FfiConverter<Db, ulong> {
+
+class FfiConverterTypeDb : FfiConverter<Db, ulong>
+{
     public static FfiConverterTypeDb INSTANCE = new FfiConverterTypeDb();
 
-
-    public override ulong Lower(Db value) {
+    public override ulong Lower(Db value)
+    {
         return value.CallWithPointer(thisPtr => thisPtr);
     }
 
-    public override Db Lift(ulong value) {
+    public override Db Lift(ulong value)
+    {
         return new Db(value);
     }
 
-    public override Db Read(BigEndianStream stream) {
+    public override Db Read(BigEndianStream stream)
+    {
         return Lift(stream.ReadULong());
     }
 
-    public override int AllocationSize(Db value) {
+    public override int AllocationSize(Db value)
+    {
         return 8;
     }
 
-    public override void Write(Db value, BigEndianStream stream) {
+    public override void Write(Db value, BigEndianStream stream)
+    {
         stream.WriteULong(Lower(value));
     }
 }
-
-
 
 /// <summary>
 /// Builder for opening a writable [`crate::Db`].
 ///
 /// Builders are single-use: calling [`DbBuilder::build`] consumes the builder.
 /// </summary>
-internal interface IDbBuilder {
+internal interface IDbBuilder
+{
     /// <summary>
     /// Opens the database and consumes this builder.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task<Db> Build();
+
     /// <summary>
     /// Disables the SST block and metadata cache.
     /// </summary>
     /// <exception cref="Exception"></exception>
     void WithDbCacheDisabled();
+
     /// <summary>
     /// Installs an application-defined merge operator.
     /// </summary>
     /// <exception cref="Exception"></exception>
     void WithMergeOperator(MergeOperator @mergeOperator);
+
     /// <summary>
     /// Installs an application-defined metrics recorder.
     /// </summary>
     /// <exception cref="Exception"></exception>
     void WithMetricsRecorder(MetricsRecorder @metricsRecorder);
+
     /// <summary>
     /// Sets the seed used for SlateDB's internal random number generation.
     /// </summary>
     /// <exception cref="Exception"></exception>
     void WithSeed(ulong @seed);
+
     /// <summary>
     /// Applies a [`crate::Settings`] object to the builder.
     /// </summary>
     /// <exception cref="Exception"></exception>
     void WithSettings(Settings @settings);
+
     /// <summary>
     /// Sets the SSTable block size used for newly written tables.
     /// </summary>
     /// <exception cref="Exception"></exception>
     void WithSstBlockSize(SstBlockSize @sstBlockSize);
+
     /// <summary>
     /// Uses a separate object store for WAL files.
     /// </summary>
     /// <exception cref="Exception"></exception>
     void WithWalObjectStore(ObjectStore @walObjectStore);
 }
+
 /// <summary>
 /// Builder for opening a writable [`crate::Db`].
 ///
 /// Builders are single-use: calling [`DbBuilder::build`] consumes the builder.
 /// </summary>
-internal class DbBuilder : IDbBuilder, IDisposable {
+internal class DbBuilder : IDbBuilder, IDisposable
+{
     protected ulong pointer;
     private int _wasDestroyed = 0;
     private long _callCounter = 1;
 
-    public DbBuilder(ulong pointer) {
+    public DbBuilder(ulong pointer)
+    {
         this.pointer = pointer;
     }
 
-    ~DbBuilder() {
+    ~DbBuilder()
+    {
         Destroy();
     }
+
     /// <summary>
     /// Creates a new database builder for `path` in `object_store`.
     /// </summary>
-    public DbBuilder(string @path, ObjectStore @objectStore) :
-        this(
-    _UniffiHelpers.RustCall( (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_constructor_dbbuilder_new(FfiConverterString.INSTANCE.Lower(@path), FfiConverterTypeObjectStore.INSTANCE.Lower(@objectStore), ref _status)
-)) {}
+    public DbBuilder(string @path, ObjectStore @objectStore)
+        : this(
+            _UniffiHelpers.RustCall(
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_constructor_dbbuilder_new(
+                        FfiConverterString.INSTANCE.Lower(@path),
+                        FfiConverterTypeObjectStore.INSTANCE.Lower(@objectStore),
+                        ref _status
+                    )
+            )
+        ) { }
 
-    protected void FreeRustArcPtr() {
-        _UniffiHelpers.RustCall((ref UniffiRustCallStatus status) => {
-            _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_dbbuilder(this.pointer, ref status);
-        });
+    protected void FreeRustArcPtr()
+    {
+        _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_dbbuilder(this.pointer, ref status);
+            }
+        );
     }
 
-    protected ulong CloneRustArcPtr() {
-        return _UniffiHelpers.RustCall((ref UniffiRustCallStatus status) => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_dbbuilder(this.pointer, ref status);
-        });
+    protected ulong CloneRustArcPtr()
+    {
+        return _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_dbbuilder(
+                    this.pointer,
+                    ref status
+                );
+            }
+        );
     }
 
     public void Destroy()
@@ -7096,7 +8165,7 @@ internal class DbBuilder : IDbBuilder, IDisposable {
         GC.SuppressFinalize(this); // Suppress finalization to avoid unnecessary GC overhead.
     }
 
-    private void IncrementCallCounter() 
+    private void IncrementCallCounter()
     {
         // Check and increment the call counter, to keep the object alive.
         // This needs a compare-and-set retry loop in case of concurrent updates.
@@ -7104,16 +8173,22 @@ internal class DbBuilder : IDbBuilder, IDisposable {
         do
         {
             count = Interlocked.Read(ref _callCounter);
-            if (count == 0L) throw new System.ObjectDisposedException(String.Format("'{0}' object has already been destroyed", this.GetType().Name));
-            if (count == long.MaxValue) throw new System.OverflowException(String.Format("'{0}' call counter would overflow", this.GetType().Name));
-
+            if (count == 0L)
+                throw new System.ObjectDisposedException(
+                    String.Format("'{0}' object has already been destroyed", this.GetType().Name)
+                );
+            if (count == long.MaxValue)
+                throw new System.OverflowException(
+                    String.Format("'{0}' call counter would overflow", this.GetType().Name)
+                );
         } while (Interlocked.CompareExchange(ref _callCounter, count + 1, count) != count);
     }
 
-    private void DecrementCallCounter() 
+    private void DecrementCallCounter()
     {
         // This decrement always matches the increment we performed above.
-        if (Interlocked.Decrement(ref _callCounter) == 0) {
+        if (Interlocked.Decrement(ref _callCounter) == 0)
+        {
             FreeRustArcPtr();
         }
     }
@@ -7121,218 +8196,288 @@ internal class DbBuilder : IDbBuilder, IDisposable {
     internal void CallWithPointer(Action<ulong> action)
     {
         IncrementCallCounter();
-        try {
+        try
+        {
             action(CloneRustArcPtr());
         }
-        finally {
+        finally
+        {
             DecrementCallCounter();
         }
     }
 
     internal T CallWithPointer<T>(Func<ulong, T> func)
-    {   
+    {
         IncrementCallCounter();
-        try {
+        try
+        {
             return func(CloneRustArcPtr());
         }
-        finally {
+        finally
+        {
             DecrementCallCounter();
         }
     }
 
-    
     /// <summary>
     /// Opens the database and consumes this builder.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<Db> Build() {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbbuilder_build(thisPtr);
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_u64(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_u64(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_u64(future),
-        // Lift
-        (result) => FfiConverterTypeDb.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<Db> Build()
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbbuilder_build(thisPtr);
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_u64(future, continuation, data),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_u64(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_u64(future),
+            // Lift
+            (result) => FfiConverterTypeDb.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Disables the SST block and metadata cache.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public void WithDbCacheDisabled() {
+    public void WithDbCacheDisabled()
+    {
         CallWithPointer(thisPtr =>
-    _UniffiHelpers.RustCallWithError(FfiConverterTypeError.INSTANCE, (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbbuilder_with_db_cache_disabled(thisPtr,  ref _status)
-));
+            _UniffiHelpers.RustCallWithError(
+                FfiConverterTypeError.INSTANCE,
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbbuilder_with_db_cache_disabled(
+                        thisPtr,
+                        ref _status
+                    )
+            )
+        );
     }
-    
-    
-    
+
     /// <summary>
     /// Installs an application-defined merge operator.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public void WithMergeOperator(MergeOperator @mergeOperator) {
+    public void WithMergeOperator(MergeOperator @mergeOperator)
+    {
         CallWithPointer(thisPtr =>
-    _UniffiHelpers.RustCallWithError(FfiConverterTypeError.INSTANCE, (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbbuilder_with_merge_operator(thisPtr, FfiConverterTypeMergeOperator.INSTANCE.Lower(@mergeOperator), ref _status)
-));
+            _UniffiHelpers.RustCallWithError(
+                FfiConverterTypeError.INSTANCE,
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbbuilder_with_merge_operator(
+                        thisPtr,
+                        FfiConverterTypeMergeOperator.INSTANCE.Lower(@mergeOperator),
+                        ref _status
+                    )
+            )
+        );
     }
-    
-    
-    
+
     /// <summary>
     /// Installs an application-defined metrics recorder.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public void WithMetricsRecorder(MetricsRecorder @metricsRecorder) {
+    public void WithMetricsRecorder(MetricsRecorder @metricsRecorder)
+    {
         CallWithPointer(thisPtr =>
-    _UniffiHelpers.RustCallWithError(FfiConverterTypeError.INSTANCE, (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbbuilder_with_metrics_recorder(thisPtr, FfiConverterTypeMetricsRecorder.INSTANCE.Lower(@metricsRecorder), ref _status)
-));
+            _UniffiHelpers.RustCallWithError(
+                FfiConverterTypeError.INSTANCE,
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbbuilder_with_metrics_recorder(
+                        thisPtr,
+                        FfiConverterTypeMetricsRecorder.INSTANCE.Lower(@metricsRecorder),
+                        ref _status
+                    )
+            )
+        );
     }
-    
-    
-    
+
     /// <summary>
     /// Sets the seed used for SlateDB's internal random number generation.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public void WithSeed(ulong @seed) {
+    public void WithSeed(ulong @seed)
+    {
         CallWithPointer(thisPtr =>
-    _UniffiHelpers.RustCallWithError(FfiConverterTypeError.INSTANCE, (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbbuilder_with_seed(thisPtr, FfiConverterUInt64.INSTANCE.Lower(@seed), ref _status)
-));
+            _UniffiHelpers.RustCallWithError(
+                FfiConverterTypeError.INSTANCE,
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbbuilder_with_seed(
+                        thisPtr,
+                        FfiConverterUInt64.INSTANCE.Lower(@seed),
+                        ref _status
+                    )
+            )
+        );
     }
-    
-    
-    
+
     /// <summary>
     /// Applies a [`crate::Settings`] object to the builder.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public void WithSettings(Settings @settings) {
+    public void WithSettings(Settings @settings)
+    {
         CallWithPointer(thisPtr =>
-    _UniffiHelpers.RustCallWithError(FfiConverterTypeError.INSTANCE, (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbbuilder_with_settings(thisPtr, FfiConverterTypeSettings.INSTANCE.Lower(@settings), ref _status)
-));
+            _UniffiHelpers.RustCallWithError(
+                FfiConverterTypeError.INSTANCE,
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbbuilder_with_settings(
+                        thisPtr,
+                        FfiConverterTypeSettings.INSTANCE.Lower(@settings),
+                        ref _status
+                    )
+            )
+        );
     }
-    
-    
-    
+
     /// <summary>
     /// Sets the SSTable block size used for newly written tables.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public void WithSstBlockSize(SstBlockSize @sstBlockSize) {
+    public void WithSstBlockSize(SstBlockSize @sstBlockSize)
+    {
         CallWithPointer(thisPtr =>
-    _UniffiHelpers.RustCallWithError(FfiConverterTypeError.INSTANCE, (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbbuilder_with_sst_block_size(thisPtr, FfiConverterTypeSstBlockSize.INSTANCE.Lower(@sstBlockSize), ref _status)
-));
+            _UniffiHelpers.RustCallWithError(
+                FfiConverterTypeError.INSTANCE,
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbbuilder_with_sst_block_size(
+                        thisPtr,
+                        FfiConverterTypeSstBlockSize.INSTANCE.Lower(@sstBlockSize),
+                        ref _status
+                    )
+            )
+        );
     }
-    
-    
-    
+
     /// <summary>
     /// Uses a separate object store for WAL files.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public void WithWalObjectStore(ObjectStore @walObjectStore) {
+    public void WithWalObjectStore(ObjectStore @walObjectStore)
+    {
         CallWithPointer(thisPtr =>
-    _UniffiHelpers.RustCallWithError(FfiConverterTypeError.INSTANCE, (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbbuilder_with_wal_object_store(thisPtr, FfiConverterTypeObjectStore.INSTANCE.Lower(@walObjectStore), ref _status)
-));
+            _UniffiHelpers.RustCallWithError(
+                FfiConverterTypeError.INSTANCE,
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbbuilder_with_wal_object_store(
+                        thisPtr,
+                        FfiConverterTypeObjectStore.INSTANCE.Lower(@walObjectStore),
+                        ref _status
+                    )
+            )
+        );
     }
-    
-    
-    
-
-    
 }
-class FfiConverterTypeDbBuilder: FfiConverter<DbBuilder, ulong> {
+
+class FfiConverterTypeDbBuilder : FfiConverter<DbBuilder, ulong>
+{
     public static FfiConverterTypeDbBuilder INSTANCE = new FfiConverterTypeDbBuilder();
 
-
-    public override ulong Lower(DbBuilder value) {
+    public override ulong Lower(DbBuilder value)
+    {
         return value.CallWithPointer(thisPtr => thisPtr);
     }
 
-    public override DbBuilder Lift(ulong value) {
+    public override DbBuilder Lift(ulong value)
+    {
         return new DbBuilder(value);
     }
 
-    public override DbBuilder Read(BigEndianStream stream) {
+    public override DbBuilder Read(BigEndianStream stream)
+    {
         return Lift(stream.ReadULong());
     }
 
-    public override int AllocationSize(DbBuilder value) {
+    public override int AllocationSize(DbBuilder value)
+    {
         return 8;
     }
 
-    public override void Write(DbBuilder value, BigEndianStream stream) {
+    public override void Write(DbBuilder value, BigEndianStream stream)
+    {
         stream.WriteULong(Lower(value));
     }
 }
 
-
-
 /// <summary>
 /// Async iterator returned by scan APIs.
 /// </summary>
-internal interface IDbIterator {
+internal interface IDbIterator
+{
     /// <summary>
     /// Returns the next key/value pair from the iterator.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task<KeyValue?> Next();
+
     /// <summary>
     /// Seeks the iterator to the first entry at or after `key`.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task Seek(byte[] @key);
+
     /// <summary>
     /// Seeks the iterator back to the start of its range.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task SeekToBeginning();
 }
+
 /// <summary>
 /// Async iterator returned by scan APIs.
 /// </summary>
-internal class DbIterator : IDbIterator, IDisposable {
+internal class DbIterator : IDbIterator, IDisposable
+{
     protected ulong pointer;
     private int _wasDestroyed = 0;
     private long _callCounter = 1;
 
-    public DbIterator(ulong pointer) {
+    public DbIterator(ulong pointer)
+    {
         this.pointer = pointer;
     }
 
-    ~DbIterator() {
+    ~DbIterator()
+    {
         Destroy();
     }
 
-    protected void FreeRustArcPtr() {
-        _UniffiHelpers.RustCall((ref UniffiRustCallStatus status) => {
-            _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_dbiterator(this.pointer, ref status);
-        });
+    protected void FreeRustArcPtr()
+    {
+        _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_dbiterator(this.pointer, ref status);
+            }
+        );
     }
 
-    protected ulong CloneRustArcPtr() {
-        return _UniffiHelpers.RustCall((ref UniffiRustCallStatus status) => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_dbiterator(this.pointer, ref status);
-        });
+    protected ulong CloneRustArcPtr()
+    {
+        return _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_dbiterator(
+                    this.pointer,
+                    ref status
+                );
+            }
+        );
     }
 
     public void Destroy()
@@ -7354,7 +8499,7 @@ internal class DbIterator : IDbIterator, IDisposable {
         GC.SuppressFinalize(this); // Suppress finalization to avoid unnecessary GC overhead.
     }
 
-    private void IncrementCallCounter() 
+    private void IncrementCallCounter()
     {
         // Check and increment the call counter, to keep the object alive.
         // This needs a compare-and-set retry loop in case of concurrent updates.
@@ -7362,16 +8507,22 @@ internal class DbIterator : IDbIterator, IDisposable {
         do
         {
             count = Interlocked.Read(ref _callCounter);
-            if (count == 0L) throw new System.ObjectDisposedException(String.Format("'{0}' object has already been destroyed", this.GetType().Name));
-            if (count == long.MaxValue) throw new System.OverflowException(String.Format("'{0}' call counter would overflow", this.GetType().Name));
-
+            if (count == 0L)
+                throw new System.ObjectDisposedException(
+                    String.Format("'{0}' object has already been destroyed", this.GetType().Name)
+                );
+            if (count == long.MaxValue)
+                throw new System.OverflowException(
+                    String.Format("'{0}' call counter would overflow", this.GetType().Name)
+                );
         } while (Interlocked.CompareExchange(ref _callCounter, count + 1, count) != count);
     }
 
-    private void DecrementCallCounter() 
+    private void DecrementCallCounter()
     {
         // This decrement always matches the increment we performed above.
-        if (Interlocked.Decrement(ref _callCounter) == 0) {
+        if (Interlocked.Decrement(ref _callCounter) == 0)
+        {
             FreeRustArcPtr();
         }
     }
@@ -7379,193 +8530,249 @@ internal class DbIterator : IDbIterator, IDisposable {
     internal void CallWithPointer(Action<ulong> action)
     {
         IncrementCallCounter();
-        try {
+        try
+        {
             action(CloneRustArcPtr());
         }
-        finally {
+        finally
+        {
             DecrementCallCounter();
         }
     }
 
     internal T CallWithPointer<T>(Func<ulong, T> func)
-    {   
+    {
         IncrementCallCounter();
-        try {
+        try
+        {
             return func(CloneRustArcPtr());
         }
-        finally {
+        finally
+        {
             DecrementCallCounter();
         }
     }
 
-    
     /// <summary>
     /// Returns the next key/value pair from the iterator.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<KeyValue?> Next() {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbiterator_next(thisPtr);
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
-        // Lift
-        (result) => FfiConverterOptionalTypeKeyValue.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<KeyValue?> Next()
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbiterator_next(thisPtr);
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(
+                    future,
+                    continuation,
+                    data
+                ),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
+            // Lift
+            (result) => FfiConverterOptionalTypeKeyValue.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Seeks the iterator to the first entry at or after `key`.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task Seek(byte[] @key) {await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbiterator_seek(thisPtr, FfiConverterByteArray.INSTANCE.Lower(@key));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_void(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {_UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_void(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_void(future),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task Seek(byte[] @key)
+    {
+        await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbiterator_seek(
+                    thisPtr,
+                    FfiConverterByteArray.INSTANCE.Lower(@key)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_void(future, continuation, data),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_void(future, ref status);
+            },
+            // Free
+            (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_void(future),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Seeks the iterator back to the start of its range.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task SeekToBeginning() {await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbiterator_seek_to_beginning(thisPtr);
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_void(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {_UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_void(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_void(future),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task SeekToBeginning()
+    {
+        await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbiterator_seek_to_beginning(
+                    thisPtr
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_void(future, continuation, data),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_void(future, ref status);
+            },
+            // Free
+            (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_void(future),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
-
-    
 }
-class FfiConverterTypeDbIterator: FfiConverter<DbIterator, ulong> {
+
+class FfiConverterTypeDbIterator : FfiConverter<DbIterator, ulong>
+{
     public static FfiConverterTypeDbIterator INSTANCE = new FfiConverterTypeDbIterator();
 
-
-    public override ulong Lower(DbIterator value) {
+    public override ulong Lower(DbIterator value)
+    {
         return value.CallWithPointer(thisPtr => thisPtr);
     }
 
-    public override DbIterator Lift(ulong value) {
+    public override DbIterator Lift(ulong value)
+    {
         return new DbIterator(value);
     }
 
-    public override DbIterator Read(BigEndianStream stream) {
+    public override DbIterator Read(BigEndianStream stream)
+    {
         return Lift(stream.ReadULong());
     }
 
-    public override int AllocationSize(DbIterator value) {
+    public override int AllocationSize(DbIterator value)
+    {
         return 8;
     }
 
-    public override void Write(DbIterator value, BigEndianStream stream) {
+    public override void Write(DbIterator value, BigEndianStream stream)
+    {
         stream.WriteULong(Lower(value));
     }
 }
 
-
-
 /// <summary>
 /// Read-only database handle opened by [`crate::DbReaderBuilder`].
 /// </summary>
-internal interface IDbReader {
+internal interface IDbReader
+{
     /// <summary>
     /// Reads the current value for `key`.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task<byte[]?> Get(byte[] @key);
+
     /// <summary>
     /// Reads the current value for `key` using custom read options.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task<byte[]?> GetWithOptions(byte[] @key, ReadOptions @options);
+
     /// <summary>
     /// Scans rows inside `range`.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task<DbIterator> Scan(KeyRange @range);
+
     /// <summary>
     /// Scans rows whose keys start with `prefix`.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task<DbIterator> ScanPrefix(byte[] @prefix);
+
     /// <summary>
     /// Scans rows whose keys start with `prefix` using custom scan options.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task<DbIterator> ScanPrefixWithOptions(byte[] @prefix, ScanOptions @options);
+
     /// <summary>
     /// Scans rows inside `range` using custom scan options.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task<DbIterator> ScanWithOptions(KeyRange @range, ScanOptions @options);
+
     /// <summary>
     /// Closes the reader.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task Shutdown();
+
     /// <summary>
     /// Returns the latest reader status snapshot.
     /// </summary>
     DbStatus Status();
 }
+
 /// <summary>
 /// Read-only database handle opened by [`crate::DbReaderBuilder`].
 /// </summary>
-internal class DbReader : IDbReader, IDisposable {
+internal class DbReader : IDbReader, IDisposable
+{
     protected ulong pointer;
     private int _wasDestroyed = 0;
     private long _callCounter = 1;
 
-    public DbReader(ulong pointer) {
+    public DbReader(ulong pointer)
+    {
         this.pointer = pointer;
     }
 
-    ~DbReader() {
+    ~DbReader()
+    {
         Destroy();
     }
 
-    protected void FreeRustArcPtr() {
-        _UniffiHelpers.RustCall((ref UniffiRustCallStatus status) => {
-            _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_dbreader(this.pointer, ref status);
-        });
+    protected void FreeRustArcPtr()
+    {
+        _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_dbreader(this.pointer, ref status);
+            }
+        );
     }
 
-    protected ulong CloneRustArcPtr() {
-        return _UniffiHelpers.RustCall((ref UniffiRustCallStatus status) => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_dbreader(this.pointer, ref status);
-        });
+    protected ulong CloneRustArcPtr()
+    {
+        return _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_dbreader(
+                    this.pointer,
+                    ref status
+                );
+            }
+        );
     }
 
     public void Destroy()
@@ -7587,7 +8794,7 @@ internal class DbReader : IDbReader, IDisposable {
         GC.SuppressFinalize(this); // Suppress finalization to avoid unnecessary GC overhead.
     }
 
-    private void IncrementCallCounter() 
+    private void IncrementCallCounter()
     {
         // Check and increment the call counter, to keep the object alive.
         // This needs a compare-and-set retry loop in case of concurrent updates.
@@ -7595,16 +8802,22 @@ internal class DbReader : IDbReader, IDisposable {
         do
         {
             count = Interlocked.Read(ref _callCounter);
-            if (count == 0L) throw new System.ObjectDisposedException(String.Format("'{0}' object has already been destroyed", this.GetType().Name));
-            if (count == long.MaxValue) throw new System.OverflowException(String.Format("'{0}' call counter would overflow", this.GetType().Name));
-
+            if (count == 0L)
+                throw new System.ObjectDisposedException(
+                    String.Format("'{0}' object has already been destroyed", this.GetType().Name)
+                );
+            if (count == long.MaxValue)
+                throw new System.OverflowException(
+                    String.Format("'{0}' call counter would overflow", this.GetType().Name)
+                );
         } while (Interlocked.CompareExchange(ref _callCounter, count + 1, count) != count);
     }
 
-    private void DecrementCallCounter() 
+    private void DecrementCallCounter()
     {
         // This decrement always matches the increment we performed above.
-        if (Interlocked.Decrement(ref _callCounter) == 0) {
+        if (Interlocked.Decrement(ref _callCounter) == 0)
+        {
             FreeRustArcPtr();
         }
     }
@@ -7612,311 +8825,432 @@ internal class DbReader : IDbReader, IDisposable {
     internal void CallWithPointer(Action<ulong> action)
     {
         IncrementCallCounter();
-        try {
+        try
+        {
             action(CloneRustArcPtr());
         }
-        finally {
+        finally
+        {
             DecrementCallCounter();
         }
     }
 
     internal T CallWithPointer<T>(Func<ulong, T> func)
-    {   
+    {
         IncrementCallCounter();
-        try {
+        try
+        {
             return func(CloneRustArcPtr());
         }
-        finally {
+        finally
+        {
             DecrementCallCounter();
         }
     }
 
-    
     /// <summary>
     /// Reads the current value for `key`.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<byte[]?> Get(byte[] @key) {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbreader_get(thisPtr, FfiConverterByteArray.INSTANCE.Lower(@key));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
-        // Lift
-        (result) => FfiConverterOptionalByteArray.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<byte[]?> Get(byte[] @key)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbreader_get(
+                    thisPtr,
+                    FfiConverterByteArray.INSTANCE.Lower(@key)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(
+                    future,
+                    continuation,
+                    data
+                ),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
+            // Lift
+            (result) => FfiConverterOptionalByteArray.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Reads the current value for `key` using custom read options.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<byte[]?> GetWithOptions(byte[] @key, ReadOptions @options) {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbreader_get_with_options(thisPtr, FfiConverterByteArray.INSTANCE.Lower(@key), FfiConverterTypeReadOptions.INSTANCE.Lower(@options));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
-        // Lift
-        (result) => FfiConverterOptionalByteArray.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<byte[]?> GetWithOptions(byte[] @key, ReadOptions @options)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbreader_get_with_options(
+                    thisPtr,
+                    FfiConverterByteArray.INSTANCE.Lower(@key),
+                    FfiConverterTypeReadOptions.INSTANCE.Lower(@options)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(
+                    future,
+                    continuation,
+                    data
+                ),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
+            // Lift
+            (result) => FfiConverterOptionalByteArray.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Scans rows inside `range`.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<DbIterator> Scan(KeyRange @range) {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbreader_scan(thisPtr, FfiConverterTypeKeyRange.INSTANCE.Lower(@range));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_u64(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_u64(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_u64(future),
-        // Lift
-        (result) => FfiConverterTypeDbIterator.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<DbIterator> Scan(KeyRange @range)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbreader_scan(
+                    thisPtr,
+                    FfiConverterTypeKeyRange.INSTANCE.Lower(@range)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_u64(future, continuation, data),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_u64(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_u64(future),
+            // Lift
+            (result) => FfiConverterTypeDbIterator.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Scans rows whose keys start with `prefix`.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<DbIterator> ScanPrefix(byte[] @prefix) {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbreader_scan_prefix(thisPtr, FfiConverterByteArray.INSTANCE.Lower(@prefix));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_u64(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_u64(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_u64(future),
-        // Lift
-        (result) => FfiConverterTypeDbIterator.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<DbIterator> ScanPrefix(byte[] @prefix)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbreader_scan_prefix(
+                    thisPtr,
+                    FfiConverterByteArray.INSTANCE.Lower(@prefix)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_u64(future, continuation, data),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_u64(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_u64(future),
+            // Lift
+            (result) => FfiConverterTypeDbIterator.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Scans rows whose keys start with `prefix` using custom scan options.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<DbIterator> ScanPrefixWithOptions(byte[] @prefix, ScanOptions @options) {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbreader_scan_prefix_with_options(thisPtr, FfiConverterByteArray.INSTANCE.Lower(@prefix), FfiConverterTypeScanOptions.INSTANCE.Lower(@options));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_u64(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_u64(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_u64(future),
-        // Lift
-        (result) => FfiConverterTypeDbIterator.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<DbIterator> ScanPrefixWithOptions(byte[] @prefix, ScanOptions @options)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbreader_scan_prefix_with_options(
+                    thisPtr,
+                    FfiConverterByteArray.INSTANCE.Lower(@prefix),
+                    FfiConverterTypeScanOptions.INSTANCE.Lower(@options)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_u64(future, continuation, data),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_u64(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_u64(future),
+            // Lift
+            (result) => FfiConverterTypeDbIterator.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Scans rows inside `range` using custom scan options.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<DbIterator> ScanWithOptions(KeyRange @range, ScanOptions @options) {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbreader_scan_with_options(thisPtr, FfiConverterTypeKeyRange.INSTANCE.Lower(@range), FfiConverterTypeScanOptions.INSTANCE.Lower(@options));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_u64(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_u64(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_u64(future),
-        // Lift
-        (result) => FfiConverterTypeDbIterator.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<DbIterator> ScanWithOptions(KeyRange @range, ScanOptions @options)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbreader_scan_with_options(
+                    thisPtr,
+                    FfiConverterTypeKeyRange.INSTANCE.Lower(@range),
+                    FfiConverterTypeScanOptions.INSTANCE.Lower(@options)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_u64(future, continuation, data),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_u64(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_u64(future),
+            // Lift
+            (result) => FfiConverterTypeDbIterator.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Closes the reader.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task Shutdown() {await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbreader_shutdown(thisPtr);
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_void(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {_UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_void(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_void(future),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task Shutdown()
+    {
+        await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbreader_shutdown(thisPtr);
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_void(future, continuation, data),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_void(future, ref status);
+            },
+            // Free
+            (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_void(future),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Returns the latest reader status snapshot.
     /// </summary>
-    public DbStatus Status() {
-        return CallWithPointer(thisPtr => FfiConverterTypeDbStatus.INSTANCE.Lift(
-    _UniffiHelpers.RustCall( (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbreader_status(thisPtr,  ref _status)
-)));
+    public DbStatus Status()
+    {
+        return CallWithPointer(thisPtr =>
+            FfiConverterTypeDbStatus.INSTANCE.Lift(
+                _UniffiHelpers.RustCall(
+                    (ref UniffiRustCallStatus _status) =>
+                        _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbreader_status(
+                            thisPtr,
+                            ref _status
+                        )
+                )
+            )
+        );
     }
-    
-    
-
-    
 }
-class FfiConverterTypeDbReader: FfiConverter<DbReader, ulong> {
+
+class FfiConverterTypeDbReader : FfiConverter<DbReader, ulong>
+{
     public static FfiConverterTypeDbReader INSTANCE = new FfiConverterTypeDbReader();
 
-
-    public override ulong Lower(DbReader value) {
+    public override ulong Lower(DbReader value)
+    {
         return value.CallWithPointer(thisPtr => thisPtr);
     }
 
-    public override DbReader Lift(ulong value) {
+    public override DbReader Lift(ulong value)
+    {
         return new DbReader(value);
     }
 
-    public override DbReader Read(BigEndianStream stream) {
+    public override DbReader Read(BigEndianStream stream)
+    {
         return Lift(stream.ReadULong());
     }
 
-    public override int AllocationSize(DbReader value) {
+    public override int AllocationSize(DbReader value)
+    {
         return 8;
     }
 
-    public override void Write(DbReader value, BigEndianStream stream) {
+    public override void Write(DbReader value, BigEndianStream stream)
+    {
         stream.WriteULong(Lower(value));
     }
 }
-
-
 
 /// <summary>
 /// Builder for opening a read-only [`crate::DbReader`].
 ///
 /// Builders are single-use: calling [`DbReaderBuilder::build`] consumes the builder.
 /// </summary>
-internal interface IDbReaderBuilder {
+internal interface IDbReaderBuilder
+{
     /// <summary>
     /// Opens the reader and consumes this builder.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task<DbReader> Build();
+
     /// <summary>
     /// Pins the reader to an existing checkpoint UUID string.
     /// </summary>
     /// <exception cref="Exception"></exception>
     void WithCheckpointId(string @checkpointId);
+
     /// <summary>
     /// Installs an application-defined merge operator used while reading merge rows.
     /// </summary>
     /// <exception cref="Exception"></exception>
     void WithMergeOperator(MergeOperator @mergeOperator);
+
     /// <summary>
     /// Installs an application-defined metrics recorder.
     /// </summary>
     /// <exception cref="Exception"></exception>
     void WithMetricsRecorder(MetricsRecorder @metricsRecorder);
+
     /// <summary>
     /// Applies custom reader options.
     /// </summary>
     /// <exception cref="Exception"></exception>
     void WithOptions(ReaderOptions @options);
+
     /// <summary>
     /// Uses a separate object store for WAL files.
     /// </summary>
     /// <exception cref="Exception"></exception>
     void WithWalObjectStore(ObjectStore @walObjectStore);
 }
+
 /// <summary>
 /// Builder for opening a read-only [`crate::DbReader`].
 ///
 /// Builders are single-use: calling [`DbReaderBuilder::build`] consumes the builder.
 /// </summary>
-internal class DbReaderBuilder : IDbReaderBuilder, IDisposable {
+internal class DbReaderBuilder : IDbReaderBuilder, IDisposable
+{
     protected ulong pointer;
     private int _wasDestroyed = 0;
     private long _callCounter = 1;
 
-    public DbReaderBuilder(ulong pointer) {
+    public DbReaderBuilder(ulong pointer)
+    {
         this.pointer = pointer;
     }
 
-    ~DbReaderBuilder() {
+    ~DbReaderBuilder()
+    {
         Destroy();
     }
+
     /// <summary>
     /// Creates a new reader builder for `path` in `object_store`.
     /// </summary>
-    public DbReaderBuilder(string @path, ObjectStore @objectStore) :
-        this(
-    _UniffiHelpers.RustCall( (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_constructor_dbreaderbuilder_new(FfiConverterString.INSTANCE.Lower(@path), FfiConverterTypeObjectStore.INSTANCE.Lower(@objectStore), ref _status)
-)) {}
+    public DbReaderBuilder(string @path, ObjectStore @objectStore)
+        : this(
+            _UniffiHelpers.RustCall(
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_constructor_dbreaderbuilder_new(
+                        FfiConverterString.INSTANCE.Lower(@path),
+                        FfiConverterTypeObjectStore.INSTANCE.Lower(@objectStore),
+                        ref _status
+                    )
+            )
+        ) { }
 
-    protected void FreeRustArcPtr() {
-        _UniffiHelpers.RustCall((ref UniffiRustCallStatus status) => {
-            _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_dbreaderbuilder(this.pointer, ref status);
-        });
+    protected void FreeRustArcPtr()
+    {
+        _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_dbreaderbuilder(
+                    this.pointer,
+                    ref status
+                );
+            }
+        );
     }
 
-    protected ulong CloneRustArcPtr() {
-        return _UniffiHelpers.RustCall((ref UniffiRustCallStatus status) => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_dbreaderbuilder(this.pointer, ref status);
-        });
+    protected ulong CloneRustArcPtr()
+    {
+        return _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_dbreaderbuilder(
+                    this.pointer,
+                    ref status
+                );
+            }
+        );
     }
 
     public void Destroy()
@@ -7938,7 +9272,7 @@ internal class DbReaderBuilder : IDbReaderBuilder, IDisposable {
         GC.SuppressFinalize(this); // Suppress finalization to avoid unnecessary GC overhead.
     }
 
-    private void IncrementCallCounter() 
+    private void IncrementCallCounter()
     {
         // Check and increment the call counter, to keep the object alive.
         // This needs a compare-and-set retry loop in case of concurrent updates.
@@ -7946,16 +9280,22 @@ internal class DbReaderBuilder : IDbReaderBuilder, IDisposable {
         do
         {
             count = Interlocked.Read(ref _callCounter);
-            if (count == 0L) throw new System.ObjectDisposedException(String.Format("'{0}' object has already been destroyed", this.GetType().Name));
-            if (count == long.MaxValue) throw new System.OverflowException(String.Format("'{0}' call counter would overflow", this.GetType().Name));
-
+            if (count == 0L)
+                throw new System.ObjectDisposedException(
+                    String.Format("'{0}' object has already been destroyed", this.GetType().Name)
+                );
+            if (count == long.MaxValue)
+                throw new System.OverflowException(
+                    String.Format("'{0}' call counter would overflow", this.GetType().Name)
+                );
         } while (Interlocked.CompareExchange(ref _callCounter, count + 1, count) != count);
     }
 
-    private void DecrementCallCounter() 
+    private void DecrementCallCounter()
     {
         // This decrement always matches the increment we performed above.
-        if (Interlocked.Decrement(ref _callCounter) == 0) {
+        if (Interlocked.Decrement(ref _callCounter) == 0)
+        {
             FreeRustArcPtr();
         }
     }
@@ -7963,217 +9303,283 @@ internal class DbReaderBuilder : IDbReaderBuilder, IDisposable {
     internal void CallWithPointer(Action<ulong> action)
     {
         IncrementCallCounter();
-        try {
+        try
+        {
             action(CloneRustArcPtr());
         }
-        finally {
+        finally
+        {
             DecrementCallCounter();
         }
     }
 
     internal T CallWithPointer<T>(Func<ulong, T> func)
-    {   
+    {
         IncrementCallCounter();
-        try {
+        try
+        {
             return func(CloneRustArcPtr());
         }
-        finally {
+        finally
+        {
             DecrementCallCounter();
         }
     }
 
-    
     /// <summary>
     /// Opens the reader and consumes this builder.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<DbReader> Build() {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbreaderbuilder_build(thisPtr);
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_u64(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_u64(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_u64(future),
-        // Lift
-        (result) => FfiConverterTypeDbReader.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<DbReader> Build()
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbreaderbuilder_build(
+                    thisPtr
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_u64(future, continuation, data),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_u64(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_u64(future),
+            // Lift
+            (result) => FfiConverterTypeDbReader.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Pins the reader to an existing checkpoint UUID string.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public void WithCheckpointId(string @checkpointId) {
+    public void WithCheckpointId(string @checkpointId)
+    {
         CallWithPointer(thisPtr =>
-    _UniffiHelpers.RustCallWithError(FfiConverterTypeError.INSTANCE, (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbreaderbuilder_with_checkpoint_id(thisPtr, FfiConverterString.INSTANCE.Lower(@checkpointId), ref _status)
-));
+            _UniffiHelpers.RustCallWithError(
+                FfiConverterTypeError.INSTANCE,
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbreaderbuilder_with_checkpoint_id(
+                        thisPtr,
+                        FfiConverterString.INSTANCE.Lower(@checkpointId),
+                        ref _status
+                    )
+            )
+        );
     }
-    
-    
-    
+
     /// <summary>
     /// Installs an application-defined merge operator used while reading merge rows.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public void WithMergeOperator(MergeOperator @mergeOperator) {
+    public void WithMergeOperator(MergeOperator @mergeOperator)
+    {
         CallWithPointer(thisPtr =>
-    _UniffiHelpers.RustCallWithError(FfiConverterTypeError.INSTANCE, (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbreaderbuilder_with_merge_operator(thisPtr, FfiConverterTypeMergeOperator.INSTANCE.Lower(@mergeOperator), ref _status)
-));
+            _UniffiHelpers.RustCallWithError(
+                FfiConverterTypeError.INSTANCE,
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbreaderbuilder_with_merge_operator(
+                        thisPtr,
+                        FfiConverterTypeMergeOperator.INSTANCE.Lower(@mergeOperator),
+                        ref _status
+                    )
+            )
+        );
     }
-    
-    
-    
+
     /// <summary>
     /// Installs an application-defined metrics recorder.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public void WithMetricsRecorder(MetricsRecorder @metricsRecorder) {
+    public void WithMetricsRecorder(MetricsRecorder @metricsRecorder)
+    {
         CallWithPointer(thisPtr =>
-    _UniffiHelpers.RustCallWithError(FfiConverterTypeError.INSTANCE, (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbreaderbuilder_with_metrics_recorder(thisPtr, FfiConverterTypeMetricsRecorder.INSTANCE.Lower(@metricsRecorder), ref _status)
-));
+            _UniffiHelpers.RustCallWithError(
+                FfiConverterTypeError.INSTANCE,
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbreaderbuilder_with_metrics_recorder(
+                        thisPtr,
+                        FfiConverterTypeMetricsRecorder.INSTANCE.Lower(@metricsRecorder),
+                        ref _status
+                    )
+            )
+        );
     }
-    
-    
-    
+
     /// <summary>
     /// Applies custom reader options.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public void WithOptions(ReaderOptions @options) {
+    public void WithOptions(ReaderOptions @options)
+    {
         CallWithPointer(thisPtr =>
-    _UniffiHelpers.RustCallWithError(FfiConverterTypeError.INSTANCE, (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbreaderbuilder_with_options(thisPtr, FfiConverterTypeReaderOptions.INSTANCE.Lower(@options), ref _status)
-));
+            _UniffiHelpers.RustCallWithError(
+                FfiConverterTypeError.INSTANCE,
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbreaderbuilder_with_options(
+                        thisPtr,
+                        FfiConverterTypeReaderOptions.INSTANCE.Lower(@options),
+                        ref _status
+                    )
+            )
+        );
     }
-    
-    
-    
+
     /// <summary>
     /// Uses a separate object store for WAL files.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public void WithWalObjectStore(ObjectStore @walObjectStore) {
+    public void WithWalObjectStore(ObjectStore @walObjectStore)
+    {
         CallWithPointer(thisPtr =>
-    _UniffiHelpers.RustCallWithError(FfiConverterTypeError.INSTANCE, (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbreaderbuilder_with_wal_object_store(thisPtr, FfiConverterTypeObjectStore.INSTANCE.Lower(@walObjectStore), ref _status)
-));
+            _UniffiHelpers.RustCallWithError(
+                FfiConverterTypeError.INSTANCE,
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbreaderbuilder_with_wal_object_store(
+                        thisPtr,
+                        FfiConverterTypeObjectStore.INSTANCE.Lower(@walObjectStore),
+                        ref _status
+                    )
+            )
+        );
     }
-    
-    
-    
-
-    
 }
-class FfiConverterTypeDbReaderBuilder: FfiConverter<DbReaderBuilder, ulong> {
+
+class FfiConverterTypeDbReaderBuilder : FfiConverter<DbReaderBuilder, ulong>
+{
     public static FfiConverterTypeDbReaderBuilder INSTANCE = new FfiConverterTypeDbReaderBuilder();
 
-
-    public override ulong Lower(DbReaderBuilder value) {
+    public override ulong Lower(DbReaderBuilder value)
+    {
         return value.CallWithPointer(thisPtr => thisPtr);
     }
 
-    public override DbReaderBuilder Lift(ulong value) {
+    public override DbReaderBuilder Lift(ulong value)
+    {
         return new DbReaderBuilder(value);
     }
 
-    public override DbReaderBuilder Read(BigEndianStream stream) {
+    public override DbReaderBuilder Read(BigEndianStream stream)
+    {
         return Lift(stream.ReadULong());
     }
 
-    public override int AllocationSize(DbReaderBuilder value) {
+    public override int AllocationSize(DbReaderBuilder value)
+    {
         return 8;
     }
 
-    public override void Write(DbReaderBuilder value, BigEndianStream stream) {
+    public override void Write(DbReaderBuilder value, BigEndianStream stream)
+    {
         stream.WriteULong(Lower(value));
     }
 }
 
-
-
 /// <summary>
 /// Read-only snapshot representing a consistent view of the database.
 /// </summary>
-internal interface IDbSnapshot {
+internal interface IDbSnapshot
+{
     /// <summary>
     /// Reads the value visible in this snapshot for `key`.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task<byte[]?> Get(byte[] @key);
+
     /// <summary>
     /// Reads the row version visible in this snapshot for `key`.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task<KeyValue?> GetKeyValue(byte[] @key);
+
     /// <summary>
     /// Reads the row version visible in this snapshot for `key` using custom read options.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task<KeyValue?> GetKeyValueWithOptions(byte[] @key, ReadOptions @options);
+
     /// <summary>
     /// Reads the value visible in this snapshot for `key` using custom read options.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task<byte[]?> GetWithOptions(byte[] @key, ReadOptions @options);
+
     /// <summary>
     /// Scans rows inside `range` as of this snapshot.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task<DbIterator> Scan(KeyRange @range);
+
     /// <summary>
     /// Scans rows whose keys start with `prefix` as of this snapshot.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task<DbIterator> ScanPrefix(byte[] @prefix);
+
     /// <summary>
     /// Scans rows whose keys start with `prefix` as of this snapshot using custom options.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task<DbIterator> ScanPrefixWithOptions(byte[] @prefix, ScanOptions @options);
+
     /// <summary>
     /// Scans rows inside `range` as of this snapshot using custom scan options.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task<DbIterator> ScanWithOptions(KeyRange @range, ScanOptions @options);
 }
+
 /// <summary>
 /// Read-only snapshot representing a consistent view of the database.
 /// </summary>
-internal class DbSnapshot : IDbSnapshot, IDisposable {
+internal class DbSnapshot : IDbSnapshot, IDisposable
+{
     protected ulong pointer;
     private int _wasDestroyed = 0;
     private long _callCounter = 1;
 
-    public DbSnapshot(ulong pointer) {
+    public DbSnapshot(ulong pointer)
+    {
         this.pointer = pointer;
     }
 
-    ~DbSnapshot() {
+    ~DbSnapshot()
+    {
         Destroy();
     }
 
-    protected void FreeRustArcPtr() {
-        _UniffiHelpers.RustCall((ref UniffiRustCallStatus status) => {
-            _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_dbsnapshot(this.pointer, ref status);
-        });
+    protected void FreeRustArcPtr()
+    {
+        _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_dbsnapshot(this.pointer, ref status);
+            }
+        );
     }
 
-    protected ulong CloneRustArcPtr() {
-        return _UniffiHelpers.RustCall((ref UniffiRustCallStatus status) => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_dbsnapshot(this.pointer, ref status);
-        });
+    protected ulong CloneRustArcPtr()
+    {
+        return _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_dbsnapshot(
+                    this.pointer,
+                    ref status
+                );
+            }
+        );
     }
 
     public void Destroy()
@@ -8195,7 +9601,7 @@ internal class DbSnapshot : IDbSnapshot, IDisposable {
         GC.SuppressFinalize(this); // Suppress finalization to avoid unnecessary GC overhead.
     }
 
-    private void IncrementCallCounter() 
+    private void IncrementCallCounter()
     {
         // Check and increment the call counter, to keep the object alive.
         // This needs a compare-and-set retry loop in case of concurrent updates.
@@ -8203,16 +9609,22 @@ internal class DbSnapshot : IDbSnapshot, IDisposable {
         do
         {
             count = Interlocked.Read(ref _callCounter);
-            if (count == 0L) throw new System.ObjectDisposedException(String.Format("'{0}' object has already been destroyed", this.GetType().Name));
-            if (count == long.MaxValue) throw new System.OverflowException(String.Format("'{0}' call counter would overflow", this.GetType().Name));
-
+            if (count == 0L)
+                throw new System.ObjectDisposedException(
+                    String.Format("'{0}' object has already been destroyed", this.GetType().Name)
+                );
+            if (count == long.MaxValue)
+                throw new System.OverflowException(
+                    String.Format("'{0}' call counter would overflow", this.GetType().Name)
+                );
         } while (Interlocked.CompareExchange(ref _callCounter, count + 1, count) != count);
     }
 
-    private void DecrementCallCounter() 
+    private void DecrementCallCounter()
     {
         // This decrement always matches the increment we performed above.
-        if (Interlocked.Decrement(ref _callCounter) == 0) {
+        if (Interlocked.Decrement(ref _callCounter) == 0)
+        {
             FreeRustArcPtr();
         }
     }
@@ -8220,255 +9632,363 @@ internal class DbSnapshot : IDbSnapshot, IDisposable {
     internal void CallWithPointer(Action<ulong> action)
     {
         IncrementCallCounter();
-        try {
+        try
+        {
             action(CloneRustArcPtr());
         }
-        finally {
+        finally
+        {
             DecrementCallCounter();
         }
     }
 
     internal T CallWithPointer<T>(Func<ulong, T> func)
-    {   
+    {
         IncrementCallCounter();
-        try {
+        try
+        {
             return func(CloneRustArcPtr());
         }
-        finally {
+        finally
+        {
             DecrementCallCounter();
         }
     }
 
-    
     /// <summary>
     /// Reads the value visible in this snapshot for `key`.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<byte[]?> Get(byte[] @key) {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbsnapshot_get(thisPtr, FfiConverterByteArray.INSTANCE.Lower(@key));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
-        // Lift
-        (result) => FfiConverterOptionalByteArray.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<byte[]?> Get(byte[] @key)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbsnapshot_get(
+                    thisPtr,
+                    FfiConverterByteArray.INSTANCE.Lower(@key)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(
+                    future,
+                    continuation,
+                    data
+                ),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
+            // Lift
+            (result) => FfiConverterOptionalByteArray.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Reads the row version visible in this snapshot for `key`.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<KeyValue?> GetKeyValue(byte[] @key) {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbsnapshot_get_key_value(thisPtr, FfiConverterByteArray.INSTANCE.Lower(@key));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
-        // Lift
-        (result) => FfiConverterOptionalTypeKeyValue.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<KeyValue?> GetKeyValue(byte[] @key)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbsnapshot_get_key_value(
+                    thisPtr,
+                    FfiConverterByteArray.INSTANCE.Lower(@key)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(
+                    future,
+                    continuation,
+                    data
+                ),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
+            // Lift
+            (result) => FfiConverterOptionalTypeKeyValue.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Reads the row version visible in this snapshot for `key` using custom read options.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<KeyValue?> GetKeyValueWithOptions(byte[] @key, ReadOptions @options) {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbsnapshot_get_key_value_with_options(thisPtr, FfiConverterByteArray.INSTANCE.Lower(@key), FfiConverterTypeReadOptions.INSTANCE.Lower(@options));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
-        // Lift
-        (result) => FfiConverterOptionalTypeKeyValue.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<KeyValue?> GetKeyValueWithOptions(byte[] @key, ReadOptions @options)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbsnapshot_get_key_value_with_options(
+                    thisPtr,
+                    FfiConverterByteArray.INSTANCE.Lower(@key),
+                    FfiConverterTypeReadOptions.INSTANCE.Lower(@options)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(
+                    future,
+                    continuation,
+                    data
+                ),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
+            // Lift
+            (result) => FfiConverterOptionalTypeKeyValue.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Reads the value visible in this snapshot for `key` using custom read options.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<byte[]?> GetWithOptions(byte[] @key, ReadOptions @options) {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbsnapshot_get_with_options(thisPtr, FfiConverterByteArray.INSTANCE.Lower(@key), FfiConverterTypeReadOptions.INSTANCE.Lower(@options));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
-        // Lift
-        (result) => FfiConverterOptionalByteArray.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<byte[]?> GetWithOptions(byte[] @key, ReadOptions @options)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbsnapshot_get_with_options(
+                    thisPtr,
+                    FfiConverterByteArray.INSTANCE.Lower(@key),
+                    FfiConverterTypeReadOptions.INSTANCE.Lower(@options)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(
+                    future,
+                    continuation,
+                    data
+                ),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
+            // Lift
+            (result) => FfiConverterOptionalByteArray.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Scans rows inside `range` as of this snapshot.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<DbIterator> Scan(KeyRange @range) {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbsnapshot_scan(thisPtr, FfiConverterTypeKeyRange.INSTANCE.Lower(@range));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_u64(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_u64(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_u64(future),
-        // Lift
-        (result) => FfiConverterTypeDbIterator.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<DbIterator> Scan(KeyRange @range)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbsnapshot_scan(
+                    thisPtr,
+                    FfiConverterTypeKeyRange.INSTANCE.Lower(@range)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_u64(future, continuation, data),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_u64(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_u64(future),
+            // Lift
+            (result) => FfiConverterTypeDbIterator.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Scans rows whose keys start with `prefix` as of this snapshot.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<DbIterator> ScanPrefix(byte[] @prefix) {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbsnapshot_scan_prefix(thisPtr, FfiConverterByteArray.INSTANCE.Lower(@prefix));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_u64(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_u64(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_u64(future),
-        // Lift
-        (result) => FfiConverterTypeDbIterator.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<DbIterator> ScanPrefix(byte[] @prefix)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbsnapshot_scan_prefix(
+                    thisPtr,
+                    FfiConverterByteArray.INSTANCE.Lower(@prefix)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_u64(future, continuation, data),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_u64(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_u64(future),
+            // Lift
+            (result) => FfiConverterTypeDbIterator.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Scans rows whose keys start with `prefix` as of this snapshot using custom options.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<DbIterator> ScanPrefixWithOptions(byte[] @prefix, ScanOptions @options) {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbsnapshot_scan_prefix_with_options(thisPtr, FfiConverterByteArray.INSTANCE.Lower(@prefix), FfiConverterTypeScanOptions.INSTANCE.Lower(@options));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_u64(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_u64(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_u64(future),
-        // Lift
-        (result) => FfiConverterTypeDbIterator.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<DbIterator> ScanPrefixWithOptions(byte[] @prefix, ScanOptions @options)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbsnapshot_scan_prefix_with_options(
+                    thisPtr,
+                    FfiConverterByteArray.INSTANCE.Lower(@prefix),
+                    FfiConverterTypeScanOptions.INSTANCE.Lower(@options)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_u64(future, continuation, data),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_u64(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_u64(future),
+            // Lift
+            (result) => FfiConverterTypeDbIterator.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Scans rows inside `range` as of this snapshot using custom scan options.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<DbIterator> ScanWithOptions(KeyRange @range, ScanOptions @options) {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbsnapshot_scan_with_options(thisPtr, FfiConverterTypeKeyRange.INSTANCE.Lower(@range), FfiConverterTypeScanOptions.INSTANCE.Lower(@options));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_u64(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_u64(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_u64(future),
-        // Lift
-        (result) => FfiConverterTypeDbIterator.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<DbIterator> ScanWithOptions(KeyRange @range, ScanOptions @options)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbsnapshot_scan_with_options(
+                    thisPtr,
+                    FfiConverterTypeKeyRange.INSTANCE.Lower(@range),
+                    FfiConverterTypeScanOptions.INSTANCE.Lower(@options)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_u64(future, continuation, data),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_u64(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_u64(future),
+            // Lift
+            (result) => FfiConverterTypeDbIterator.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
-
-    
 }
-class FfiConverterTypeDbSnapshot: FfiConverter<DbSnapshot, ulong> {
+
+class FfiConverterTypeDbSnapshot : FfiConverter<DbSnapshot, ulong>
+{
     public static FfiConverterTypeDbSnapshot INSTANCE = new FfiConverterTypeDbSnapshot();
 
-
-    public override ulong Lower(DbSnapshot value) {
+    public override ulong Lower(DbSnapshot value)
+    {
         return value.CallWithPointer(thisPtr => thisPtr);
     }
 
-    public override DbSnapshot Lift(ulong value) {
+    public override DbSnapshot Lift(ulong value)
+    {
         return new DbSnapshot(value);
     }
 
-    public override DbSnapshot Read(BigEndianStream stream) {
+    public override DbSnapshot Read(BigEndianStream stream)
+    {
         return Lift(stream.ReadULong());
     }
 
-    public override int AllocationSize(DbSnapshot value) {
+    public override int AllocationSize(DbSnapshot value)
+    {
         return 8;
     }
 
-    public override void Write(DbSnapshot value, BigEndianStream stream) {
+    public override void Write(DbSnapshot value, BigEndianStream stream)
+    {
         stream.WriteULong(Lower(value));
     }
 }
-
-
 
 /// <summary>
 /// Transaction handle returned by [`crate::Db::begin`].
@@ -8476,7 +9996,8 @@ class FfiConverterTypeDbSnapshot: FfiConverter<DbSnapshot, ulong> {
 /// A transaction becomes unusable after `commit`, `commit_with_options`, or
 /// `rollback`.
 /// </summary>
-internal interface IDbTransaction {
+internal interface IDbTransaction
+{
     /// <summary>
     /// Commits the transaction.
     ///
@@ -8484,6 +10005,7 @@ internal interface IDbTransaction {
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task<WriteHandle?> Commit();
+
     /// <summary>
     /// Commits the transaction using custom write options.
     ///
@@ -8491,124 +10013,160 @@ internal interface IDbTransaction {
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task<WriteHandle?> CommitWithOptions(WriteOptions @options);
+
     /// <summary>
     /// Buffers a delete inside the transaction.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task Delete(byte[] @key);
+
     /// <summary>
     /// Reads the value visible to this transaction for `key`.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task<byte[]?> Get(byte[] @key);
+
     /// <summary>
     /// Reads the row version visible to this transaction for `key`.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task<KeyValue?> GetKeyValue(byte[] @key);
+
     /// <summary>
     /// Reads the row version visible to this transaction for `key` using custom options.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task<KeyValue?> GetKeyValueWithOptions(byte[] @key, ReadOptions @options);
+
     /// <summary>
     /// Reads the value visible to this transaction for `key` using custom read options.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task<byte[]?> GetWithOptions(byte[] @key, ReadOptions @options);
+
     /// <summary>
     /// Returns the transaction identifier as a UUID string.
     /// </summary>
     string Id();
+
     /// <summary>
     /// Marks keys as read for conflict detection.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task MarkRead(byte[][] @keys);
+
     /// <summary>
     /// Buffers a merge operand inside the transaction.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task Merge(byte[] @key, byte[] @operand);
+
     /// <summary>
     /// Buffers a merge operand inside the transaction using custom merge options.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task MergeWithOptions(byte[] @key, byte[] @operand, MergeOptions @options);
+
     /// <summary>
     /// Buffers a put inside the transaction.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task Put(byte[] @key, byte[] @value);
+
     /// <summary>
     /// Buffers a put inside the transaction using custom put options.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task PutWithOptions(byte[] @key, byte[] @value, PutOptions @options);
+
     /// <summary>
     /// Rolls back the transaction and marks it completed.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task Rollback();
+
     /// <summary>
     /// Scans rows inside `range` as visible to this transaction.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task<DbIterator> Scan(KeyRange @range);
+
     /// <summary>
     /// Scans rows whose keys start with `prefix` as visible to this transaction.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task<DbIterator> ScanPrefix(byte[] @prefix);
+
     /// <summary>
     /// Scans rows whose keys start with `prefix` as visible to this transaction using custom options.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task<DbIterator> ScanPrefixWithOptions(byte[] @prefix, ScanOptions @options);
+
     /// <summary>
     /// Scans rows inside `range` as visible to this transaction using custom options.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task<DbIterator> ScanWithOptions(KeyRange @range, ScanOptions @options);
+
     /// <summary>
     /// Returns the sequence number assigned when the transaction started.
     /// </summary>
     ulong Seqnum();
+
     /// <summary>
     /// Excludes written keys from transaction conflict detection.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task UnmarkWrite(byte[][] @keys);
 }
+
 /// <summary>
 /// Transaction handle returned by [`crate::Db::begin`].
 ///
 /// A transaction becomes unusable after `commit`, `commit_with_options`, or
 /// `rollback`.
 /// </summary>
-internal class DbTransaction : IDbTransaction, IDisposable {
+internal class DbTransaction : IDbTransaction, IDisposable
+{
     protected ulong pointer;
     private int _wasDestroyed = 0;
     private long _callCounter = 1;
 
-    public DbTransaction(ulong pointer) {
+    public DbTransaction(ulong pointer)
+    {
         this.pointer = pointer;
     }
 
-    ~DbTransaction() {
+    ~DbTransaction()
+    {
         Destroy();
     }
 
-    protected void FreeRustArcPtr() {
-        _UniffiHelpers.RustCall((ref UniffiRustCallStatus status) => {
-            _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_dbtransaction(this.pointer, ref status);
-        });
+    protected void FreeRustArcPtr()
+    {
+        _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_dbtransaction(
+                    this.pointer,
+                    ref status
+                );
+            }
+        );
     }
 
-    protected ulong CloneRustArcPtr() {
-        return _UniffiHelpers.RustCall((ref UniffiRustCallStatus status) => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_dbtransaction(this.pointer, ref status);
-        });
+    protected ulong CloneRustArcPtr()
+    {
+        return _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_dbtransaction(
+                    this.pointer,
+                    ref status
+                );
+            }
+        );
     }
 
     public void Destroy()
@@ -8630,7 +10188,7 @@ internal class DbTransaction : IDbTransaction, IDisposable {
         GC.SuppressFinalize(this); // Suppress finalization to avoid unnecessary GC overhead.
     }
 
-    private void IncrementCallCounter() 
+    private void IncrementCallCounter()
     {
         // Check and increment the call counter, to keep the object alive.
         // This needs a compare-and-set retry loop in case of concurrent updates.
@@ -8638,16 +10196,22 @@ internal class DbTransaction : IDbTransaction, IDisposable {
         do
         {
             count = Interlocked.Read(ref _callCounter);
-            if (count == 0L) throw new System.ObjectDisposedException(String.Format("'{0}' object has already been destroyed", this.GetType().Name));
-            if (count == long.MaxValue) throw new System.OverflowException(String.Format("'{0}' call counter would overflow", this.GetType().Name));
-
+            if (count == 0L)
+                throw new System.ObjectDisposedException(
+                    String.Format("'{0}' object has already been destroyed", this.GetType().Name)
+                );
+            if (count == long.MaxValue)
+                throw new System.OverflowException(
+                    String.Format("'{0}' call counter would overflow", this.GetType().Name)
+                );
         } while (Interlocked.CompareExchange(ref _callCounter, count + 1, count) != count);
     }
 
-    private void DecrementCallCounter() 
+    private void DecrementCallCounter()
     {
         // This decrement always matches the increment we performed above.
-        if (Interlocked.Decrement(ref _callCounter) == 0) {
+        if (Interlocked.Decrement(ref _callCounter) == 0)
+        {
             FreeRustArcPtr();
         }
     }
@@ -8655,555 +10219,812 @@ internal class DbTransaction : IDbTransaction, IDisposable {
     internal void CallWithPointer(Action<ulong> action)
     {
         IncrementCallCounter();
-        try {
+        try
+        {
             action(CloneRustArcPtr());
         }
-        finally {
+        finally
+        {
             DecrementCallCounter();
         }
     }
 
     internal T CallWithPointer<T>(Func<ulong, T> func)
-    {   
+    {
         IncrementCallCounter();
-        try {
+        try
+        {
             return func(CloneRustArcPtr());
         }
-        finally {
+        finally
+        {
             DecrementCallCounter();
         }
     }
 
-    
     /// <summary>
     /// Commits the transaction.
     ///
     /// Returns `None` when the transaction performed no writes.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<WriteHandle?> Commit() {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_commit(thisPtr);
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
-        // Lift
-        (result) => FfiConverterOptionalTypeWriteHandle.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<WriteHandle?> Commit()
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_commit(thisPtr);
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(
+                    future,
+                    continuation,
+                    data
+                ),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
+            // Lift
+            (result) => FfiConverterOptionalTypeWriteHandle.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Commits the transaction using custom write options.
     ///
     /// Returns `None` when the transaction performed no writes.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<WriteHandle?> CommitWithOptions(WriteOptions @options) {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_commit_with_options(thisPtr, FfiConverterTypeWriteOptions.INSTANCE.Lower(@options));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
-        // Lift
-        (result) => FfiConverterOptionalTypeWriteHandle.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<WriteHandle?> CommitWithOptions(WriteOptions @options)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_commit_with_options(
+                    thisPtr,
+                    FfiConverterTypeWriteOptions.INSTANCE.Lower(@options)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(
+                    future,
+                    continuation,
+                    data
+                ),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
+            // Lift
+            (result) => FfiConverterOptionalTypeWriteHandle.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Buffers a delete inside the transaction.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task Delete(byte[] @key) {await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_delete(thisPtr, FfiConverterByteArray.INSTANCE.Lower(@key));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_void(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {_UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_void(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_void(future),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task Delete(byte[] @key)
+    {
+        await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_delete(
+                    thisPtr,
+                    FfiConverterByteArray.INSTANCE.Lower(@key)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_void(future, continuation, data),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_void(future, ref status);
+            },
+            // Free
+            (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_void(future),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Reads the value visible to this transaction for `key`.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<byte[]?> Get(byte[] @key) {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_get(thisPtr, FfiConverterByteArray.INSTANCE.Lower(@key));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
-        // Lift
-        (result) => FfiConverterOptionalByteArray.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<byte[]?> Get(byte[] @key)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_get(
+                    thisPtr,
+                    FfiConverterByteArray.INSTANCE.Lower(@key)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(
+                    future,
+                    continuation,
+                    data
+                ),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
+            // Lift
+            (result) => FfiConverterOptionalByteArray.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Reads the row version visible to this transaction for `key`.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<KeyValue?> GetKeyValue(byte[] @key) {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_get_key_value(thisPtr, FfiConverterByteArray.INSTANCE.Lower(@key));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
-        // Lift
-        (result) => FfiConverterOptionalTypeKeyValue.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<KeyValue?> GetKeyValue(byte[] @key)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_get_key_value(
+                    thisPtr,
+                    FfiConverterByteArray.INSTANCE.Lower(@key)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(
+                    future,
+                    continuation,
+                    data
+                ),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
+            // Lift
+            (result) => FfiConverterOptionalTypeKeyValue.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Reads the row version visible to this transaction for `key` using custom options.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<KeyValue?> GetKeyValueWithOptions(byte[] @key, ReadOptions @options) {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_get_key_value_with_options(thisPtr, FfiConverterByteArray.INSTANCE.Lower(@key), FfiConverterTypeReadOptions.INSTANCE.Lower(@options));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
-        // Lift
-        (result) => FfiConverterOptionalTypeKeyValue.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<KeyValue?> GetKeyValueWithOptions(byte[] @key, ReadOptions @options)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_get_key_value_with_options(
+                    thisPtr,
+                    FfiConverterByteArray.INSTANCE.Lower(@key),
+                    FfiConverterTypeReadOptions.INSTANCE.Lower(@options)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(
+                    future,
+                    continuation,
+                    data
+                ),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
+            // Lift
+            (result) => FfiConverterOptionalTypeKeyValue.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Reads the value visible to this transaction for `key` using custom read options.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<byte[]?> GetWithOptions(byte[] @key, ReadOptions @options) {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_get_with_options(thisPtr, FfiConverterByteArray.INSTANCE.Lower(@key), FfiConverterTypeReadOptions.INSTANCE.Lower(@options));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
-        // Lift
-        (result) => FfiConverterOptionalByteArray.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<byte[]?> GetWithOptions(byte[] @key, ReadOptions @options)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_get_with_options(
+                    thisPtr,
+                    FfiConverterByteArray.INSTANCE.Lower(@key),
+                    FfiConverterTypeReadOptions.INSTANCE.Lower(@options)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(
+                    future,
+                    continuation,
+                    data
+                ),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
+            // Lift
+            (result) => FfiConverterOptionalByteArray.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Returns the transaction identifier as a UUID string.
     /// </summary>
-    public string Id() {
-        return CallWithPointer(thisPtr => FfiConverterString.INSTANCE.Lift(
-    _UniffiHelpers.RustCall( (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_id(thisPtr,  ref _status)
-)));
+    public string Id()
+    {
+        return CallWithPointer(thisPtr =>
+            FfiConverterString.INSTANCE.Lift(
+                _UniffiHelpers.RustCall(
+                    (ref UniffiRustCallStatus _status) =>
+                        _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_id(
+                            thisPtr,
+                            ref _status
+                        )
+                )
+            )
+        );
     }
-    
-    
+
     /// <summary>
     /// Marks keys as read for conflict detection.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task MarkRead(byte[][] @keys) {await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_mark_read(thisPtr, FfiConverterSequenceByteArray.INSTANCE.Lower(@keys));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_void(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {_UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_void(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_void(future),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task MarkRead(byte[][] @keys)
+    {
+        await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_mark_read(
+                    thisPtr,
+                    FfiConverterSequenceByteArray.INSTANCE.Lower(@keys)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_void(future, continuation, data),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_void(future, ref status);
+            },
+            // Free
+            (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_void(future),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Buffers a merge operand inside the transaction.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task Merge(byte[] @key, byte[] @operand) {await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_merge(thisPtr, FfiConverterByteArray.INSTANCE.Lower(@key), FfiConverterByteArray.INSTANCE.Lower(@operand));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_void(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {_UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_void(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_void(future),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task Merge(byte[] @key, byte[] @operand)
+    {
+        await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_merge(
+                    thisPtr,
+                    FfiConverterByteArray.INSTANCE.Lower(@key),
+                    FfiConverterByteArray.INSTANCE.Lower(@operand)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_void(future, continuation, data),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_void(future, ref status);
+            },
+            // Free
+            (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_void(future),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Buffers a merge operand inside the transaction using custom merge options.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task MergeWithOptions(byte[] @key, byte[] @operand, MergeOptions @options) {await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_merge_with_options(thisPtr, FfiConverterByteArray.INSTANCE.Lower(@key), FfiConverterByteArray.INSTANCE.Lower(@operand), FfiConverterTypeMergeOptions.INSTANCE.Lower(@options));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_void(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {_UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_void(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_void(future),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task MergeWithOptions(byte[] @key, byte[] @operand, MergeOptions @options)
+    {
+        await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_merge_with_options(
+                    thisPtr,
+                    FfiConverterByteArray.INSTANCE.Lower(@key),
+                    FfiConverterByteArray.INSTANCE.Lower(@operand),
+                    FfiConverterTypeMergeOptions.INSTANCE.Lower(@options)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_void(future, continuation, data),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_void(future, ref status);
+            },
+            // Free
+            (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_void(future),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Buffers a put inside the transaction.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task Put(byte[] @key, byte[] @value) {await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_put(thisPtr, FfiConverterByteArray.INSTANCE.Lower(@key), FfiConverterByteArray.INSTANCE.Lower(@value));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_void(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {_UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_void(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_void(future),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task Put(byte[] @key, byte[] @value)
+    {
+        await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_put(
+                    thisPtr,
+                    FfiConverterByteArray.INSTANCE.Lower(@key),
+                    FfiConverterByteArray.INSTANCE.Lower(@value)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_void(future, continuation, data),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_void(future, ref status);
+            },
+            // Free
+            (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_void(future),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Buffers a put inside the transaction using custom put options.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task PutWithOptions(byte[] @key, byte[] @value, PutOptions @options) {await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_put_with_options(thisPtr, FfiConverterByteArray.INSTANCE.Lower(@key), FfiConverterByteArray.INSTANCE.Lower(@value), FfiConverterTypePutOptions.INSTANCE.Lower(@options));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_void(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {_UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_void(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_void(future),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task PutWithOptions(byte[] @key, byte[] @value, PutOptions @options)
+    {
+        await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_put_with_options(
+                    thisPtr,
+                    FfiConverterByteArray.INSTANCE.Lower(@key),
+                    FfiConverterByteArray.INSTANCE.Lower(@value),
+                    FfiConverterTypePutOptions.INSTANCE.Lower(@options)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_void(future, continuation, data),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_void(future, ref status);
+            },
+            // Free
+            (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_void(future),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Rolls back the transaction and marks it completed.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task Rollback() {await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_rollback(thisPtr);
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_void(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {_UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_void(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_void(future),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task Rollback()
+    {
+        await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_rollback(
+                    thisPtr
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_void(future, continuation, data),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_void(future, ref status);
+            },
+            // Free
+            (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_void(future),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Scans rows inside `range` as visible to this transaction.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<DbIterator> Scan(KeyRange @range) {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_scan(thisPtr, FfiConverterTypeKeyRange.INSTANCE.Lower(@range));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_u64(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_u64(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_u64(future),
-        // Lift
-        (result) => FfiConverterTypeDbIterator.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<DbIterator> Scan(KeyRange @range)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_scan(
+                    thisPtr,
+                    FfiConverterTypeKeyRange.INSTANCE.Lower(@range)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_u64(future, continuation, data),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_u64(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_u64(future),
+            // Lift
+            (result) => FfiConverterTypeDbIterator.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Scans rows whose keys start with `prefix` as visible to this transaction.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<DbIterator> ScanPrefix(byte[] @prefix) {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_scan_prefix(thisPtr, FfiConverterByteArray.INSTANCE.Lower(@prefix));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_u64(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_u64(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_u64(future),
-        // Lift
-        (result) => FfiConverterTypeDbIterator.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<DbIterator> ScanPrefix(byte[] @prefix)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_scan_prefix(
+                    thisPtr,
+                    FfiConverterByteArray.INSTANCE.Lower(@prefix)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_u64(future, continuation, data),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_u64(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_u64(future),
+            // Lift
+            (result) => FfiConverterTypeDbIterator.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Scans rows whose keys start with `prefix` as visible to this transaction using custom options.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<DbIterator> ScanPrefixWithOptions(byte[] @prefix, ScanOptions @options) {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_scan_prefix_with_options(thisPtr, FfiConverterByteArray.INSTANCE.Lower(@prefix), FfiConverterTypeScanOptions.INSTANCE.Lower(@options));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_u64(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_u64(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_u64(future),
-        // Lift
-        (result) => FfiConverterTypeDbIterator.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<DbIterator> ScanPrefixWithOptions(byte[] @prefix, ScanOptions @options)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_scan_prefix_with_options(
+                    thisPtr,
+                    FfiConverterByteArray.INSTANCE.Lower(@prefix),
+                    FfiConverterTypeScanOptions.INSTANCE.Lower(@options)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_u64(future, continuation, data),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_u64(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_u64(future),
+            // Lift
+            (result) => FfiConverterTypeDbIterator.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Scans rows inside `range` as visible to this transaction using custom options.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<DbIterator> ScanWithOptions(KeyRange @range, ScanOptions @options) {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_scan_with_options(thisPtr, FfiConverterTypeKeyRange.INSTANCE.Lower(@range), FfiConverterTypeScanOptions.INSTANCE.Lower(@options));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_u64(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_u64(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_u64(future),
-        // Lift
-        (result) => FfiConverterTypeDbIterator.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<DbIterator> ScanWithOptions(KeyRange @range, ScanOptions @options)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_scan_with_options(
+                    thisPtr,
+                    FfiConverterTypeKeyRange.INSTANCE.Lower(@range),
+                    FfiConverterTypeScanOptions.INSTANCE.Lower(@options)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_u64(future, continuation, data),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_u64(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_u64(future),
+            // Lift
+            (result) => FfiConverterTypeDbIterator.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Returns the sequence number assigned when the transaction started.
     /// </summary>
-    public ulong Seqnum() {
-        return CallWithPointer(thisPtr => FfiConverterUInt64.INSTANCE.Lift(
-    _UniffiHelpers.RustCall( (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_seqnum(thisPtr,  ref _status)
-)));
+    public ulong Seqnum()
+    {
+        return CallWithPointer(thisPtr =>
+            FfiConverterUInt64.INSTANCE.Lift(
+                _UniffiHelpers.RustCall(
+                    (ref UniffiRustCallStatus _status) =>
+                        _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_seqnum(
+                            thisPtr,
+                            ref _status
+                        )
+                )
+            )
+        );
     }
-    
-    
+
     /// <summary>
     /// Excludes written keys from transaction conflict detection.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task UnmarkWrite(byte[][] @keys) {await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_unmark_write(thisPtr, FfiConverterSequenceByteArray.INSTANCE.Lower(@keys));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_void(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {_UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_void(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_void(future),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task UnmarkWrite(byte[][] @keys)
+    {
+        await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_unmark_write(
+                    thisPtr,
+                    FfiConverterSequenceByteArray.INSTANCE.Lower(@keys)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_void(future, continuation, data),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_void(future, ref status);
+            },
+            // Free
+            (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_void(future),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
-
-    
 }
-class FfiConverterTypeDbTransaction: FfiConverter<DbTransaction, ulong> {
+
+class FfiConverterTypeDbTransaction : FfiConverter<DbTransaction, ulong>
+{
     public static FfiConverterTypeDbTransaction INSTANCE = new FfiConverterTypeDbTransaction();
 
-
-    public override ulong Lower(DbTransaction value) {
+    public override ulong Lower(DbTransaction value)
+    {
         return value.CallWithPointer(thisPtr => thisPtr);
     }
 
-    public override DbTransaction Lift(ulong value) {
+    public override DbTransaction Lift(ulong value)
+    {
         return new DbTransaction(value);
     }
 
-    public override DbTransaction Read(BigEndianStream stream) {
+    public override DbTransaction Read(BigEndianStream stream)
+    {
         return Lift(stream.ReadULong());
     }
 
-    public override int AllocationSize(DbTransaction value) {
+    public override int AllocationSize(DbTransaction value)
+    {
         return 8;
     }
 
-    public override void Write(DbTransaction value, BigEndianStream stream) {
+    public override void Write(DbTransaction value, BigEndianStream stream)
+    {
         stream.WriteULong(Lower(value));
     }
 }
 
-
-
 /// <summary>
 /// Built-in atomic-backed metrics recorder with snapshot access.
 /// </summary>
-internal interface IDefaultMetricsRecorder {
+internal interface IDefaultMetricsRecorder
+{
     /// <summary>
     /// Returns the metric matching `name` and the exact label set, if present.
     /// </summary>
     Metric? MetricByNameAndLabels(string @name, MetricLabel[] @labels);
+
     /// <summary>
     /// Returns every metric with the requested name.
     /// </summary>
     Metric[] MetricsByName(string @name);
     Counter RegisterCounter(string @name, string @description, MetricLabel[] @labels);
     Gauge RegisterGauge(string @name, string @description, MetricLabel[] @labels);
-    Histogram RegisterHistogram(string @name, string @description, MetricLabel[] @labels, double[] @boundaries);
+    Histogram RegisterHistogram(
+        string @name,
+        string @description,
+        MetricLabel[] @labels,
+        double[] @boundaries
+    );
     UpDownCounter RegisterUpDownCounter(string @name, string @description, MetricLabel[] @labels);
+
     /// <summary>
     /// Returns a point-in-time snapshot of every registered metric.
     /// </summary>
     Metric[] Snapshot();
 }
+
 /// <summary>
 /// Built-in atomic-backed metrics recorder with snapshot access.
 /// </summary>
-internal class DefaultMetricsRecorder : IDefaultMetricsRecorder, IDisposable {
+internal class DefaultMetricsRecorder : IDefaultMetricsRecorder, IDisposable
+{
     protected ulong pointer;
     private int _wasDestroyed = 0;
     private long _callCounter = 1;
 
-    public DefaultMetricsRecorder(ulong pointer) {
+    public DefaultMetricsRecorder(ulong pointer)
+    {
         this.pointer = pointer;
     }
 
-    ~DefaultMetricsRecorder() {
+    ~DefaultMetricsRecorder()
+    {
         Destroy();
     }
+
     /// <summary>
     /// Creates an empty default metrics recorder.
     /// </summary>
-    public DefaultMetricsRecorder() :
-        this(
-    _UniffiHelpers.RustCall( (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_constructor_defaultmetricsrecorder_new( ref _status)
-)) {}
+    public DefaultMetricsRecorder()
+        : this(
+            _UniffiHelpers.RustCall(
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_constructor_defaultmetricsrecorder_new(
+                        ref _status
+                    )
+            )
+        ) { }
 
-    protected void FreeRustArcPtr() {
-        _UniffiHelpers.RustCall((ref UniffiRustCallStatus status) => {
-            _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_defaultmetricsrecorder(this.pointer, ref status);
-        });
+    protected void FreeRustArcPtr()
+    {
+        _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_defaultmetricsrecorder(
+                    this.pointer,
+                    ref status
+                );
+            }
+        );
     }
 
-    protected ulong CloneRustArcPtr() {
-        return _UniffiHelpers.RustCall((ref UniffiRustCallStatus status) => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_defaultmetricsrecorder(this.pointer, ref status);
-        });
+    protected ulong CloneRustArcPtr()
+    {
+        return _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_defaultmetricsrecorder(
+                    this.pointer,
+                    ref status
+                );
+            }
+        );
     }
 
     public void Destroy()
@@ -9225,7 +11046,7 @@ internal class DefaultMetricsRecorder : IDefaultMetricsRecorder, IDisposable {
         GC.SuppressFinalize(this); // Suppress finalization to avoid unnecessary GC overhead.
     }
 
-    private void IncrementCallCounter() 
+    private void IncrementCallCounter()
     {
         // Check and increment the call counter, to keep the object alive.
         // This needs a compare-and-set retry loop in case of concurrent updates.
@@ -9233,16 +11054,22 @@ internal class DefaultMetricsRecorder : IDefaultMetricsRecorder, IDisposable {
         do
         {
             count = Interlocked.Read(ref _callCounter);
-            if (count == 0L) throw new System.ObjectDisposedException(String.Format("'{0}' object has already been destroyed", this.GetType().Name));
-            if (count == long.MaxValue) throw new System.OverflowException(String.Format("'{0}' call counter would overflow", this.GetType().Name));
-
+            if (count == 0L)
+                throw new System.ObjectDisposedException(
+                    String.Format("'{0}' object has already been destroyed", this.GetType().Name)
+                );
+            if (count == long.MaxValue)
+                throw new System.OverflowException(
+                    String.Format("'{0}' call counter would overflow", this.GetType().Name)
+                );
         } while (Interlocked.CompareExchange(ref _callCounter, count + 1, count) != count);
     }
 
-    private void DecrementCallCounter() 
+    private void DecrementCallCounter()
     {
         // This decrement always matches the increment we performed above.
-        if (Interlocked.Decrement(ref _callCounter) == 0) {
+        if (Interlocked.Decrement(ref _callCounter) == 0)
+        {
             FreeRustArcPtr();
         }
     }
@@ -9250,156 +11077,251 @@ internal class DefaultMetricsRecorder : IDefaultMetricsRecorder, IDisposable {
     internal void CallWithPointer(Action<ulong> action)
     {
         IncrementCallCounter();
-        try {
+        try
+        {
             action(CloneRustArcPtr());
         }
-        finally {
+        finally
+        {
             DecrementCallCounter();
         }
     }
 
     internal T CallWithPointer<T>(Func<ulong, T> func)
-    {   
+    {
         IncrementCallCounter();
-        try {
+        try
+        {
             return func(CloneRustArcPtr());
         }
-        finally {
+        finally
+        {
             DecrementCallCounter();
         }
     }
 
-    
     /// <summary>
     /// Returns the metric matching `name` and the exact label set, if present.
     /// </summary>
-    public Metric? MetricByNameAndLabels(string @name, MetricLabel[] @labels) {
-        return CallWithPointer(thisPtr => FfiConverterOptionalTypeMetric.INSTANCE.Lift(
-    _UniffiHelpers.RustCall( (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_defaultmetricsrecorder_metric_by_name_and_labels(thisPtr, FfiConverterString.INSTANCE.Lower(@name), FfiConverterSequenceTypeMetricLabel.INSTANCE.Lower(@labels), ref _status)
-)));
+    public Metric? MetricByNameAndLabels(string @name, MetricLabel[] @labels)
+    {
+        return CallWithPointer(thisPtr =>
+            FfiConverterOptionalTypeMetric.INSTANCE.Lift(
+                _UniffiHelpers.RustCall(
+                    (ref UniffiRustCallStatus _status) =>
+                        _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_defaultmetricsrecorder_metric_by_name_and_labels(
+                            thisPtr,
+                            FfiConverterString.INSTANCE.Lower(@name),
+                            FfiConverterSequenceTypeMetricLabel.INSTANCE.Lower(@labels),
+                            ref _status
+                        )
+                )
+            )
+        );
     }
-    
-    
+
     /// <summary>
     /// Returns every metric with the requested name.
     /// </summary>
-    public Metric[] MetricsByName(string @name) {
-        return CallWithPointer(thisPtr => FfiConverterSequenceTypeMetric.INSTANCE.Lift(
-    _UniffiHelpers.RustCall( (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_defaultmetricsrecorder_metrics_by_name(thisPtr, FfiConverterString.INSTANCE.Lower(@name), ref _status)
-)));
+    public Metric[] MetricsByName(string @name)
+    {
+        return CallWithPointer(thisPtr =>
+            FfiConverterSequenceTypeMetric.INSTANCE.Lift(
+                _UniffiHelpers.RustCall(
+                    (ref UniffiRustCallStatus _status) =>
+                        _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_defaultmetricsrecorder_metrics_by_name(
+                            thisPtr,
+                            FfiConverterString.INSTANCE.Lower(@name),
+                            ref _status
+                        )
+                )
+            )
+        );
     }
-    
-    
-    public Counter RegisterCounter(string @name, string @description, MetricLabel[] @labels) {
-        return CallWithPointer(thisPtr => FfiConverterTypeCounter.INSTANCE.Lift(
-    _UniffiHelpers.RustCall( (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_defaultmetricsrecorder_register_counter(thisPtr, FfiConverterString.INSTANCE.Lower(@name), FfiConverterString.INSTANCE.Lower(@description), FfiConverterSequenceTypeMetricLabel.INSTANCE.Lower(@labels), ref _status)
-)));
+
+    public Counter RegisterCounter(string @name, string @description, MetricLabel[] @labels)
+    {
+        return CallWithPointer(thisPtr =>
+            FfiConverterTypeCounter.INSTANCE.Lift(
+                _UniffiHelpers.RustCall(
+                    (ref UniffiRustCallStatus _status) =>
+                        _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_defaultmetricsrecorder_register_counter(
+                            thisPtr,
+                            FfiConverterString.INSTANCE.Lower(@name),
+                            FfiConverterString.INSTANCE.Lower(@description),
+                            FfiConverterSequenceTypeMetricLabel.INSTANCE.Lower(@labels),
+                            ref _status
+                        )
+                )
+            )
+        );
     }
-    
-    
-    public Gauge RegisterGauge(string @name, string @description, MetricLabel[] @labels) {
-        return CallWithPointer(thisPtr => FfiConverterTypeGauge.INSTANCE.Lift(
-    _UniffiHelpers.RustCall( (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_defaultmetricsrecorder_register_gauge(thisPtr, FfiConverterString.INSTANCE.Lower(@name), FfiConverterString.INSTANCE.Lower(@description), FfiConverterSequenceTypeMetricLabel.INSTANCE.Lower(@labels), ref _status)
-)));
+
+    public Gauge RegisterGauge(string @name, string @description, MetricLabel[] @labels)
+    {
+        return CallWithPointer(thisPtr =>
+            FfiConverterTypeGauge.INSTANCE.Lift(
+                _UniffiHelpers.RustCall(
+                    (ref UniffiRustCallStatus _status) =>
+                        _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_defaultmetricsrecorder_register_gauge(
+                            thisPtr,
+                            FfiConverterString.INSTANCE.Lower(@name),
+                            FfiConverterString.INSTANCE.Lower(@description),
+                            FfiConverterSequenceTypeMetricLabel.INSTANCE.Lower(@labels),
+                            ref _status
+                        )
+                )
+            )
+        );
     }
-    
-    
-    public Histogram RegisterHistogram(string @name, string @description, MetricLabel[] @labels, double[] @boundaries) {
-        return CallWithPointer(thisPtr => FfiConverterTypeHistogram.INSTANCE.Lift(
-    _UniffiHelpers.RustCall( (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_defaultmetricsrecorder_register_histogram(thisPtr, FfiConverterString.INSTANCE.Lower(@name), FfiConverterString.INSTANCE.Lower(@description), FfiConverterSequenceTypeMetricLabel.INSTANCE.Lower(@labels), FfiConverterSequenceDouble.INSTANCE.Lower(@boundaries), ref _status)
-)));
+
+    public Histogram RegisterHistogram(
+        string @name,
+        string @description,
+        MetricLabel[] @labels,
+        double[] @boundaries
+    )
+    {
+        return CallWithPointer(thisPtr =>
+            FfiConverterTypeHistogram.INSTANCE.Lift(
+                _UniffiHelpers.RustCall(
+                    (ref UniffiRustCallStatus _status) =>
+                        _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_defaultmetricsrecorder_register_histogram(
+                            thisPtr,
+                            FfiConverterString.INSTANCE.Lower(@name),
+                            FfiConverterString.INSTANCE.Lower(@description),
+                            FfiConverterSequenceTypeMetricLabel.INSTANCE.Lower(@labels),
+                            FfiConverterSequenceDouble.INSTANCE.Lower(@boundaries),
+                            ref _status
+                        )
+                )
+            )
+        );
     }
-    
-    
-    public UpDownCounter RegisterUpDownCounter(string @name, string @description, MetricLabel[] @labels) {
-        return CallWithPointer(thisPtr => FfiConverterTypeUpDownCounter.INSTANCE.Lift(
-    _UniffiHelpers.RustCall( (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_defaultmetricsrecorder_register_up_down_counter(thisPtr, FfiConverterString.INSTANCE.Lower(@name), FfiConverterString.INSTANCE.Lower(@description), FfiConverterSequenceTypeMetricLabel.INSTANCE.Lower(@labels), ref _status)
-)));
+
+    public UpDownCounter RegisterUpDownCounter(
+        string @name,
+        string @description,
+        MetricLabel[] @labels
+    )
+    {
+        return CallWithPointer(thisPtr =>
+            FfiConverterTypeUpDownCounter.INSTANCE.Lift(
+                _UniffiHelpers.RustCall(
+                    (ref UniffiRustCallStatus _status) =>
+                        _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_defaultmetricsrecorder_register_up_down_counter(
+                            thisPtr,
+                            FfiConverterString.INSTANCE.Lower(@name),
+                            FfiConverterString.INSTANCE.Lower(@description),
+                            FfiConverterSequenceTypeMetricLabel.INSTANCE.Lower(@labels),
+                            ref _status
+                        )
+                )
+            )
+        );
     }
-    
-    
+
     /// <summary>
     /// Returns a point-in-time snapshot of every registered metric.
     /// </summary>
-    public Metric[] Snapshot() {
-        return CallWithPointer(thisPtr => FfiConverterSequenceTypeMetric.INSTANCE.Lift(
-    _UniffiHelpers.RustCall( (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_defaultmetricsrecorder_snapshot(thisPtr,  ref _status)
-)));
+    public Metric[] Snapshot()
+    {
+        return CallWithPointer(thisPtr =>
+            FfiConverterSequenceTypeMetric.INSTANCE.Lift(
+                _UniffiHelpers.RustCall(
+                    (ref UniffiRustCallStatus _status) =>
+                        _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_defaultmetricsrecorder_snapshot(
+                            thisPtr,
+                            ref _status
+                        )
+                )
+            )
+        );
     }
-    
-    
-
-    
 }
-class FfiConverterTypeDefaultMetricsRecorder: FfiConverter<DefaultMetricsRecorder, ulong> {
-    public static FfiConverterTypeDefaultMetricsRecorder INSTANCE = new FfiConverterTypeDefaultMetricsRecorder();
 
+class FfiConverterTypeDefaultMetricsRecorder : FfiConverter<DefaultMetricsRecorder, ulong>
+{
+    public static FfiConverterTypeDefaultMetricsRecorder INSTANCE =
+        new FfiConverterTypeDefaultMetricsRecorder();
 
-    public override ulong Lower(DefaultMetricsRecorder value) {
+    public override ulong Lower(DefaultMetricsRecorder value)
+    {
         return value.CallWithPointer(thisPtr => thisPtr);
     }
 
-    public override DefaultMetricsRecorder Lift(ulong value) {
+    public override DefaultMetricsRecorder Lift(ulong value)
+    {
         return new DefaultMetricsRecorder(value);
     }
 
-    public override DefaultMetricsRecorder Read(BigEndianStream stream) {
+    public override DefaultMetricsRecorder Read(BigEndianStream stream)
+    {
         return Lift(stream.ReadULong());
     }
 
-    public override int AllocationSize(DefaultMetricsRecorder value) {
+    public override int AllocationSize(DefaultMetricsRecorder value)
+    {
         return 8;
     }
 
-    public override void Write(DefaultMetricsRecorder value, BigEndianStream stream) {
+    public override void Write(DefaultMetricsRecorder value, BigEndianStream stream)
+    {
         stream.WriteULong(Lower(value));
     }
 }
 
-
-
 /// <summary>
 /// Handle for a gauge metric.
 /// </summary>
-internal interface Gauge {
+internal interface Gauge
+{
     /// <summary>
     /// Sets the gauge to `value`.
     /// </summary>
     void Set(long @value);
 }
+
 /// <summary>
 /// Handle for a gauge metric.
 /// </summary>
-internal class GaugeImpl : Gauge, IDisposable {
+internal class GaugeImpl : Gauge, IDisposable
+{
     protected ulong pointer;
     private int _wasDestroyed = 0;
     private long _callCounter = 1;
 
-    public GaugeImpl(ulong pointer) {
+    public GaugeImpl(ulong pointer)
+    {
         this.pointer = pointer;
     }
 
-    ~GaugeImpl() {
+    ~GaugeImpl()
+    {
         Destroy();
     }
 
-    protected void FreeRustArcPtr() {
-        _UniffiHelpers.RustCall((ref UniffiRustCallStatus status) => {
-            _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_gauge(this.pointer, ref status);
-        });
+    protected void FreeRustArcPtr()
+    {
+        _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_gauge(this.pointer, ref status);
+            }
+        );
     }
 
-    protected ulong CloneRustArcPtr() {
-        return _UniffiHelpers.RustCall((ref UniffiRustCallStatus status) => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_gauge(this.pointer, ref status);
-        });
+    protected ulong CloneRustArcPtr()
+    {
+        return _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_gauge(
+                    this.pointer,
+                    ref status
+                );
+            }
+        );
     }
 
     public void Destroy()
@@ -9421,7 +11343,7 @@ internal class GaugeImpl : Gauge, IDisposable {
         GC.SuppressFinalize(this); // Suppress finalization to avoid unnecessary GC overhead.
     }
 
-    private void IncrementCallCounter() 
+    private void IncrementCallCounter()
     {
         // Check and increment the call counter, to keep the object alive.
         // This needs a compare-and-set retry loop in case of concurrent updates.
@@ -9429,16 +11351,22 @@ internal class GaugeImpl : Gauge, IDisposable {
         do
         {
             count = Interlocked.Read(ref _callCounter);
-            if (count == 0L) throw new System.ObjectDisposedException(String.Format("'{0}' object has already been destroyed", this.GetType().Name));
-            if (count == long.MaxValue) throw new System.OverflowException(String.Format("'{0}' call counter would overflow", this.GetType().Name));
-
+            if (count == 0L)
+                throw new System.ObjectDisposedException(
+                    String.Format("'{0}' object has already been destroyed", this.GetType().Name)
+                );
+            if (count == long.MaxValue)
+                throw new System.OverflowException(
+                    String.Format("'{0}' call counter would overflow", this.GetType().Name)
+                );
         } while (Interlocked.CompareExchange(ref _callCounter, count + 1, count) != count);
     }
 
-    private void DecrementCallCounter() 
+    private void DecrementCallCounter()
     {
         // This decrement always matches the increment we performed above.
-        if (Interlocked.Decrement(ref _callCounter) == 0) {
+        if (Interlocked.Decrement(ref _callCounter) == 0)
+        {
             FreeRustArcPtr();
         }
     }
@@ -9446,184 +11374,242 @@ internal class GaugeImpl : Gauge, IDisposable {
     internal void CallWithPointer(Action<ulong> action)
     {
         IncrementCallCounter();
-        try {
+        try
+        {
             action(CloneRustArcPtr());
         }
-        finally {
+        finally
+        {
             DecrementCallCounter();
         }
     }
 
     internal T CallWithPointer<T>(Func<ulong, T> func)
-    {   
+    {
         IncrementCallCounter();
-        try {
+        try
+        {
             return func(CloneRustArcPtr());
         }
-        finally {
+        finally
+        {
             DecrementCallCounter();
         }
     }
 
-    
     /// <summary>
     /// Sets the gauge to `value`.
     /// </summary>
-    public void Set(long @value) {
+    public void Set(long @value)
+    {
         CallWithPointer(thisPtr =>
-    _UniffiHelpers.RustCall( (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_gauge_set(thisPtr, FfiConverterInt64.INSTANCE.Lower(@value), ref _status)
-));
+            _UniffiHelpers.RustCall(
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_gauge_set(
+                        thisPtr,
+                        FfiConverterInt64.INSTANCE.Lower(@value),
+                        ref _status
+                    )
+            )
+        );
     }
-    
-    
-    
-
-    
 }
-class UniffiCallbackInterfaceGauge {
-    static void Set(ulong @uniffiHandle,long @value,IntPtr @uniffiOutReturn,ref UniffiRustCallStatus _uniffi_out_err) {
+
+class UniffiCallbackInterfaceGauge
+{
+    static void Set(
+        ulong @uniffiHandle,
+        long @value,
+        IntPtr @uniffiOutReturn,
+        ref UniffiRustCallStatus _uniffi_out_err
+    )
+    {
         var handle = @uniffiHandle;
-        try {
-            if (!FfiConverterTypeGauge.INSTANCE.handleMap.TryGet(handle, out var uniffiObject)) {
+        try
+        {
+            if (!FfiConverterTypeGauge.INSTANCE.handleMap.TryGet(handle, out var uniffiObject))
+            {
                 throw new InternalException($"No callback in handlemap '{handle}'");
             }
-            uniffiObject.Set(
-                FfiConverterInt64.INSTANCE.Lift(@value));
+            uniffiObject.Set(FfiConverterInt64.INSTANCE.Lift(@value));
 
             _uniffi_out_err.code = UniffiCallbackResponseStatus.SUCCESS;
         }
-        catch (System.Exception e){
+        catch (System.Exception e)
+        {
             _uniffi_out_err.code = UniffiCallbackResponseStatus.UNEXPECTED_ERROR;
-            try {
+            try
+            {
                 _uniffi_out_err.error_buf = FfiConverterString.INSTANCE.Lower(e.Message);
             }
-            catch {
-            }
+            catch { }
         }
     }
 
-    static void UniffiFree(ulong @handle) {
+    static void UniffiFree(ulong @handle)
+    {
         FfiConverterTypeGauge.INSTANCE.handleMap.Remove(@handle);
     }
 
-    static ulong UniffiClone(ulong @handle) {
-        try {
-            if (!FfiConverterTypeGauge.INSTANCE.handleMap.TryGet(@handle, out var obj)) {
+    static ulong UniffiClone(ulong @handle)
+    {
+        try
+        {
+            if (!FfiConverterTypeGauge.INSTANCE.handleMap.TryGet(@handle, out var obj))
+            {
                 throw new InternalException($"No callback in handlemap '{@handle}'");
             }
             return FfiConverterTypeGauge.INSTANCE.handleMap.Insert(obj);
-        } catch (System.Exception) {
+        }
+        catch (System.Exception)
+        {
             return 0; // 0 is never a valid handle; ConcurrentHandleMap starts at 1
         }
     }
-    static _UniFFILib.UniffiCallbackInterfaceGaugeMethod0 _m0 = new _UniFFILib.UniffiCallbackInterfaceGaugeMethod0(Set);
-    static _UniFFILib.UniffiCallbackInterfaceFree _callback_interface_free = new _UniFFILib.UniffiCallbackInterfaceFree(UniffiFree);
-    static _UniFFILib.UniffiCallbackInterfaceClone _callback_interface_clone = new _UniFFILib.UniffiCallbackInterfaceClone(UniffiClone);
+
+    static _UniFFILib.UniffiCallbackInterfaceGaugeMethod0 _m0 =
+        new _UniFFILib.UniffiCallbackInterfaceGaugeMethod0(Set);
+    static _UniFFILib.UniffiCallbackInterfaceFree _callback_interface_free =
+        new _UniFFILib.UniffiCallbackInterfaceFree(UniffiFree);
+    static _UniFFILib.UniffiCallbackInterfaceClone _callback_interface_clone =
+        new _UniFFILib.UniffiCallbackInterfaceClone(UniffiClone);
 
     private static GCHandle? _vtablePin;
 
-    public static void Register() {
-        if (_vtablePin.HasValue) return;
-        _UniFFILib.UniffiVTableCallbackInterfaceGauge _vtable = new _UniFFILib.UniffiVTableCallbackInterfaceGauge {
-            @set = Marshal.GetFunctionPointerForDelegate(_m0),
-            @uniffiFree = Marshal.GetFunctionPointerForDelegate(_callback_interface_free),
-            @uniffiClone = Marshal.GetFunctionPointerForDelegate(_callback_interface_clone),
-        };
+    public static void Register()
+    {
+        if (_vtablePin.HasValue)
+            return;
+        _UniFFILib.UniffiVTableCallbackInterfaceGauge _vtable =
+            new _UniFFILib.UniffiVTableCallbackInterfaceGauge
+            {
+                @set = Marshal.GetFunctionPointerForDelegate(_m0),
+                @uniffiFree = Marshal.GetFunctionPointerForDelegate(_callback_interface_free),
+                @uniffiClone = Marshal.GetFunctionPointerForDelegate(_callback_interface_clone),
+            };
 
         // Pin the vtable so the GC never moves it. The GCHandle is intentionally never freed —
         // this pin must remain valid for the process lifetime.
         _vtablePin = GCHandle.Alloc(_vtable, GCHandleType.Pinned);
-        _UniFFILib.uniffi_slatedb_csharp_ffi_fn_init_callback_vtable_gauge(_vtablePin.Value.AddrOfPinnedObject());
+        _UniFFILib.uniffi_slatedb_csharp_ffi_fn_init_callback_vtable_gauge(
+            _vtablePin.Value.AddrOfPinnedObject()
+        );
     }
 }
 
-
-
-
-class FfiConverterTypeGauge: FfiConverter<Gauge, ulong> {
+class FfiConverterTypeGauge : FfiConverter<Gauge, ulong>
+{
     public ConcurrentHandleMap<Gauge> handleMap = new ConcurrentHandleMap<Gauge>();
-    
+
     public static FfiConverterTypeGauge INSTANCE = new FfiConverterTypeGauge();
 
-    static FfiConverterTypeGauge() {
+    static FfiConverterTypeGauge()
+    {
         UniffiCallbackInterfaceGauge.Register();
     }
 
-    public override ulong Lower(Gauge value) {
-        if (value is GaugeImpl rustObj) {
+    public override ulong Lower(Gauge value)
+    {
+        if (value is GaugeImpl rustObj)
+        {
             // Rust-implemented object. Clone the handle and return it.
             return rustObj.CallWithPointer(thisPtr => thisPtr);
-        } else {
+        }
+        else
+        {
             // C# object, generate a new handle map entry and return it.
             return handleMap.Insert(value);
         }
     }
 
-    public override Gauge Lift(ulong value) {
-        if ((value & 1UL) == 0UL) {
+    public override Gauge Lift(ulong value)
+    {
+        if ((value & 1UL) == 0UL)
+        {
             // Rust-generated handle, construct a new wrapper.
             return new GaugeImpl(value);
-        } else {
+        }
+        else
+        {
             // C#-generated handle, retrieve and remove from the handle map.
-            if (handleMap.Remove(value, out var obj)) {
+            if (handleMap.Remove(value, out var obj))
+            {
                 return obj;
-            } else {
+            }
+            else
+            {
                 throw new InternalException($"No callback in handlemap '{value}'");
             }
         }
     }
 
-    public override Gauge Read(BigEndianStream stream) {
+    public override Gauge Read(BigEndianStream stream)
+    {
         return Lift(stream.ReadULong());
     }
 
-    public override int AllocationSize(Gauge value) {
+    public override int AllocationSize(Gauge value)
+    {
         return 8;
     }
 
-    public override void Write(Gauge value, BigEndianStream stream) {
+    public override void Write(Gauge value, BigEndianStream stream)
+    {
         stream.WriteULong(Lower(value));
     }
 }
 
-
-
 /// <summary>
 /// Handle for a histogram metric.
 /// </summary>
-internal interface Histogram {
+internal interface Histogram
+{
     /// <summary>
     /// Records `value` in the histogram.
     /// </summary>
     void Record(double @value);
 }
+
 /// <summary>
 /// Handle for a histogram metric.
 /// </summary>
-internal class HistogramImpl : Histogram, IDisposable {
+internal class HistogramImpl : Histogram, IDisposable
+{
     protected ulong pointer;
     private int _wasDestroyed = 0;
     private long _callCounter = 1;
 
-    public HistogramImpl(ulong pointer) {
+    public HistogramImpl(ulong pointer)
+    {
         this.pointer = pointer;
     }
 
-    ~HistogramImpl() {
+    ~HistogramImpl()
+    {
         Destroy();
     }
 
-    protected void FreeRustArcPtr() {
-        _UniffiHelpers.RustCall((ref UniffiRustCallStatus status) => {
-            _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_histogram(this.pointer, ref status);
-        });
+    protected void FreeRustArcPtr()
+    {
+        _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_histogram(this.pointer, ref status);
+            }
+        );
     }
 
-    protected ulong CloneRustArcPtr() {
-        return _UniffiHelpers.RustCall((ref UniffiRustCallStatus status) => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_histogram(this.pointer, ref status);
-        });
+    protected ulong CloneRustArcPtr()
+    {
+        return _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_histogram(
+                    this.pointer,
+                    ref status
+                );
+            }
+        );
     }
 
     public void Destroy()
@@ -9645,7 +11631,7 @@ internal class HistogramImpl : Histogram, IDisposable {
         GC.SuppressFinalize(this); // Suppress finalization to avoid unnecessary GC overhead.
     }
 
-    private void IncrementCallCounter() 
+    private void IncrementCallCounter()
     {
         // Check and increment the call counter, to keep the object alive.
         // This needs a compare-and-set retry loop in case of concurrent updates.
@@ -9653,16 +11639,22 @@ internal class HistogramImpl : Histogram, IDisposable {
         do
         {
             count = Interlocked.Read(ref _callCounter);
-            if (count == 0L) throw new System.ObjectDisposedException(String.Format("'{0}' object has already been destroyed", this.GetType().Name));
-            if (count == long.MaxValue) throw new System.OverflowException(String.Format("'{0}' call counter would overflow", this.GetType().Name));
-
+            if (count == 0L)
+                throw new System.ObjectDisposedException(
+                    String.Format("'{0}' object has already been destroyed", this.GetType().Name)
+                );
+            if (count == long.MaxValue)
+                throw new System.OverflowException(
+                    String.Format("'{0}' call counter would overflow", this.GetType().Name)
+                );
         } while (Interlocked.CompareExchange(ref _callCounter, count + 1, count) != count);
     }
 
-    private void DecrementCallCounter() 
+    private void DecrementCallCounter()
     {
         // This decrement always matches the increment we performed above.
-        if (Interlocked.Decrement(ref _callCounter) == 0) {
+        if (Interlocked.Decrement(ref _callCounter) == 0)
+        {
             FreeRustArcPtr();
         }
     }
@@ -9670,184 +11662,242 @@ internal class HistogramImpl : Histogram, IDisposable {
     internal void CallWithPointer(Action<ulong> action)
     {
         IncrementCallCounter();
-        try {
+        try
+        {
             action(CloneRustArcPtr());
         }
-        finally {
+        finally
+        {
             DecrementCallCounter();
         }
     }
 
     internal T CallWithPointer<T>(Func<ulong, T> func)
-    {   
+    {
         IncrementCallCounter();
-        try {
+        try
+        {
             return func(CloneRustArcPtr());
         }
-        finally {
+        finally
+        {
             DecrementCallCounter();
         }
     }
 
-    
     /// <summary>
     /// Records `value` in the histogram.
     /// </summary>
-    public void Record(double @value) {
+    public void Record(double @value)
+    {
         CallWithPointer(thisPtr =>
-    _UniffiHelpers.RustCall( (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_histogram_record(thisPtr, FfiConverterDouble.INSTANCE.Lower(@value), ref _status)
-));
+            _UniffiHelpers.RustCall(
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_histogram_record(
+                        thisPtr,
+                        FfiConverterDouble.INSTANCE.Lower(@value),
+                        ref _status
+                    )
+            )
+        );
     }
-    
-    
-    
-
-    
 }
-class UniffiCallbackInterfaceHistogram {
-    static void Record(ulong @uniffiHandle,double @value,IntPtr @uniffiOutReturn,ref UniffiRustCallStatus _uniffi_out_err) {
+
+class UniffiCallbackInterfaceHistogram
+{
+    static void Record(
+        ulong @uniffiHandle,
+        double @value,
+        IntPtr @uniffiOutReturn,
+        ref UniffiRustCallStatus _uniffi_out_err
+    )
+    {
         var handle = @uniffiHandle;
-        try {
-            if (!FfiConverterTypeHistogram.INSTANCE.handleMap.TryGet(handle, out var uniffiObject)) {
+        try
+        {
+            if (!FfiConverterTypeHistogram.INSTANCE.handleMap.TryGet(handle, out var uniffiObject))
+            {
                 throw new InternalException($"No callback in handlemap '{handle}'");
             }
-            uniffiObject.Record(
-                FfiConverterDouble.INSTANCE.Lift(@value));
+            uniffiObject.Record(FfiConverterDouble.INSTANCE.Lift(@value));
 
             _uniffi_out_err.code = UniffiCallbackResponseStatus.SUCCESS;
         }
-        catch (System.Exception e){
+        catch (System.Exception e)
+        {
             _uniffi_out_err.code = UniffiCallbackResponseStatus.UNEXPECTED_ERROR;
-            try {
+            try
+            {
                 _uniffi_out_err.error_buf = FfiConverterString.INSTANCE.Lower(e.Message);
             }
-            catch {
-            }
+            catch { }
         }
     }
 
-    static void UniffiFree(ulong @handle) {
+    static void UniffiFree(ulong @handle)
+    {
         FfiConverterTypeHistogram.INSTANCE.handleMap.Remove(@handle);
     }
 
-    static ulong UniffiClone(ulong @handle) {
-        try {
-            if (!FfiConverterTypeHistogram.INSTANCE.handleMap.TryGet(@handle, out var obj)) {
+    static ulong UniffiClone(ulong @handle)
+    {
+        try
+        {
+            if (!FfiConverterTypeHistogram.INSTANCE.handleMap.TryGet(@handle, out var obj))
+            {
                 throw new InternalException($"No callback in handlemap '{@handle}'");
             }
             return FfiConverterTypeHistogram.INSTANCE.handleMap.Insert(obj);
-        } catch (System.Exception) {
+        }
+        catch (System.Exception)
+        {
             return 0; // 0 is never a valid handle; ConcurrentHandleMap starts at 1
         }
     }
-    static _UniFFILib.UniffiCallbackInterfaceHistogramMethod0 _m0 = new _UniFFILib.UniffiCallbackInterfaceHistogramMethod0(Record);
-    static _UniFFILib.UniffiCallbackInterfaceFree _callback_interface_free = new _UniFFILib.UniffiCallbackInterfaceFree(UniffiFree);
-    static _UniFFILib.UniffiCallbackInterfaceClone _callback_interface_clone = new _UniFFILib.UniffiCallbackInterfaceClone(UniffiClone);
+
+    static _UniFFILib.UniffiCallbackInterfaceHistogramMethod0 _m0 =
+        new _UniFFILib.UniffiCallbackInterfaceHistogramMethod0(Record);
+    static _UniFFILib.UniffiCallbackInterfaceFree _callback_interface_free =
+        new _UniFFILib.UniffiCallbackInterfaceFree(UniffiFree);
+    static _UniFFILib.UniffiCallbackInterfaceClone _callback_interface_clone =
+        new _UniFFILib.UniffiCallbackInterfaceClone(UniffiClone);
 
     private static GCHandle? _vtablePin;
 
-    public static void Register() {
-        if (_vtablePin.HasValue) return;
-        _UniFFILib.UniffiVTableCallbackInterfaceHistogram _vtable = new _UniFFILib.UniffiVTableCallbackInterfaceHistogram {
-            @record = Marshal.GetFunctionPointerForDelegate(_m0),
-            @uniffiFree = Marshal.GetFunctionPointerForDelegate(_callback_interface_free),
-            @uniffiClone = Marshal.GetFunctionPointerForDelegate(_callback_interface_clone),
-        };
+    public static void Register()
+    {
+        if (_vtablePin.HasValue)
+            return;
+        _UniFFILib.UniffiVTableCallbackInterfaceHistogram _vtable =
+            new _UniFFILib.UniffiVTableCallbackInterfaceHistogram
+            {
+                @record = Marshal.GetFunctionPointerForDelegate(_m0),
+                @uniffiFree = Marshal.GetFunctionPointerForDelegate(_callback_interface_free),
+                @uniffiClone = Marshal.GetFunctionPointerForDelegate(_callback_interface_clone),
+            };
 
         // Pin the vtable so the GC never moves it. The GCHandle is intentionally never freed —
         // this pin must remain valid for the process lifetime.
         _vtablePin = GCHandle.Alloc(_vtable, GCHandleType.Pinned);
-        _UniFFILib.uniffi_slatedb_csharp_ffi_fn_init_callback_vtable_histogram(_vtablePin.Value.AddrOfPinnedObject());
+        _UniFFILib.uniffi_slatedb_csharp_ffi_fn_init_callback_vtable_histogram(
+            _vtablePin.Value.AddrOfPinnedObject()
+        );
     }
 }
 
-
-
-
-class FfiConverterTypeHistogram: FfiConverter<Histogram, ulong> {
+class FfiConverterTypeHistogram : FfiConverter<Histogram, ulong>
+{
     public ConcurrentHandleMap<Histogram> handleMap = new ConcurrentHandleMap<Histogram>();
-    
+
     public static FfiConverterTypeHistogram INSTANCE = new FfiConverterTypeHistogram();
 
-    static FfiConverterTypeHistogram() {
+    static FfiConverterTypeHistogram()
+    {
         UniffiCallbackInterfaceHistogram.Register();
     }
 
-    public override ulong Lower(Histogram value) {
-        if (value is HistogramImpl rustObj) {
+    public override ulong Lower(Histogram value)
+    {
+        if (value is HistogramImpl rustObj)
+        {
             // Rust-implemented object. Clone the handle and return it.
             return rustObj.CallWithPointer(thisPtr => thisPtr);
-        } else {
+        }
+        else
+        {
             // C# object, generate a new handle map entry and return it.
             return handleMap.Insert(value);
         }
     }
 
-    public override Histogram Lift(ulong value) {
-        if ((value & 1UL) == 0UL) {
+    public override Histogram Lift(ulong value)
+    {
+        if ((value & 1UL) == 0UL)
+        {
             // Rust-generated handle, construct a new wrapper.
             return new HistogramImpl(value);
-        } else {
+        }
+        else
+        {
             // C#-generated handle, retrieve and remove from the handle map.
-            if (handleMap.Remove(value, out var obj)) {
+            if (handleMap.Remove(value, out var obj))
+            {
                 return obj;
-            } else {
+            }
+            else
+            {
                 throw new InternalException($"No callback in handlemap '{value}'");
             }
         }
     }
 
-    public override Histogram Read(BigEndianStream stream) {
+    public override Histogram Read(BigEndianStream stream)
+    {
         return Lift(stream.ReadULong());
     }
 
-    public override int AllocationSize(Histogram value) {
+    public override int AllocationSize(Histogram value)
+    {
         return 8;
     }
 
-    public override void Write(Histogram value, BigEndianStream stream) {
+    public override void Write(Histogram value, BigEndianStream stream)
+    {
         stream.WriteULong(Lower(value));
     }
 }
 
-
-
 /// <summary>
 /// Callback invoked for each emitted log record.
 /// </summary>
-internal interface LogCallback {
+internal interface LogCallback
+{
     /// <summary>
     /// Handles one log record.
     /// </summary>
     void Log(LogRecord @record);
 }
+
 /// <summary>
 /// Callback invoked for each emitted log record.
 /// </summary>
-internal class LogCallbackImpl : LogCallback, IDisposable {
+internal class LogCallbackImpl : LogCallback, IDisposable
+{
     protected ulong pointer;
     private int _wasDestroyed = 0;
     private long _callCounter = 1;
 
-    public LogCallbackImpl(ulong pointer) {
+    public LogCallbackImpl(ulong pointer)
+    {
         this.pointer = pointer;
     }
 
-    ~LogCallbackImpl() {
+    ~LogCallbackImpl()
+    {
         Destroy();
     }
 
-    protected void FreeRustArcPtr() {
-        _UniffiHelpers.RustCall((ref UniffiRustCallStatus status) => {
-            _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_logcallback(this.pointer, ref status);
-        });
+    protected void FreeRustArcPtr()
+    {
+        _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_logcallback(this.pointer, ref status);
+            }
+        );
     }
 
-    protected ulong CloneRustArcPtr() {
-        return _UniffiHelpers.RustCall((ref UniffiRustCallStatus status) => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_logcallback(this.pointer, ref status);
-        });
+    protected ulong CloneRustArcPtr()
+    {
+        return _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_logcallback(
+                    this.pointer,
+                    ref status
+                );
+            }
+        );
     }
 
     public void Destroy()
@@ -9869,7 +11919,7 @@ internal class LogCallbackImpl : LogCallback, IDisposable {
         GC.SuppressFinalize(this); // Suppress finalization to avoid unnecessary GC overhead.
     }
 
-    private void IncrementCallCounter() 
+    private void IncrementCallCounter()
     {
         // Check and increment the call counter, to keep the object alive.
         // This needs a compare-and-set retry loop in case of concurrent updates.
@@ -9877,16 +11927,22 @@ internal class LogCallbackImpl : LogCallback, IDisposable {
         do
         {
             count = Interlocked.Read(ref _callCounter);
-            if (count == 0L) throw new System.ObjectDisposedException(String.Format("'{0}' object has already been destroyed", this.GetType().Name));
-            if (count == long.MaxValue) throw new System.OverflowException(String.Format("'{0}' call counter would overflow", this.GetType().Name));
-
+            if (count == 0L)
+                throw new System.ObjectDisposedException(
+                    String.Format("'{0}' object has already been destroyed", this.GetType().Name)
+                );
+            if (count == long.MaxValue)
+                throw new System.OverflowException(
+                    String.Format("'{0}' call counter would overflow", this.GetType().Name)
+                );
         } while (Interlocked.CompareExchange(ref _callCounter, count + 1, count) != count);
     }
 
-    private void DecrementCallCounter() 
+    private void DecrementCallCounter()
     {
         // This decrement always matches the increment we performed above.
-        if (Interlocked.Decrement(ref _callCounter) == 0) {
+        if (Interlocked.Decrement(ref _callCounter) == 0)
+        {
             FreeRustArcPtr();
         }
     }
@@ -9894,153 +11950,198 @@ internal class LogCallbackImpl : LogCallback, IDisposable {
     internal void CallWithPointer(Action<ulong> action)
     {
         IncrementCallCounter();
-        try {
+        try
+        {
             action(CloneRustArcPtr());
         }
-        finally {
+        finally
+        {
             DecrementCallCounter();
         }
     }
 
     internal T CallWithPointer<T>(Func<ulong, T> func)
-    {   
+    {
         IncrementCallCounter();
-        try {
+        try
+        {
             return func(CloneRustArcPtr());
         }
-        finally {
+        finally
+        {
             DecrementCallCounter();
         }
     }
 
-    
     /// <summary>
     /// Handles one log record.
     /// </summary>
-    public void Log(LogRecord @record) {
+    public void Log(LogRecord @record)
+    {
         CallWithPointer(thisPtr =>
-    _UniffiHelpers.RustCall( (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_logcallback_log(thisPtr, FfiConverterTypeLogRecord.INSTANCE.Lower(@record), ref _status)
-));
+            _UniffiHelpers.RustCall(
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_logcallback_log(
+                        thisPtr,
+                        FfiConverterTypeLogRecord.INSTANCE.Lower(@record),
+                        ref _status
+                    )
+            )
+        );
     }
-    
-    
-    
-
-    
 }
-class UniffiCallbackInterfaceLogCallback {
-    static void Log(ulong @uniffiHandle,RustBuffer @record,IntPtr @uniffiOutReturn,ref UniffiRustCallStatus _uniffi_out_err) {
+
+class UniffiCallbackInterfaceLogCallback
+{
+    static void Log(
+        ulong @uniffiHandle,
+        RustBuffer @record,
+        IntPtr @uniffiOutReturn,
+        ref UniffiRustCallStatus _uniffi_out_err
+    )
+    {
         var handle = @uniffiHandle;
-        try {
-            if (!FfiConverterTypeLogCallback.INSTANCE.handleMap.TryGet(handle, out var uniffiObject)) {
+        try
+        {
+            if (
+                !FfiConverterTypeLogCallback.INSTANCE.handleMap.TryGet(handle, out var uniffiObject)
+            )
+            {
                 throw new InternalException($"No callback in handlemap '{handle}'");
             }
-            uniffiObject.Log(
-                FfiConverterTypeLogRecord.INSTANCE.Lift(@record));
+            uniffiObject.Log(FfiConverterTypeLogRecord.INSTANCE.Lift(@record));
 
             _uniffi_out_err.code = UniffiCallbackResponseStatus.SUCCESS;
         }
-        catch (System.Exception e){
+        catch (System.Exception e)
+        {
             _uniffi_out_err.code = UniffiCallbackResponseStatus.UNEXPECTED_ERROR;
-            try {
+            try
+            {
                 _uniffi_out_err.error_buf = FfiConverterString.INSTANCE.Lower(e.Message);
             }
-            catch {
-            }
+            catch { }
         }
     }
 
-    static void UniffiFree(ulong @handle) {
+    static void UniffiFree(ulong @handle)
+    {
         FfiConverterTypeLogCallback.INSTANCE.handleMap.Remove(@handle);
     }
 
-    static ulong UniffiClone(ulong @handle) {
-        try {
-            if (!FfiConverterTypeLogCallback.INSTANCE.handleMap.TryGet(@handle, out var obj)) {
+    static ulong UniffiClone(ulong @handle)
+    {
+        try
+        {
+            if (!FfiConverterTypeLogCallback.INSTANCE.handleMap.TryGet(@handle, out var obj))
+            {
                 throw new InternalException($"No callback in handlemap '{@handle}'");
             }
             return FfiConverterTypeLogCallback.INSTANCE.handleMap.Insert(obj);
-        } catch (System.Exception) {
+        }
+        catch (System.Exception)
+        {
             return 0; // 0 is never a valid handle; ConcurrentHandleMap starts at 1
         }
     }
-    static _UniFFILib.UniffiCallbackInterfaceLogCallbackMethod0 _m0 = new _UniFFILib.UniffiCallbackInterfaceLogCallbackMethod0(Log);
-    static _UniFFILib.UniffiCallbackInterfaceFree _callback_interface_free = new _UniFFILib.UniffiCallbackInterfaceFree(UniffiFree);
-    static _UniFFILib.UniffiCallbackInterfaceClone _callback_interface_clone = new _UniFFILib.UniffiCallbackInterfaceClone(UniffiClone);
+
+    static _UniFFILib.UniffiCallbackInterfaceLogCallbackMethod0 _m0 =
+        new _UniFFILib.UniffiCallbackInterfaceLogCallbackMethod0(Log);
+    static _UniFFILib.UniffiCallbackInterfaceFree _callback_interface_free =
+        new _UniFFILib.UniffiCallbackInterfaceFree(UniffiFree);
+    static _UniFFILib.UniffiCallbackInterfaceClone _callback_interface_clone =
+        new _UniFFILib.UniffiCallbackInterfaceClone(UniffiClone);
 
     private static GCHandle? _vtablePin;
 
-    public static void Register() {
-        if (_vtablePin.HasValue) return;
-        _UniFFILib.UniffiVTableCallbackInterfaceLogCallback _vtable = new _UniFFILib.UniffiVTableCallbackInterfaceLogCallback {
-            @log = Marshal.GetFunctionPointerForDelegate(_m0),
-            @uniffiFree = Marshal.GetFunctionPointerForDelegate(_callback_interface_free),
-            @uniffiClone = Marshal.GetFunctionPointerForDelegate(_callback_interface_clone),
-        };
+    public static void Register()
+    {
+        if (_vtablePin.HasValue)
+            return;
+        _UniFFILib.UniffiVTableCallbackInterfaceLogCallback _vtable =
+            new _UniFFILib.UniffiVTableCallbackInterfaceLogCallback
+            {
+                @log = Marshal.GetFunctionPointerForDelegate(_m0),
+                @uniffiFree = Marshal.GetFunctionPointerForDelegate(_callback_interface_free),
+                @uniffiClone = Marshal.GetFunctionPointerForDelegate(_callback_interface_clone),
+            };
 
         // Pin the vtable so the GC never moves it. The GCHandle is intentionally never freed —
         // this pin must remain valid for the process lifetime.
         _vtablePin = GCHandle.Alloc(_vtable, GCHandleType.Pinned);
-        _UniFFILib.uniffi_slatedb_csharp_ffi_fn_init_callback_vtable_logcallback(_vtablePin.Value.AddrOfPinnedObject());
+        _UniFFILib.uniffi_slatedb_csharp_ffi_fn_init_callback_vtable_logcallback(
+            _vtablePin.Value.AddrOfPinnedObject()
+        );
     }
 }
 
-
-
-
-class FfiConverterTypeLogCallback: FfiConverter<LogCallback, ulong> {
+class FfiConverterTypeLogCallback : FfiConverter<LogCallback, ulong>
+{
     public ConcurrentHandleMap<LogCallback> handleMap = new ConcurrentHandleMap<LogCallback>();
-    
+
     public static FfiConverterTypeLogCallback INSTANCE = new FfiConverterTypeLogCallback();
 
-    static FfiConverterTypeLogCallback() {
+    static FfiConverterTypeLogCallback()
+    {
         UniffiCallbackInterfaceLogCallback.Register();
     }
 
-    public override ulong Lower(LogCallback value) {
-        if (value is LogCallbackImpl rustObj) {
+    public override ulong Lower(LogCallback value)
+    {
+        if (value is LogCallbackImpl rustObj)
+        {
             // Rust-implemented object. Clone the handle and return it.
             return rustObj.CallWithPointer(thisPtr => thisPtr);
-        } else {
+        }
+        else
+        {
             // C# object, generate a new handle map entry and return it.
             return handleMap.Insert(value);
         }
     }
 
-    public override LogCallback Lift(ulong value) {
-        if ((value & 1UL) == 0UL) {
+    public override LogCallback Lift(ulong value)
+    {
+        if ((value & 1UL) == 0UL)
+        {
             // Rust-generated handle, construct a new wrapper.
             return new LogCallbackImpl(value);
-        } else {
+        }
+        else
+        {
             // C#-generated handle, retrieve and remove from the handle map.
-            if (handleMap.Remove(value, out var obj)) {
+            if (handleMap.Remove(value, out var obj))
+            {
                 return obj;
-            } else {
+            }
+            else
+            {
                 throw new InternalException($"No callback in handlemap '{value}'");
             }
         }
     }
 
-    public override LogCallback Read(BigEndianStream stream) {
+    public override LogCallback Read(BigEndianStream stream)
+    {
         return Lift(stream.ReadULong());
     }
 
-    public override int AllocationSize(LogCallback value) {
+    public override int AllocationSize(LogCallback value)
+    {
         return 8;
     }
 
-    public override void Write(LogCallback value, BigEndianStream stream) {
+    public override void Write(LogCallback value, BigEndianStream stream)
+    {
         stream.WriteULong(Lower(value));
     }
 }
 
-
-
 /// <summary>
 /// Application-provided merge operator used by merge-enabled databases.
 /// </summary>
-internal interface MergeOperator {
+internal interface MergeOperator
+{
     /// <summary>
     /// Combines an existing value and a new merge operand into the next value.
     ///
@@ -10049,32 +12150,50 @@ internal interface MergeOperator {
     /// <exception cref="MergeOperatorCallbackException"></exception>
     byte[] Merge(byte[] @key, byte[]? @existingValue, byte[] @operand);
 }
+
 /// <summary>
 /// Application-provided merge operator used by merge-enabled databases.
 /// </summary>
-internal class MergeOperatorImpl : MergeOperator, IDisposable {
+internal class MergeOperatorImpl : MergeOperator, IDisposable
+{
     protected ulong pointer;
     private int _wasDestroyed = 0;
     private long _callCounter = 1;
 
-    public MergeOperatorImpl(ulong pointer) {
+    public MergeOperatorImpl(ulong pointer)
+    {
         this.pointer = pointer;
     }
 
-    ~MergeOperatorImpl() {
+    ~MergeOperatorImpl()
+    {
         Destroy();
     }
 
-    protected void FreeRustArcPtr() {
-        _UniffiHelpers.RustCall((ref UniffiRustCallStatus status) => {
-            _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_mergeoperator(this.pointer, ref status);
-        });
+    protected void FreeRustArcPtr()
+    {
+        _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_mergeoperator(
+                    this.pointer,
+                    ref status
+                );
+            }
+        );
     }
 
-    protected ulong CloneRustArcPtr() {
-        return _UniffiHelpers.RustCall((ref UniffiRustCallStatus status) => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_mergeoperator(this.pointer, ref status);
-        });
+    protected ulong CloneRustArcPtr()
+    {
+        return _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_mergeoperator(
+                    this.pointer,
+                    ref status
+                );
+            }
+        );
     }
 
     public void Destroy()
@@ -10096,7 +12215,7 @@ internal class MergeOperatorImpl : MergeOperator, IDisposable {
         GC.SuppressFinalize(this); // Suppress finalization to avoid unnecessary GC overhead.
     }
 
-    private void IncrementCallCounter() 
+    private void IncrementCallCounter()
     {
         // Check and increment the call counter, to keep the object alive.
         // This needs a compare-and-set retry loop in case of concurrent updates.
@@ -10104,16 +12223,22 @@ internal class MergeOperatorImpl : MergeOperator, IDisposable {
         do
         {
             count = Interlocked.Read(ref _callCounter);
-            if (count == 0L) throw new System.ObjectDisposedException(String.Format("'{0}' object has already been destroyed", this.GetType().Name));
-            if (count == long.MaxValue) throw new System.OverflowException(String.Format("'{0}' call counter would overflow", this.GetType().Name));
-
+            if (count == 0L)
+                throw new System.ObjectDisposedException(
+                    String.Format("'{0}' object has already been destroyed", this.GetType().Name)
+                );
+            if (count == long.MaxValue)
+                throw new System.OverflowException(
+                    String.Format("'{0}' call counter would overflow", this.GetType().Name)
+                );
         } while (Interlocked.CompareExchange(ref _callCounter, count + 1, count) != count);
     }
 
-    private void DecrementCallCounter() 
+    private void DecrementCallCounter()
     {
         // This decrement always matches the increment we performed above.
-        if (Interlocked.Decrement(ref _callCounter) == 0) {
+        if (Interlocked.Decrement(ref _callCounter) == 0)
+        {
             FreeRustArcPtr();
         }
     }
@@ -10121,212 +12246,302 @@ internal class MergeOperatorImpl : MergeOperator, IDisposable {
     internal void CallWithPointer(Action<ulong> action)
     {
         IncrementCallCounter();
-        try {
+        try
+        {
             action(CloneRustArcPtr());
         }
-        finally {
+        finally
+        {
             DecrementCallCounter();
         }
     }
 
     internal T CallWithPointer<T>(Func<ulong, T> func)
-    {   
+    {
         IncrementCallCounter();
-        try {
+        try
+        {
             return func(CloneRustArcPtr());
         }
-        finally {
+        finally
+        {
             DecrementCallCounter();
         }
     }
 
-    
     /// <summary>
     /// Combines an existing value and a new merge operand into the next value.
     ///
     /// `existing_value` is `None` when the key has no visible base value.
     /// </summary>
     /// <exception cref="MergeOperatorCallbackException"></exception>
-    public byte[] Merge(byte[] @key, byte[]? @existingValue, byte[] @operand) {
-        return CallWithPointer(thisPtr => FfiConverterByteArray.INSTANCE.Lift(
-    _UniffiHelpers.RustCallWithError(FfiConverterTypeMergeOperatorCallbackError.INSTANCE, (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_mergeoperator_merge(thisPtr, FfiConverterByteArray.INSTANCE.Lower(@key), FfiConverterOptionalByteArray.INSTANCE.Lower(@existingValue), FfiConverterByteArray.INSTANCE.Lower(@operand), ref _status)
-)));
+    public byte[] Merge(byte[] @key, byte[]? @existingValue, byte[] @operand)
+    {
+        return CallWithPointer(thisPtr =>
+            FfiConverterByteArray.INSTANCE.Lift(
+                _UniffiHelpers.RustCallWithError(
+                    FfiConverterTypeMergeOperatorCallbackError.INSTANCE,
+                    (ref UniffiRustCallStatus _status) =>
+                        _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_mergeoperator_merge(
+                            thisPtr,
+                            FfiConverterByteArray.INSTANCE.Lower(@key),
+                            FfiConverterOptionalByteArray.INSTANCE.Lower(@existingValue),
+                            FfiConverterByteArray.INSTANCE.Lower(@operand),
+                            ref _status
+                        )
+                )
+            )
+        );
     }
-    
-    
-
-    
 }
-class UniffiCallbackInterfaceMergeOperator {
-    static void Merge(ulong @uniffiHandle,RustBuffer @key,RustBuffer @existingValue,RustBuffer @operand,IntPtr /*RustBuffer*/ @uniffiOutReturn,ref UniffiRustCallStatus _uniffi_out_err) {
+
+class UniffiCallbackInterfaceMergeOperator
+{
+    static void Merge(
+        ulong @uniffiHandle,
+        RustBuffer @key,
+        RustBuffer @existingValue,
+        RustBuffer @operand,
+        IntPtr /*RustBuffer*/
+        @uniffiOutReturn,
+        ref UniffiRustCallStatus _uniffi_out_err
+    )
+    {
         var handle = @uniffiHandle;
-        try {
-            if (!FfiConverterTypeMergeOperator.INSTANCE.handleMap.TryGet(handle, out var uniffiObject)) {
+        try
+        {
+            if (
+                !FfiConverterTypeMergeOperator.INSTANCE.handleMap.TryGet(
+                    handle,
+                    out var uniffiObject
+                )
+            )
+            {
                 throw new InternalException($"No callback in handlemap '{handle}'");
             }
-            var result =
-            uniffiObject.Merge(
-                FfiConverterByteArray.INSTANCE.Lift(@key), 
-                FfiConverterOptionalByteArray.INSTANCE.Lift(@existingValue), 
-                FfiConverterByteArray.INSTANCE.Lift(@operand));
-            unsafe {
+            var result = uniffiObject.Merge(
+                FfiConverterByteArray.INSTANCE.Lift(@key),
+                FfiConverterOptionalByteArray.INSTANCE.Lift(@existingValue),
+                FfiConverterByteArray.INSTANCE.Lift(@operand)
+            );
+            unsafe
+            {
                 *(RustBuffer*)uniffiOutReturn = FfiConverterByteArray.INSTANCE.Lower(result);
             }
 
             _uniffi_out_err.code = UniffiCallbackResponseStatus.SUCCESS;
         }
-        catch (MergeOperatorCallbackException e) {
-            try {
+        catch (MergeOperatorCallbackException e)
+        {
+            try
+            {
                 _uniffi_out_err.code = UniffiCallbackResponseStatus.ERROR;
-                _uniffi_out_err.error_buf = FfiConverterTypeMergeOperatorCallbackError.INSTANCE.Lower(e);
-            } catch {
+                _uniffi_out_err.error_buf =
+                    FfiConverterTypeMergeOperatorCallbackError.INSTANCE.Lower(e);
+            }
+            catch
+            {
                 _uniffi_out_err.code = UniffiCallbackResponseStatus.UNEXPECTED_ERROR;
             }
         }
-        catch (System.Exception e){
+        catch (System.Exception e)
+        {
             _uniffi_out_err.code = UniffiCallbackResponseStatus.UNEXPECTED_ERROR;
-            try {
+            try
+            {
                 _uniffi_out_err.error_buf = FfiConverterString.INSTANCE.Lower(e.Message);
             }
-            catch {
-            }
+            catch { }
         }
     }
 
-    static void UniffiFree(ulong @handle) {
+    static void UniffiFree(ulong @handle)
+    {
         FfiConverterTypeMergeOperator.INSTANCE.handleMap.Remove(@handle);
     }
 
-    static ulong UniffiClone(ulong @handle) {
-        try {
-            if (!FfiConverterTypeMergeOperator.INSTANCE.handleMap.TryGet(@handle, out var obj)) {
+    static ulong UniffiClone(ulong @handle)
+    {
+        try
+        {
+            if (!FfiConverterTypeMergeOperator.INSTANCE.handleMap.TryGet(@handle, out var obj))
+            {
                 throw new InternalException($"No callback in handlemap '{@handle}'");
             }
             return FfiConverterTypeMergeOperator.INSTANCE.handleMap.Insert(obj);
-        } catch (System.Exception) {
+        }
+        catch (System.Exception)
+        {
             return 0; // 0 is never a valid handle; ConcurrentHandleMap starts at 1
         }
     }
-    static _UniFFILib.UniffiCallbackInterfaceMergeOperatorMethod0 _m0 = new _UniFFILib.UniffiCallbackInterfaceMergeOperatorMethod0(Merge);
-    static _UniFFILib.UniffiCallbackInterfaceFree _callback_interface_free = new _UniFFILib.UniffiCallbackInterfaceFree(UniffiFree);
-    static _UniFFILib.UniffiCallbackInterfaceClone _callback_interface_clone = new _UniFFILib.UniffiCallbackInterfaceClone(UniffiClone);
+
+    static _UniFFILib.UniffiCallbackInterfaceMergeOperatorMethod0 _m0 =
+        new _UniFFILib.UniffiCallbackInterfaceMergeOperatorMethod0(Merge);
+    static _UniFFILib.UniffiCallbackInterfaceFree _callback_interface_free =
+        new _UniFFILib.UniffiCallbackInterfaceFree(UniffiFree);
+    static _UniFFILib.UniffiCallbackInterfaceClone _callback_interface_clone =
+        new _UniFFILib.UniffiCallbackInterfaceClone(UniffiClone);
 
     private static GCHandle? _vtablePin;
 
-    public static void Register() {
-        if (_vtablePin.HasValue) return;
-        _UniFFILib.UniffiVTableCallbackInterfaceMergeOperator _vtable = new _UniFFILib.UniffiVTableCallbackInterfaceMergeOperator {
-            @merge = Marshal.GetFunctionPointerForDelegate(_m0),
-            @uniffiFree = Marshal.GetFunctionPointerForDelegate(_callback_interface_free),
-            @uniffiClone = Marshal.GetFunctionPointerForDelegate(_callback_interface_clone),
-        };
+    public static void Register()
+    {
+        if (_vtablePin.HasValue)
+            return;
+        _UniFFILib.UniffiVTableCallbackInterfaceMergeOperator _vtable =
+            new _UniFFILib.UniffiVTableCallbackInterfaceMergeOperator
+            {
+                @merge = Marshal.GetFunctionPointerForDelegate(_m0),
+                @uniffiFree = Marshal.GetFunctionPointerForDelegate(_callback_interface_free),
+                @uniffiClone = Marshal.GetFunctionPointerForDelegate(_callback_interface_clone),
+            };
 
         // Pin the vtable so the GC never moves it. The GCHandle is intentionally never freed —
         // this pin must remain valid for the process lifetime.
         _vtablePin = GCHandle.Alloc(_vtable, GCHandleType.Pinned);
-        _UniFFILib.uniffi_slatedb_csharp_ffi_fn_init_callback_vtable_mergeoperator(_vtablePin.Value.AddrOfPinnedObject());
+        _UniFFILib.uniffi_slatedb_csharp_ffi_fn_init_callback_vtable_mergeoperator(
+            _vtablePin.Value.AddrOfPinnedObject()
+        );
     }
 }
 
-
-
-
-class FfiConverterTypeMergeOperator: FfiConverter<MergeOperator, ulong> {
+class FfiConverterTypeMergeOperator : FfiConverter<MergeOperator, ulong>
+{
     public ConcurrentHandleMap<MergeOperator> handleMap = new ConcurrentHandleMap<MergeOperator>();
-    
+
     public static FfiConverterTypeMergeOperator INSTANCE = new FfiConverterTypeMergeOperator();
 
-    static FfiConverterTypeMergeOperator() {
+    static FfiConverterTypeMergeOperator()
+    {
         UniffiCallbackInterfaceMergeOperator.Register();
     }
 
-    public override ulong Lower(MergeOperator value) {
-        if (value is MergeOperatorImpl rustObj) {
+    public override ulong Lower(MergeOperator value)
+    {
+        if (value is MergeOperatorImpl rustObj)
+        {
             // Rust-implemented object. Clone the handle and return it.
             return rustObj.CallWithPointer(thisPtr => thisPtr);
-        } else {
+        }
+        else
+        {
             // C# object, generate a new handle map entry and return it.
             return handleMap.Insert(value);
         }
     }
 
-    public override MergeOperator Lift(ulong value) {
-        if ((value & 1UL) == 0UL) {
+    public override MergeOperator Lift(ulong value)
+    {
+        if ((value & 1UL) == 0UL)
+        {
             // Rust-generated handle, construct a new wrapper.
             return new MergeOperatorImpl(value);
-        } else {
+        }
+        else
+        {
             // C#-generated handle, retrieve and remove from the handle map.
-            if (handleMap.Remove(value, out var obj)) {
+            if (handleMap.Remove(value, out var obj))
+            {
                 return obj;
-            } else {
+            }
+            else
+            {
                 throw new InternalException($"No callback in handlemap '{value}'");
             }
         }
     }
 
-    public override MergeOperator Read(BigEndianStream stream) {
+    public override MergeOperator Read(BigEndianStream stream)
+    {
         return Lift(stream.ReadULong());
     }
 
-    public override int AllocationSize(MergeOperator value) {
+    public override int AllocationSize(MergeOperator value)
+    {
         return 8;
     }
 
-    public override void Write(MergeOperator value, BigEndianStream stream) {
+    public override void Write(MergeOperator value, BigEndianStream stream)
+    {
         stream.WriteULong(Lower(value));
     }
 }
 
-
-
 /// <summary>
 /// Application-defined metrics recorder used to publish SlateDB metrics.
 /// </summary>
-internal interface MetricsRecorder {
+internal interface MetricsRecorder
+{
     /// <summary>
     /// Registers a monotonically increasing counter.
     /// </summary>
     Counter RegisterCounter(string @name, string @description, MetricLabel[] @labels);
+
     /// <summary>
     /// Registers a gauge.
     /// </summary>
     Gauge RegisterGauge(string @name, string @description, MetricLabel[] @labels);
+
     /// <summary>
     /// Registers an up/down counter.
     /// </summary>
     UpDownCounter RegisterUpDownCounter(string @name, string @description, MetricLabel[] @labels);
+
     /// <summary>
     /// Registers a histogram with explicit bucket boundaries.
     /// </summary>
-    Histogram RegisterHistogram(string @name, string @description, MetricLabel[] @labels, double[] @boundaries);
+    Histogram RegisterHistogram(
+        string @name,
+        string @description,
+        MetricLabel[] @labels,
+        double[] @boundaries
+    );
 }
+
 /// <summary>
 /// Application-defined metrics recorder used to publish SlateDB metrics.
 /// </summary>
-internal class MetricsRecorderImpl : MetricsRecorder, IDisposable {
+internal class MetricsRecorderImpl : MetricsRecorder, IDisposable
+{
     protected ulong pointer;
     private int _wasDestroyed = 0;
     private long _callCounter = 1;
 
-    public MetricsRecorderImpl(ulong pointer) {
+    public MetricsRecorderImpl(ulong pointer)
+    {
         this.pointer = pointer;
     }
 
-    ~MetricsRecorderImpl() {
+    ~MetricsRecorderImpl()
+    {
         Destroy();
     }
 
-    protected void FreeRustArcPtr() {
-        _UniffiHelpers.RustCall((ref UniffiRustCallStatus status) => {
-            _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_metricsrecorder(this.pointer, ref status);
-        });
+    protected void FreeRustArcPtr()
+    {
+        _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_metricsrecorder(
+                    this.pointer,
+                    ref status
+                );
+            }
+        );
     }
 
-    protected ulong CloneRustArcPtr() {
-        return _UniffiHelpers.RustCall((ref UniffiRustCallStatus status) => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_metricsrecorder(this.pointer, ref status);
-        });
+    protected ulong CloneRustArcPtr()
+    {
+        return _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_metricsrecorder(
+                    this.pointer,
+                    ref status
+                );
+            }
+        );
     }
 
     public void Destroy()
@@ -10348,7 +12563,7 @@ internal class MetricsRecorderImpl : MetricsRecorder, IDisposable {
         GC.SuppressFinalize(this); // Suppress finalization to avoid unnecessary GC overhead.
     }
 
-    private void IncrementCallCounter() 
+    private void IncrementCallCounter()
     {
         // Check and increment the call counter, to keep the object alive.
         // This needs a compare-and-set retry loop in case of concurrent updates.
@@ -10356,16 +12571,22 @@ internal class MetricsRecorderImpl : MetricsRecorder, IDisposable {
         do
         {
             count = Interlocked.Read(ref _callCounter);
-            if (count == 0L) throw new System.ObjectDisposedException(String.Format("'{0}' object has already been destroyed", this.GetType().Name));
-            if (count == long.MaxValue) throw new System.OverflowException(String.Format("'{0}' call counter would overflow", this.GetType().Name));
-
+            if (count == 0L)
+                throw new System.ObjectDisposedException(
+                    String.Format("'{0}' object has already been destroyed", this.GetType().Name)
+                );
+            if (count == long.MaxValue)
+                throw new System.OverflowException(
+                    String.Format("'{0}' call counter would overflow", this.GetType().Name)
+                );
         } while (Interlocked.CompareExchange(ref _callCounter, count + 1, count) != count);
     }
 
-    private void DecrementCallCounter() 
+    private void DecrementCallCounter()
     {
         // This decrement always matches the increment we performed above.
-        if (Interlocked.Decrement(ref _callCounter) == 0) {
+        if (Interlocked.Decrement(ref _callCounter) == 0)
+        {
             FreeRustArcPtr();
         }
     }
@@ -10373,303 +12594,476 @@ internal class MetricsRecorderImpl : MetricsRecorder, IDisposable {
     internal void CallWithPointer(Action<ulong> action)
     {
         IncrementCallCounter();
-        try {
+        try
+        {
             action(CloneRustArcPtr());
         }
-        finally {
+        finally
+        {
             DecrementCallCounter();
         }
     }
 
     internal T CallWithPointer<T>(Func<ulong, T> func)
-    {   
+    {
         IncrementCallCounter();
-        try {
+        try
+        {
             return func(CloneRustArcPtr());
         }
-        finally {
+        finally
+        {
             DecrementCallCounter();
         }
     }
 
-    
     /// <summary>
     /// Registers a monotonically increasing counter.
     /// </summary>
-    public Counter RegisterCounter(string @name, string @description, MetricLabel[] @labels) {
-        return CallWithPointer(thisPtr => FfiConverterTypeCounter.INSTANCE.Lift(
-    _UniffiHelpers.RustCall( (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_metricsrecorder_register_counter(thisPtr, FfiConverterString.INSTANCE.Lower(@name), FfiConverterString.INSTANCE.Lower(@description), FfiConverterSequenceTypeMetricLabel.INSTANCE.Lower(@labels), ref _status)
-)));
+    public Counter RegisterCounter(string @name, string @description, MetricLabel[] @labels)
+    {
+        return CallWithPointer(thisPtr =>
+            FfiConverterTypeCounter.INSTANCE.Lift(
+                _UniffiHelpers.RustCall(
+                    (ref UniffiRustCallStatus _status) =>
+                        _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_metricsrecorder_register_counter(
+                            thisPtr,
+                            FfiConverterString.INSTANCE.Lower(@name),
+                            FfiConverterString.INSTANCE.Lower(@description),
+                            FfiConverterSequenceTypeMetricLabel.INSTANCE.Lower(@labels),
+                            ref _status
+                        )
+                )
+            )
+        );
     }
-    
-    
+
     /// <summary>
     /// Registers a gauge.
     /// </summary>
-    public Gauge RegisterGauge(string @name, string @description, MetricLabel[] @labels) {
-        return CallWithPointer(thisPtr => FfiConverterTypeGauge.INSTANCE.Lift(
-    _UniffiHelpers.RustCall( (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_metricsrecorder_register_gauge(thisPtr, FfiConverterString.INSTANCE.Lower(@name), FfiConverterString.INSTANCE.Lower(@description), FfiConverterSequenceTypeMetricLabel.INSTANCE.Lower(@labels), ref _status)
-)));
+    public Gauge RegisterGauge(string @name, string @description, MetricLabel[] @labels)
+    {
+        return CallWithPointer(thisPtr =>
+            FfiConverterTypeGauge.INSTANCE.Lift(
+                _UniffiHelpers.RustCall(
+                    (ref UniffiRustCallStatus _status) =>
+                        _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_metricsrecorder_register_gauge(
+                            thisPtr,
+                            FfiConverterString.INSTANCE.Lower(@name),
+                            FfiConverterString.INSTANCE.Lower(@description),
+                            FfiConverterSequenceTypeMetricLabel.INSTANCE.Lower(@labels),
+                            ref _status
+                        )
+                )
+            )
+        );
     }
-    
-    
+
     /// <summary>
     /// Registers an up/down counter.
     /// </summary>
-    public UpDownCounter RegisterUpDownCounter(string @name, string @description, MetricLabel[] @labels) {
-        return CallWithPointer(thisPtr => FfiConverterTypeUpDownCounter.INSTANCE.Lift(
-    _UniffiHelpers.RustCall( (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_metricsrecorder_register_up_down_counter(thisPtr, FfiConverterString.INSTANCE.Lower(@name), FfiConverterString.INSTANCE.Lower(@description), FfiConverterSequenceTypeMetricLabel.INSTANCE.Lower(@labels), ref _status)
-)));
+    public UpDownCounter RegisterUpDownCounter(
+        string @name,
+        string @description,
+        MetricLabel[] @labels
+    )
+    {
+        return CallWithPointer(thisPtr =>
+            FfiConverterTypeUpDownCounter.INSTANCE.Lift(
+                _UniffiHelpers.RustCall(
+                    (ref UniffiRustCallStatus _status) =>
+                        _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_metricsrecorder_register_up_down_counter(
+                            thisPtr,
+                            FfiConverterString.INSTANCE.Lower(@name),
+                            FfiConverterString.INSTANCE.Lower(@description),
+                            FfiConverterSequenceTypeMetricLabel.INSTANCE.Lower(@labels),
+                            ref _status
+                        )
+                )
+            )
+        );
     }
-    
-    
+
     /// <summary>
     /// Registers a histogram with explicit bucket boundaries.
     /// </summary>
-    public Histogram RegisterHistogram(string @name, string @description, MetricLabel[] @labels, double[] @boundaries) {
-        return CallWithPointer(thisPtr => FfiConverterTypeHistogram.INSTANCE.Lift(
-    _UniffiHelpers.RustCall( (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_metricsrecorder_register_histogram(thisPtr, FfiConverterString.INSTANCE.Lower(@name), FfiConverterString.INSTANCE.Lower(@description), FfiConverterSequenceTypeMetricLabel.INSTANCE.Lower(@labels), FfiConverterSequenceDouble.INSTANCE.Lower(@boundaries), ref _status)
-)));
+    public Histogram RegisterHistogram(
+        string @name,
+        string @description,
+        MetricLabel[] @labels,
+        double[] @boundaries
+    )
+    {
+        return CallWithPointer(thisPtr =>
+            FfiConverterTypeHistogram.INSTANCE.Lift(
+                _UniffiHelpers.RustCall(
+                    (ref UniffiRustCallStatus _status) =>
+                        _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_metricsrecorder_register_histogram(
+                            thisPtr,
+                            FfiConverterString.INSTANCE.Lower(@name),
+                            FfiConverterString.INSTANCE.Lower(@description),
+                            FfiConverterSequenceTypeMetricLabel.INSTANCE.Lower(@labels),
+                            FfiConverterSequenceDouble.INSTANCE.Lower(@boundaries),
+                            ref _status
+                        )
+                )
+            )
+        );
     }
-    
-    
-
-    
 }
-class UniffiCallbackInterfaceMetricsRecorder {
-    static void RegisterCounter(ulong @uniffiHandle,RustBuffer @name,RustBuffer @description,RustBuffer @labels,IntPtr /*ulong*/ @uniffiOutReturn,ref UniffiRustCallStatus _uniffi_out_err) {
+
+class UniffiCallbackInterfaceMetricsRecorder
+{
+    static void RegisterCounter(
+        ulong @uniffiHandle,
+        RustBuffer @name,
+        RustBuffer @description,
+        RustBuffer @labels,
+        IntPtr /*ulong*/
+        @uniffiOutReturn,
+        ref UniffiRustCallStatus _uniffi_out_err
+    )
+    {
         var handle = @uniffiHandle;
-        try {
-            if (!FfiConverterTypeMetricsRecorder.INSTANCE.handleMap.TryGet(handle, out var uniffiObject)) {
+        try
+        {
+            if (
+                !FfiConverterTypeMetricsRecorder.INSTANCE.handleMap.TryGet(
+                    handle,
+                    out var uniffiObject
+                )
+            )
+            {
                 throw new InternalException($"No callback in handlemap '{handle}'");
             }
-            var result =
-            uniffiObject.RegisterCounter(
-                FfiConverterString.INSTANCE.Lift(@name), 
-                FfiConverterString.INSTANCE.Lift(@description), 
-                FfiConverterSequenceTypeMetricLabel.INSTANCE.Lift(@labels));
-            unsafe {
+            var result = uniffiObject.RegisterCounter(
+                FfiConverterString.INSTANCE.Lift(@name),
+                FfiConverterString.INSTANCE.Lift(@description),
+                FfiConverterSequenceTypeMetricLabel.INSTANCE.Lift(@labels)
+            );
+            unsafe
+            {
                 *(ulong*)uniffiOutReturn = FfiConverterTypeCounter.INSTANCE.Lower(result);
             }
 
             _uniffi_out_err.code = UniffiCallbackResponseStatus.SUCCESS;
         }
-        catch (System.Exception e){
+        catch (System.Exception e)
+        {
             _uniffi_out_err.code = UniffiCallbackResponseStatus.UNEXPECTED_ERROR;
-            try {
+            try
+            {
                 _uniffi_out_err.error_buf = FfiConverterString.INSTANCE.Lower(e.Message);
             }
-            catch {
-            }
+            catch { }
         }
     }
-    static void RegisterGauge(ulong @uniffiHandle,RustBuffer @name,RustBuffer @description,RustBuffer @labels,IntPtr /*ulong*/ @uniffiOutReturn,ref UniffiRustCallStatus _uniffi_out_err) {
+
+    static void RegisterGauge(
+        ulong @uniffiHandle,
+        RustBuffer @name,
+        RustBuffer @description,
+        RustBuffer @labels,
+        IntPtr /*ulong*/
+        @uniffiOutReturn,
+        ref UniffiRustCallStatus _uniffi_out_err
+    )
+    {
         var handle = @uniffiHandle;
-        try {
-            if (!FfiConverterTypeMetricsRecorder.INSTANCE.handleMap.TryGet(handle, out var uniffiObject)) {
+        try
+        {
+            if (
+                !FfiConverterTypeMetricsRecorder.INSTANCE.handleMap.TryGet(
+                    handle,
+                    out var uniffiObject
+                )
+            )
+            {
                 throw new InternalException($"No callback in handlemap '{handle}'");
             }
-            var result =
-            uniffiObject.RegisterGauge(
-                FfiConverterString.INSTANCE.Lift(@name), 
-                FfiConverterString.INSTANCE.Lift(@description), 
-                FfiConverterSequenceTypeMetricLabel.INSTANCE.Lift(@labels));
-            unsafe {
+            var result = uniffiObject.RegisterGauge(
+                FfiConverterString.INSTANCE.Lift(@name),
+                FfiConverterString.INSTANCE.Lift(@description),
+                FfiConverterSequenceTypeMetricLabel.INSTANCE.Lift(@labels)
+            );
+            unsafe
+            {
                 *(ulong*)uniffiOutReturn = FfiConverterTypeGauge.INSTANCE.Lower(result);
             }
 
             _uniffi_out_err.code = UniffiCallbackResponseStatus.SUCCESS;
         }
-        catch (System.Exception e){
+        catch (System.Exception e)
+        {
             _uniffi_out_err.code = UniffiCallbackResponseStatus.UNEXPECTED_ERROR;
-            try {
+            try
+            {
                 _uniffi_out_err.error_buf = FfiConverterString.INSTANCE.Lower(e.Message);
             }
-            catch {
-            }
+            catch { }
         }
     }
-    static void RegisterUpDownCounter(ulong @uniffiHandle,RustBuffer @name,RustBuffer @description,RustBuffer @labels,IntPtr /*ulong*/ @uniffiOutReturn,ref UniffiRustCallStatus _uniffi_out_err) {
+
+    static void RegisterUpDownCounter(
+        ulong @uniffiHandle,
+        RustBuffer @name,
+        RustBuffer @description,
+        RustBuffer @labels,
+        IntPtr /*ulong*/
+        @uniffiOutReturn,
+        ref UniffiRustCallStatus _uniffi_out_err
+    )
+    {
         var handle = @uniffiHandle;
-        try {
-            if (!FfiConverterTypeMetricsRecorder.INSTANCE.handleMap.TryGet(handle, out var uniffiObject)) {
+        try
+        {
+            if (
+                !FfiConverterTypeMetricsRecorder.INSTANCE.handleMap.TryGet(
+                    handle,
+                    out var uniffiObject
+                )
+            )
+            {
                 throw new InternalException($"No callback in handlemap '{handle}'");
             }
-            var result =
-            uniffiObject.RegisterUpDownCounter(
-                FfiConverterString.INSTANCE.Lift(@name), 
-                FfiConverterString.INSTANCE.Lift(@description), 
-                FfiConverterSequenceTypeMetricLabel.INSTANCE.Lift(@labels));
-            unsafe {
+            var result = uniffiObject.RegisterUpDownCounter(
+                FfiConverterString.INSTANCE.Lift(@name),
+                FfiConverterString.INSTANCE.Lift(@description),
+                FfiConverterSequenceTypeMetricLabel.INSTANCE.Lift(@labels)
+            );
+            unsafe
+            {
                 *(ulong*)uniffiOutReturn = FfiConverterTypeUpDownCounter.INSTANCE.Lower(result);
             }
 
             _uniffi_out_err.code = UniffiCallbackResponseStatus.SUCCESS;
         }
-        catch (System.Exception e){
+        catch (System.Exception e)
+        {
             _uniffi_out_err.code = UniffiCallbackResponseStatus.UNEXPECTED_ERROR;
-            try {
+            try
+            {
                 _uniffi_out_err.error_buf = FfiConverterString.INSTANCE.Lower(e.Message);
             }
-            catch {
-            }
+            catch { }
         }
     }
-    static void RegisterHistogram(ulong @uniffiHandle,RustBuffer @name,RustBuffer @description,RustBuffer @labels,RustBuffer @boundaries,IntPtr /*ulong*/ @uniffiOutReturn,ref UniffiRustCallStatus _uniffi_out_err) {
+
+    static void RegisterHistogram(
+        ulong @uniffiHandle,
+        RustBuffer @name,
+        RustBuffer @description,
+        RustBuffer @labels,
+        RustBuffer @boundaries,
+        IntPtr /*ulong*/
+        @uniffiOutReturn,
+        ref UniffiRustCallStatus _uniffi_out_err
+    )
+    {
         var handle = @uniffiHandle;
-        try {
-            if (!FfiConverterTypeMetricsRecorder.INSTANCE.handleMap.TryGet(handle, out var uniffiObject)) {
+        try
+        {
+            if (
+                !FfiConverterTypeMetricsRecorder.INSTANCE.handleMap.TryGet(
+                    handle,
+                    out var uniffiObject
+                )
+            )
+            {
                 throw new InternalException($"No callback in handlemap '{handle}'");
             }
-            var result =
-            uniffiObject.RegisterHistogram(
-                FfiConverterString.INSTANCE.Lift(@name), 
-                FfiConverterString.INSTANCE.Lift(@description), 
-                FfiConverterSequenceTypeMetricLabel.INSTANCE.Lift(@labels), 
-                FfiConverterSequenceDouble.INSTANCE.Lift(@boundaries));
-            unsafe {
+            var result = uniffiObject.RegisterHistogram(
+                FfiConverterString.INSTANCE.Lift(@name),
+                FfiConverterString.INSTANCE.Lift(@description),
+                FfiConverterSequenceTypeMetricLabel.INSTANCE.Lift(@labels),
+                FfiConverterSequenceDouble.INSTANCE.Lift(@boundaries)
+            );
+            unsafe
+            {
                 *(ulong*)uniffiOutReturn = FfiConverterTypeHistogram.INSTANCE.Lower(result);
             }
 
             _uniffi_out_err.code = UniffiCallbackResponseStatus.SUCCESS;
         }
-        catch (System.Exception e){
+        catch (System.Exception e)
+        {
             _uniffi_out_err.code = UniffiCallbackResponseStatus.UNEXPECTED_ERROR;
-            try {
+            try
+            {
                 _uniffi_out_err.error_buf = FfiConverterString.INSTANCE.Lower(e.Message);
             }
-            catch {
-            }
+            catch { }
         }
     }
 
-    static void UniffiFree(ulong @handle) {
+    static void UniffiFree(ulong @handle)
+    {
         FfiConverterTypeMetricsRecorder.INSTANCE.handleMap.Remove(@handle);
     }
 
-    static ulong UniffiClone(ulong @handle) {
-        try {
-            if (!FfiConverterTypeMetricsRecorder.INSTANCE.handleMap.TryGet(@handle, out var obj)) {
+    static ulong UniffiClone(ulong @handle)
+    {
+        try
+        {
+            if (!FfiConverterTypeMetricsRecorder.INSTANCE.handleMap.TryGet(@handle, out var obj))
+            {
                 throw new InternalException($"No callback in handlemap '{@handle}'");
             }
             return FfiConverterTypeMetricsRecorder.INSTANCE.handleMap.Insert(obj);
-        } catch (System.Exception) {
+        }
+        catch (System.Exception)
+        {
             return 0; // 0 is never a valid handle; ConcurrentHandleMap starts at 1
         }
     }
-    static _UniFFILib.UniffiCallbackInterfaceMetricsRecorderMethod0 _m0 = new _UniFFILib.UniffiCallbackInterfaceMetricsRecorderMethod0(RegisterCounter);
-    static _UniFFILib.UniffiCallbackInterfaceMetricsRecorderMethod1 _m1 = new _UniFFILib.UniffiCallbackInterfaceMetricsRecorderMethod1(RegisterGauge);
-    static _UniFFILib.UniffiCallbackInterfaceMetricsRecorderMethod2 _m2 = new _UniFFILib.UniffiCallbackInterfaceMetricsRecorderMethod2(RegisterUpDownCounter);
-    static _UniFFILib.UniffiCallbackInterfaceMetricsRecorderMethod3 _m3 = new _UniFFILib.UniffiCallbackInterfaceMetricsRecorderMethod3(RegisterHistogram);
-    static _UniFFILib.UniffiCallbackInterfaceFree _callback_interface_free = new _UniFFILib.UniffiCallbackInterfaceFree(UniffiFree);
-    static _UniFFILib.UniffiCallbackInterfaceClone _callback_interface_clone = new _UniFFILib.UniffiCallbackInterfaceClone(UniffiClone);
+
+    static _UniFFILib.UniffiCallbackInterfaceMetricsRecorderMethod0 _m0 =
+        new _UniFFILib.UniffiCallbackInterfaceMetricsRecorderMethod0(RegisterCounter);
+    static _UniFFILib.UniffiCallbackInterfaceMetricsRecorderMethod1 _m1 =
+        new _UniFFILib.UniffiCallbackInterfaceMetricsRecorderMethod1(RegisterGauge);
+    static _UniFFILib.UniffiCallbackInterfaceMetricsRecorderMethod2 _m2 =
+        new _UniFFILib.UniffiCallbackInterfaceMetricsRecorderMethod2(RegisterUpDownCounter);
+    static _UniFFILib.UniffiCallbackInterfaceMetricsRecorderMethod3 _m3 =
+        new _UniFFILib.UniffiCallbackInterfaceMetricsRecorderMethod3(RegisterHistogram);
+    static _UniFFILib.UniffiCallbackInterfaceFree _callback_interface_free =
+        new _UniFFILib.UniffiCallbackInterfaceFree(UniffiFree);
+    static _UniFFILib.UniffiCallbackInterfaceClone _callback_interface_clone =
+        new _UniFFILib.UniffiCallbackInterfaceClone(UniffiClone);
 
     private static GCHandle? _vtablePin;
 
-    public static void Register() {
-        if (_vtablePin.HasValue) return;
-        _UniFFILib.UniffiVTableCallbackInterfaceMetricsRecorder _vtable = new _UniFFILib.UniffiVTableCallbackInterfaceMetricsRecorder {
-            @registerCounter = Marshal.GetFunctionPointerForDelegate(_m0),
-            @registerGauge = Marshal.GetFunctionPointerForDelegate(_m1),
-            @registerUpDownCounter = Marshal.GetFunctionPointerForDelegate(_m2),
-            @registerHistogram = Marshal.GetFunctionPointerForDelegate(_m3),
-            @uniffiFree = Marshal.GetFunctionPointerForDelegate(_callback_interface_free),
-            @uniffiClone = Marshal.GetFunctionPointerForDelegate(_callback_interface_clone),
-        };
+    public static void Register()
+    {
+        if (_vtablePin.HasValue)
+            return;
+        _UniFFILib.UniffiVTableCallbackInterfaceMetricsRecorder _vtable =
+            new _UniFFILib.UniffiVTableCallbackInterfaceMetricsRecorder
+            {
+                @registerCounter = Marshal.GetFunctionPointerForDelegate(_m0),
+                @registerGauge = Marshal.GetFunctionPointerForDelegate(_m1),
+                @registerUpDownCounter = Marshal.GetFunctionPointerForDelegate(_m2),
+                @registerHistogram = Marshal.GetFunctionPointerForDelegate(_m3),
+                @uniffiFree = Marshal.GetFunctionPointerForDelegate(_callback_interface_free),
+                @uniffiClone = Marshal.GetFunctionPointerForDelegate(_callback_interface_clone),
+            };
 
         // Pin the vtable so the GC never moves it. The GCHandle is intentionally never freed —
         // this pin must remain valid for the process lifetime.
         _vtablePin = GCHandle.Alloc(_vtable, GCHandleType.Pinned);
-        _UniFFILib.uniffi_slatedb_csharp_ffi_fn_init_callback_vtable_metricsrecorder(_vtablePin.Value.AddrOfPinnedObject());
+        _UniFFILib.uniffi_slatedb_csharp_ffi_fn_init_callback_vtable_metricsrecorder(
+            _vtablePin.Value.AddrOfPinnedObject()
+        );
     }
 }
 
+class FfiConverterTypeMetricsRecorder : FfiConverter<MetricsRecorder, ulong>
+{
+    public ConcurrentHandleMap<MetricsRecorder> handleMap =
+        new ConcurrentHandleMap<MetricsRecorder>();
 
-
-
-class FfiConverterTypeMetricsRecorder: FfiConverter<MetricsRecorder, ulong> {
-    public ConcurrentHandleMap<MetricsRecorder> handleMap = new ConcurrentHandleMap<MetricsRecorder>();
-    
     public static FfiConverterTypeMetricsRecorder INSTANCE = new FfiConverterTypeMetricsRecorder();
 
-    static FfiConverterTypeMetricsRecorder() {
+    static FfiConverterTypeMetricsRecorder()
+    {
         UniffiCallbackInterfaceMetricsRecorder.Register();
     }
 
-    public override ulong Lower(MetricsRecorder value) {
-        if (value is MetricsRecorderImpl rustObj) {
+    public override ulong Lower(MetricsRecorder value)
+    {
+        if (value is MetricsRecorderImpl rustObj)
+        {
             // Rust-implemented object. Clone the handle and return it.
             return rustObj.CallWithPointer(thisPtr => thisPtr);
-        } else {
+        }
+        else
+        {
             // C# object, generate a new handle map entry and return it.
             return handleMap.Insert(value);
         }
     }
 
-    public override MetricsRecorder Lift(ulong value) {
-        if ((value & 1UL) == 0UL) {
+    public override MetricsRecorder Lift(ulong value)
+    {
+        if ((value & 1UL) == 0UL)
+        {
             // Rust-generated handle, construct a new wrapper.
             return new MetricsRecorderImpl(value);
-        } else {
+        }
+        else
+        {
             // C#-generated handle, retrieve and remove from the handle map.
-            if (handleMap.Remove(value, out var obj)) {
+            if (handleMap.Remove(value, out var obj))
+            {
                 return obj;
-            } else {
+            }
+            else
+            {
                 throw new InternalException($"No callback in handlemap '{value}'");
             }
         }
     }
 
-    public override MetricsRecorder Read(BigEndianStream stream) {
+    public override MetricsRecorder Read(BigEndianStream stream)
+    {
         return Lift(stream.ReadULong());
     }
 
-    public override int AllocationSize(MetricsRecorder value) {
+    public override int AllocationSize(MetricsRecorder value)
+    {
         return 8;
     }
 
-    public override void Write(MetricsRecorder value, BigEndianStream stream) {
+    public override void Write(MetricsRecorder value, BigEndianStream stream)
+    {
         stream.WriteULong(Lower(value));
     }
 }
 
-
+/// <summary>
+/// Object store handle used when opening databases, readers, and WAL readers.
+/// </summary>
+internal interface IObjectStore { }
 
 /// <summary>
 /// Object store handle used when opening databases, readers, and WAL readers.
 /// </summary>
-internal interface IObjectStore {
-}
-/// <summary>
-/// Object store handle used when opening databases, readers, and WAL readers.
-/// </summary>
-internal class ObjectStore : IObjectStore, IDisposable {
+internal class ObjectStore : IObjectStore, IDisposable
+{
     protected ulong pointer;
     private int _wasDestroyed = 0;
     private long _callCounter = 1;
 
-    public ObjectStore(ulong pointer) {
+    public ObjectStore(ulong pointer)
+    {
         this.pointer = pointer;
     }
 
-    ~ObjectStore() {
+    ~ObjectStore()
+    {
         Destroy();
     }
 
-    protected void FreeRustArcPtr() {
-        _UniffiHelpers.RustCall((ref UniffiRustCallStatus status) => {
-            _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_objectstore(this.pointer, ref status);
-        });
+    protected void FreeRustArcPtr()
+    {
+        _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_objectstore(this.pointer, ref status);
+            }
+        );
     }
 
-    protected ulong CloneRustArcPtr() {
-        return _UniffiHelpers.RustCall((ref UniffiRustCallStatus status) => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_objectstore(this.pointer, ref status);
-        });
+    protected ulong CloneRustArcPtr()
+    {
+        return _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_objectstore(
+                    this.pointer,
+                    ref status
+                );
+            }
+        );
     }
 
     public void Destroy()
@@ -10691,7 +13085,7 @@ internal class ObjectStore : IObjectStore, IDisposable {
         GC.SuppressFinalize(this); // Suppress finalization to avoid unnecessary GC overhead.
     }
 
-    private void IncrementCallCounter() 
+    private void IncrementCallCounter()
     {
         // Check and increment the call counter, to keep the object alive.
         // This needs a compare-and-set retry loop in case of concurrent updates.
@@ -10699,16 +13093,22 @@ internal class ObjectStore : IObjectStore, IDisposable {
         do
         {
             count = Interlocked.Read(ref _callCounter);
-            if (count == 0L) throw new System.ObjectDisposedException(String.Format("'{0}' object has already been destroyed", this.GetType().Name));
-            if (count == long.MaxValue) throw new System.OverflowException(String.Format("'{0}' call counter would overflow", this.GetType().Name));
-
+            if (count == 0L)
+                throw new System.ObjectDisposedException(
+                    String.Format("'{0}' object has already been destroyed", this.GetType().Name)
+                );
+            if (count == long.MaxValue)
+                throw new System.OverflowException(
+                    String.Format("'{0}' call counter would overflow", this.GetType().Name)
+                );
         } while (Interlocked.CompareExchange(ref _callCounter, count + 1, count) != count);
     }
 
-    private void DecrementCallCounter() 
+    private void DecrementCallCounter()
     {
         // This decrement always matches the increment we performed above.
-        if (Interlocked.Decrement(ref _callCounter) == 0) {
+        if (Interlocked.Decrement(ref _callCounter) == 0)
+        {
             FreeRustArcPtr();
         }
     }
@@ -10716,28 +13116,29 @@ internal class ObjectStore : IObjectStore, IDisposable {
     internal void CallWithPointer(Action<ulong> action)
     {
         IncrementCallCounter();
-        try {
+        try
+        {
             action(CloneRustArcPtr());
         }
-        finally {
+        finally
+        {
             DecrementCallCounter();
         }
     }
 
     internal T CallWithPointer<T>(Func<ulong, T> func)
-    {   
+    {
         IncrementCallCounter();
-        try {
+        try
+        {
             return func(CloneRustArcPtr());
         }
-        finally {
+        finally
+        {
             DecrementCallCounter();
         }
     }
 
-    
-
-    
     /// <summary>
     /// Builds an object store from environment configuration.
     ///
@@ -10745,52 +13146,68 @@ internal class ObjectStore : IObjectStore, IDisposable {
     /// file before constructing the store.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public static ObjectStore FromEnv(string? @envFile) {
+    public static ObjectStore FromEnv(string? @envFile)
+    {
         return new ObjectStore(
-    _UniffiHelpers.RustCallWithError(FfiConverterTypeError.INSTANCE, (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_constructor_objectstore_from_env(FfiConverterOptionalString.INSTANCE.Lower(@envFile), ref _status)
-));
+            _UniffiHelpers.RustCallWithError(
+                FfiConverterTypeError.INSTANCE,
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_constructor_objectstore_from_env(
+                        FfiConverterOptionalString.INSTANCE.Lower(@envFile),
+                        ref _status
+                    )
+            )
+        );
     }
-    
+
     /// <summary>
     /// Resolves an object store from a URL understood by SlateDB.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public static ObjectStore Resolve(string @url) {
+    public static ObjectStore Resolve(string @url)
+    {
         return new ObjectStore(
-    _UniffiHelpers.RustCallWithError(FfiConverterTypeError.INSTANCE, (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_constructor_objectstore_resolve(FfiConverterString.INSTANCE.Lower(@url), ref _status)
-));
+            _UniffiHelpers.RustCallWithError(
+                FfiConverterTypeError.INSTANCE,
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_constructor_objectstore_resolve(
+                        FfiConverterString.INSTANCE.Lower(@url),
+                        ref _status
+                    )
+            )
+        );
     }
-    
-    
 }
-class FfiConverterTypeObjectStore: FfiConverter<ObjectStore, ulong> {
+
+class FfiConverterTypeObjectStore : FfiConverter<ObjectStore, ulong>
+{
     public static FfiConverterTypeObjectStore INSTANCE = new FfiConverterTypeObjectStore();
 
-
-    public override ulong Lower(ObjectStore value) {
+    public override ulong Lower(ObjectStore value)
+    {
         return value.CallWithPointer(thisPtr => thisPtr);
     }
 
-    public override ObjectStore Lift(ulong value) {
+    public override ObjectStore Lift(ulong value)
+    {
         return new ObjectStore(value);
     }
 
-    public override ObjectStore Read(BigEndianStream stream) {
+    public override ObjectStore Read(BigEndianStream stream)
+    {
         return Lift(stream.ReadULong());
     }
 
-    public override int AllocationSize(ObjectStore value) {
+    public override int AllocationSize(ObjectStore value)
+    {
         return 8;
     }
 
-    public override void Write(ObjectStore value, BigEndianStream stream) {
+    public override void Write(ObjectStore value, BigEndianStream stream)
+    {
         stream.WriteULong(Lower(value));
     }
 }
-
-
 
 /// <summary>
 /// Builds an [`ObjectStore`] from a provider-specific key/value configuration
@@ -10803,13 +13220,15 @@ class FfiConverterTypeObjectStore: FfiConverter<ObjectStore, ulong> {
 /// `bucket` for GCS). `Local` requires a `local_path` entry naming the root
 /// directory. `InMemory` ignores all config entries.
 /// </summary>
-internal interface IObjectStoreBuilder {
+internal interface IObjectStoreBuilder
+{
     /// <summary>
     /// Builds the configured object store.
     /// </summary>
     /// <exception cref="Exception"></exception>
     ObjectStore Build();
 }
+
 /// <summary>
 /// Builds an [`ObjectStore`] from a provider-specific key/value configuration
 /// map, for callers that need finer control than `ObjectStore::resolve` or
@@ -10821,37 +13240,61 @@ internal interface IObjectStoreBuilder {
 /// `bucket` for GCS). `Local` requires a `local_path` entry naming the root
 /// directory. `InMemory` ignores all config entries.
 /// </summary>
-internal class ObjectStoreBuilder : IObjectStoreBuilder, IDisposable {
+internal class ObjectStoreBuilder : IObjectStoreBuilder, IDisposable
+{
     protected ulong pointer;
     private int _wasDestroyed = 0;
     private long _callCounter = 1;
 
-    public ObjectStoreBuilder(ulong pointer) {
+    public ObjectStoreBuilder(ulong pointer)
+    {
         this.pointer = pointer;
     }
 
-    ~ObjectStoreBuilder() {
+    ~ObjectStoreBuilder()
+    {
         Destroy();
     }
+
     /// <summary>
     /// Creates a builder for `store_type` using the given configuration entries.
     /// </summary>
-    public ObjectStoreBuilder(ObjectStoreType @storeType, Dictionary<string, string> @config) :
-        this(
-    _UniffiHelpers.RustCall( (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_constructor_objectstorebuilder_new(FfiConverterTypeObjectStoreType.INSTANCE.Lower(@storeType), FfiConverterDictionaryStringString.INSTANCE.Lower(@config), ref _status)
-)) {}
+    public ObjectStoreBuilder(ObjectStoreType @storeType, Dictionary<string, string> @config)
+        : this(
+            _UniffiHelpers.RustCall(
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_constructor_objectstorebuilder_new(
+                        FfiConverterTypeObjectStoreType.INSTANCE.Lower(@storeType),
+                        FfiConverterDictionaryStringString.INSTANCE.Lower(@config),
+                        ref _status
+                    )
+            )
+        ) { }
 
-    protected void FreeRustArcPtr() {
-        _UniffiHelpers.RustCall((ref UniffiRustCallStatus status) => {
-            _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_objectstorebuilder(this.pointer, ref status);
-        });
+    protected void FreeRustArcPtr()
+    {
+        _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_objectstorebuilder(
+                    this.pointer,
+                    ref status
+                );
+            }
+        );
     }
 
-    protected ulong CloneRustArcPtr() {
-        return _UniffiHelpers.RustCall((ref UniffiRustCallStatus status) => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_objectstorebuilder(this.pointer, ref status);
-        });
+    protected ulong CloneRustArcPtr()
+    {
+        return _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_objectstorebuilder(
+                    this.pointer,
+                    ref status
+                );
+            }
+        );
     }
 
     public void Destroy()
@@ -10873,7 +13316,7 @@ internal class ObjectStoreBuilder : IObjectStoreBuilder, IDisposable {
         GC.SuppressFinalize(this); // Suppress finalization to avoid unnecessary GC overhead.
     }
 
-    private void IncrementCallCounter() 
+    private void IncrementCallCounter()
     {
         // Check and increment the call counter, to keep the object alive.
         // This needs a compare-and-set retry loop in case of concurrent updates.
@@ -10881,16 +13324,22 @@ internal class ObjectStoreBuilder : IObjectStoreBuilder, IDisposable {
         do
         {
             count = Interlocked.Read(ref _callCounter);
-            if (count == 0L) throw new System.ObjectDisposedException(String.Format("'{0}' object has already been destroyed", this.GetType().Name));
-            if (count == long.MaxValue) throw new System.OverflowException(String.Format("'{0}' call counter would overflow", this.GetType().Name));
-
+            if (count == 0L)
+                throw new System.ObjectDisposedException(
+                    String.Format("'{0}' object has already been destroyed", this.GetType().Name)
+                );
+            if (count == long.MaxValue)
+                throw new System.OverflowException(
+                    String.Format("'{0}' call counter would overflow", this.GetType().Name)
+                );
         } while (Interlocked.CompareExchange(ref _callCounter, count + 1, count) != count);
     }
 
-    private void DecrementCallCounter() 
+    private void DecrementCallCounter()
     {
         // This decrement always matches the increment we performed above.
-        if (Interlocked.Decrement(ref _callCounter) == 0) {
+        if (Interlocked.Decrement(ref _callCounter) == 0)
+        {
             FreeRustArcPtr();
         }
     }
@@ -10898,72 +13347,86 @@ internal class ObjectStoreBuilder : IObjectStoreBuilder, IDisposable {
     internal void CallWithPointer(Action<ulong> action)
     {
         IncrementCallCounter();
-        try {
+        try
+        {
             action(CloneRustArcPtr());
         }
-        finally {
+        finally
+        {
             DecrementCallCounter();
         }
     }
 
     internal T CallWithPointer<T>(Func<ulong, T> func)
-    {   
+    {
         IncrementCallCounter();
-        try {
+        try
+        {
             return func(CloneRustArcPtr());
         }
-        finally {
+        finally
+        {
             DecrementCallCounter();
         }
     }
 
-    
     /// <summary>
     /// Builds the configured object store.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public ObjectStore Build() {
-        return CallWithPointer(thisPtr => FfiConverterTypeObjectStore.INSTANCE.Lift(
-    _UniffiHelpers.RustCallWithError(FfiConverterTypeError.INSTANCE, (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_objectstorebuilder_build(thisPtr,  ref _status)
-)));
+    public ObjectStore Build()
+    {
+        return CallWithPointer(thisPtr =>
+            FfiConverterTypeObjectStore.INSTANCE.Lift(
+                _UniffiHelpers.RustCallWithError(
+                    FfiConverterTypeError.INSTANCE,
+                    (ref UniffiRustCallStatus _status) =>
+                        _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_objectstorebuilder_build(
+                            thisPtr,
+                            ref _status
+                        )
+                )
+            )
+        );
     }
-    
-    
-
-    
 }
-class FfiConverterTypeObjectStoreBuilder: FfiConverter<ObjectStoreBuilder, ulong> {
-    public static FfiConverterTypeObjectStoreBuilder INSTANCE = new FfiConverterTypeObjectStoreBuilder();
 
+class FfiConverterTypeObjectStoreBuilder : FfiConverter<ObjectStoreBuilder, ulong>
+{
+    public static FfiConverterTypeObjectStoreBuilder INSTANCE =
+        new FfiConverterTypeObjectStoreBuilder();
 
-    public override ulong Lower(ObjectStoreBuilder value) {
+    public override ulong Lower(ObjectStoreBuilder value)
+    {
         return value.CallWithPointer(thisPtr => thisPtr);
     }
 
-    public override ObjectStoreBuilder Lift(ulong value) {
+    public override ObjectStoreBuilder Lift(ulong value)
+    {
         return new ObjectStoreBuilder(value);
     }
 
-    public override ObjectStoreBuilder Read(BigEndianStream stream) {
+    public override ObjectStoreBuilder Read(BigEndianStream stream)
+    {
         return Lift(stream.ReadULong());
     }
 
-    public override int AllocationSize(ObjectStoreBuilder value) {
+    public override int AllocationSize(ObjectStoreBuilder value)
+    {
         return 8;
     }
 
-    public override void Write(ObjectStoreBuilder value, BigEndianStream stream) {
+    public override void Write(ObjectStoreBuilder value, BigEndianStream stream)
+    {
         stream.WriteULong(Lower(value));
     }
 }
 
-
-
 /// <summary>
 /// Mutable database settings object used to configure a [`crate::DbBuilder`].
 /// </summary>
-internal interface ISettings {
+internal interface ISettings
+{
     /// <summary>
     /// Sets a settings field by dotted path using a JSON literal value.
     ///
@@ -10991,38 +13454,54 @@ internal interface ISettings {
     /// </summary>
     /// <exception cref="Exception"></exception>
     void Set(string @key, string @valueJson);
+
     /// <summary>
     /// Serializes the current settings value to a JSON string.
     /// </summary>
     /// <exception cref="Exception"></exception>
     string ToJsonString();
 }
+
 /// <summary>
 /// Mutable database settings object used to configure a [`crate::DbBuilder`].
 /// </summary>
-internal class Settings : ISettings, IDisposable {
+internal class Settings : ISettings, IDisposable
+{
     protected ulong pointer;
     private int _wasDestroyed = 0;
     private long _callCounter = 1;
 
-    public Settings(ulong pointer) {
+    public Settings(ulong pointer)
+    {
         this.pointer = pointer;
     }
 
-    ~Settings() {
+    ~Settings()
+    {
         Destroy();
     }
 
-    protected void FreeRustArcPtr() {
-        _UniffiHelpers.RustCall((ref UniffiRustCallStatus status) => {
-            _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_settings(this.pointer, ref status);
-        });
+    protected void FreeRustArcPtr()
+    {
+        _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_settings(this.pointer, ref status);
+            }
+        );
     }
 
-    protected ulong CloneRustArcPtr() {
-        return _UniffiHelpers.RustCall((ref UniffiRustCallStatus status) => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_settings(this.pointer, ref status);
-        });
+    protected ulong CloneRustArcPtr()
+    {
+        return _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_settings(
+                    this.pointer,
+                    ref status
+                );
+            }
+        );
     }
 
     public void Destroy()
@@ -11044,7 +13523,7 @@ internal class Settings : ISettings, IDisposable {
         GC.SuppressFinalize(this); // Suppress finalization to avoid unnecessary GC overhead.
     }
 
-    private void IncrementCallCounter() 
+    private void IncrementCallCounter()
     {
         // Check and increment the call counter, to keep the object alive.
         // This needs a compare-and-set retry loop in case of concurrent updates.
@@ -11052,16 +13531,22 @@ internal class Settings : ISettings, IDisposable {
         do
         {
             count = Interlocked.Read(ref _callCounter);
-            if (count == 0L) throw new System.ObjectDisposedException(String.Format("'{0}' object has already been destroyed", this.GetType().Name));
-            if (count == long.MaxValue) throw new System.OverflowException(String.Format("'{0}' call counter would overflow", this.GetType().Name));
-
+            if (count == 0L)
+                throw new System.ObjectDisposedException(
+                    String.Format("'{0}' object has already been destroyed", this.GetType().Name)
+                );
+            if (count == long.MaxValue)
+                throw new System.OverflowException(
+                    String.Format("'{0}' call counter would overflow", this.GetType().Name)
+                );
         } while (Interlocked.CompareExchange(ref _callCounter, count + 1, count) != count);
     }
 
-    private void DecrementCallCounter() 
+    private void DecrementCallCounter()
     {
         // This decrement always matches the increment we performed above.
-        if (Interlocked.Decrement(ref _callCounter) == 0) {
+        if (Interlocked.Decrement(ref _callCounter) == 0)
+        {
             FreeRustArcPtr();
         }
     }
@@ -11069,26 +13554,29 @@ internal class Settings : ISettings, IDisposable {
     internal void CallWithPointer(Action<ulong> action)
     {
         IncrementCallCounter();
-        try {
+        try
+        {
             action(CloneRustArcPtr());
         }
-        finally {
+        finally
+        {
             DecrementCallCounter();
         }
     }
 
     internal T CallWithPointer<T>(Func<ulong, T> func)
-    {   
+    {
         IncrementCallCounter();
-        try {
+        try
+        {
             return func(CloneRustArcPtr());
         }
-        finally {
+        finally
+        {
             DecrementCallCounter();
         }
     }
 
-    
     /// <summary>
     /// Sets a settings field by dotted path using a JSON literal value.
     ///
@@ -11115,158 +13603,230 @@ internal class Settings : ISettings, IDisposable {
     /// - `set("object_store_cache_options.root_folder", "\"/tmp/slatedb-cache\"")`
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public void Set(string @key, string @valueJson) {
+    public void Set(string @key, string @valueJson)
+    {
         CallWithPointer(thisPtr =>
-    _UniffiHelpers.RustCallWithError(FfiConverterTypeError.INSTANCE, (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_settings_set(thisPtr, FfiConverterString.INSTANCE.Lower(@key), FfiConverterString.INSTANCE.Lower(@valueJson), ref _status)
-));
+            _UniffiHelpers.RustCallWithError(
+                FfiConverterTypeError.INSTANCE,
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_settings_set(
+                        thisPtr,
+                        FfiConverterString.INSTANCE.Lower(@key),
+                        FfiConverterString.INSTANCE.Lower(@valueJson),
+                        ref _status
+                    )
+            )
+        );
     }
-    
-    
-    
+
     /// <summary>
     /// Serializes the current settings value to a JSON string.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public string ToJsonString() {
-        return CallWithPointer(thisPtr => FfiConverterString.INSTANCE.Lift(
-    _UniffiHelpers.RustCallWithError(FfiConverterTypeError.INSTANCE, (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_settings_to_json_string(thisPtr,  ref _status)
-)));
+    public string ToJsonString()
+    {
+        return CallWithPointer(thisPtr =>
+            FfiConverterString.INSTANCE.Lift(
+                _UniffiHelpers.RustCallWithError(
+                    FfiConverterTypeError.INSTANCE,
+                    (ref UniffiRustCallStatus _status) =>
+                        _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_settings_to_json_string(
+                            thisPtr,
+                            ref _status
+                        )
+                )
+            )
+        );
     }
-    
-    
 
-    
     /// <summary>
     /// Creates a settings object populated with SlateDB defaults.
     /// </summary>
-    public static Settings Default() {
+    public static Settings Default()
+    {
         return new Settings(
-    _UniffiHelpers.RustCall( (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_constructor_settings_default( ref _status)
-));
+            _UniffiHelpers.RustCall(
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_constructor_settings_default(
+                        ref _status
+                    )
+            )
+        );
     }
-    
+
     /// <summary>
     /// Loads settings from environment variables using `prefix`.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public static Settings FromEnv(string @prefix) {
+    public static Settings FromEnv(string @prefix)
+    {
         return new Settings(
-    _UniffiHelpers.RustCallWithError(FfiConverterTypeError.INSTANCE, (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_constructor_settings_from_env(FfiConverterString.INSTANCE.Lower(@prefix), ref _status)
-));
+            _UniffiHelpers.RustCallWithError(
+                FfiConverterTypeError.INSTANCE,
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_constructor_settings_from_env(
+                        FfiConverterString.INSTANCE.Lower(@prefix),
+                        ref _status
+                    )
+            )
+        );
     }
-    
+
     /// <summary>
     /// Loads settings from environment variables, falling back to `default_settings`.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public static Settings FromEnvWithDefault(string @prefix, Settings @defaultSettings) {
+    public static Settings FromEnvWithDefault(string @prefix, Settings @defaultSettings)
+    {
         return new Settings(
-    _UniffiHelpers.RustCallWithError(FfiConverterTypeError.INSTANCE, (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_constructor_settings_from_env_with_default(FfiConverterString.INSTANCE.Lower(@prefix), FfiConverterTypeSettings.INSTANCE.Lower(@defaultSettings), ref _status)
-));
+            _UniffiHelpers.RustCallWithError(
+                FfiConverterTypeError.INSTANCE,
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_constructor_settings_from_env_with_default(
+                        FfiConverterString.INSTANCE.Lower(@prefix),
+                        FfiConverterTypeSettings.INSTANCE.Lower(@defaultSettings),
+                        ref _status
+                    )
+            )
+        );
     }
-    
+
     /// <summary>
     /// Loads settings from a JSON, TOML, or YAML file based on its extension.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public static Settings FromFile(string @path) {
+    public static Settings FromFile(string @path)
+    {
         return new Settings(
-    _UniffiHelpers.RustCallWithError(FfiConverterTypeError.INSTANCE, (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_constructor_settings_from_file(FfiConverterString.INSTANCE.Lower(@path), ref _status)
-));
+            _UniffiHelpers.RustCallWithError(
+                FfiConverterTypeError.INSTANCE,
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_constructor_settings_from_file(
+                        FfiConverterString.INSTANCE.Lower(@path),
+                        ref _status
+                    )
+            )
+        );
     }
-    
+
     /// <summary>
     /// Parses settings from a JSON string.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public static Settings FromJsonString(string @json) {
+    public static Settings FromJsonString(string @json)
+    {
         return new Settings(
-    _UniffiHelpers.RustCallWithError(FfiConverterTypeError.INSTANCE, (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_constructor_settings_from_json_string(FfiConverterString.INSTANCE.Lower(@json), ref _status)
-));
+            _UniffiHelpers.RustCallWithError(
+                FfiConverterTypeError.INSTANCE,
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_constructor_settings_from_json_string(
+                        FfiConverterString.INSTANCE.Lower(@json),
+                        ref _status
+                    )
+            )
+        );
     }
-    
+
     /// <summary>
     /// Loads settings from SlateDB's default file and environment lookup order.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public static Settings Load() {
+    public static Settings Load()
+    {
         return new Settings(
-    _UniffiHelpers.RustCallWithError(FfiConverterTypeError.INSTANCE, (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_constructor_settings_load( ref _status)
-));
+            _UniffiHelpers.RustCallWithError(
+                FfiConverterTypeError.INSTANCE,
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_constructor_settings_load(ref _status)
+            )
+        );
     }
-    
-    
 }
-class FfiConverterTypeSettings: FfiConverter<Settings, ulong> {
+
+class FfiConverterTypeSettings : FfiConverter<Settings, ulong>
+{
     public static FfiConverterTypeSettings INSTANCE = new FfiConverterTypeSettings();
 
-
-    public override ulong Lower(Settings value) {
+    public override ulong Lower(Settings value)
+    {
         return value.CallWithPointer(thisPtr => thisPtr);
     }
 
-    public override Settings Lift(ulong value) {
+    public override Settings Lift(ulong value)
+    {
         return new Settings(value);
     }
 
-    public override Settings Read(BigEndianStream stream) {
+    public override Settings Read(BigEndianStream stream)
+    {
         return Lift(stream.ReadULong());
     }
 
-    public override int AllocationSize(Settings value) {
+    public override int AllocationSize(Settings value)
+    {
         return 8;
     }
 
-    public override void Write(Settings value, BigEndianStream stream) {
+    public override void Write(Settings value, BigEndianStream stream)
+    {
         stream.WriteULong(Lower(value));
     }
 }
 
-
-
 /// <summary>
 /// Handle for an up/down counter metric.
 /// </summary>
-internal interface UpDownCounter {
+internal interface UpDownCounter
+{
     /// <summary>
     /// Adds `value` to the counter.
     /// </summary>
     void Increment(long @value);
 }
+
 /// <summary>
 /// Handle for an up/down counter metric.
 /// </summary>
-internal class UpDownCounterImpl : UpDownCounter, IDisposable {
+internal class UpDownCounterImpl : UpDownCounter, IDisposable
+{
     protected ulong pointer;
     private int _wasDestroyed = 0;
     private long _callCounter = 1;
 
-    public UpDownCounterImpl(ulong pointer) {
+    public UpDownCounterImpl(ulong pointer)
+    {
         this.pointer = pointer;
     }
 
-    ~UpDownCounterImpl() {
+    ~UpDownCounterImpl()
+    {
         Destroy();
     }
 
-    protected void FreeRustArcPtr() {
-        _UniffiHelpers.RustCall((ref UniffiRustCallStatus status) => {
-            _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_updowncounter(this.pointer, ref status);
-        });
+    protected void FreeRustArcPtr()
+    {
+        _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_updowncounter(
+                    this.pointer,
+                    ref status
+                );
+            }
+        );
     }
 
-    protected ulong CloneRustArcPtr() {
-        return _UniffiHelpers.RustCall((ref UniffiRustCallStatus status) => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_updowncounter(this.pointer, ref status);
-        });
+    protected ulong CloneRustArcPtr()
+    {
+        return _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_updowncounter(
+                    this.pointer,
+                    ref status
+                );
+            }
+        );
     }
 
     public void Destroy()
@@ -11288,7 +13848,7 @@ internal class UpDownCounterImpl : UpDownCounter, IDisposable {
         GC.SuppressFinalize(this); // Suppress finalization to avoid unnecessary GC overhead.
     }
 
-    private void IncrementCallCounter() 
+    private void IncrementCallCounter()
     {
         // Check and increment the call counter, to keep the object alive.
         // This needs a compare-and-set retry loop in case of concurrent updates.
@@ -11296,16 +13856,22 @@ internal class UpDownCounterImpl : UpDownCounter, IDisposable {
         do
         {
             count = Interlocked.Read(ref _callCounter);
-            if (count == 0L) throw new System.ObjectDisposedException(String.Format("'{0}' object has already been destroyed", this.GetType().Name));
-            if (count == long.MaxValue) throw new System.OverflowException(String.Format("'{0}' call counter would overflow", this.GetType().Name));
-
+            if (count == 0L)
+                throw new System.ObjectDisposedException(
+                    String.Format("'{0}' object has already been destroyed", this.GetType().Name)
+                );
+            if (count == long.MaxValue)
+                throw new System.OverflowException(
+                    String.Format("'{0}' call counter would overflow", this.GetType().Name)
+                );
         } while (Interlocked.CompareExchange(ref _callCounter, count + 1, count) != count);
     }
 
-    private void DecrementCallCounter() 
+    private void DecrementCallCounter()
     {
         // This decrement always matches the increment we performed above.
-        if (Interlocked.Decrement(ref _callCounter) == 0) {
+        if (Interlocked.Decrement(ref _callCounter) == 0)
+        {
             FreeRustArcPtr();
         }
     }
@@ -11313,202 +13879,269 @@ internal class UpDownCounterImpl : UpDownCounter, IDisposable {
     internal void CallWithPointer(Action<ulong> action)
     {
         IncrementCallCounter();
-        try {
+        try
+        {
             action(CloneRustArcPtr());
         }
-        finally {
+        finally
+        {
             DecrementCallCounter();
         }
     }
 
     internal T CallWithPointer<T>(Func<ulong, T> func)
-    {   
+    {
         IncrementCallCounter();
-        try {
+        try
+        {
             return func(CloneRustArcPtr());
         }
-        finally {
+        finally
+        {
             DecrementCallCounter();
         }
     }
 
-    
     /// <summary>
     /// Adds `value` to the counter.
     /// </summary>
-    public void Increment(long @value) {
+    public void Increment(long @value)
+    {
         CallWithPointer(thisPtr =>
-    _UniffiHelpers.RustCall( (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_updowncounter_increment(thisPtr, FfiConverterInt64.INSTANCE.Lower(@value), ref _status)
-));
+            _UniffiHelpers.RustCall(
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_updowncounter_increment(
+                        thisPtr,
+                        FfiConverterInt64.INSTANCE.Lower(@value),
+                        ref _status
+                    )
+            )
+        );
     }
-    
-    
-    
-
-    
 }
-class UniffiCallbackInterfaceUpDownCounter {
-    static void Increment(ulong @uniffiHandle,long @value,IntPtr @uniffiOutReturn,ref UniffiRustCallStatus _uniffi_out_err) {
+
+class UniffiCallbackInterfaceUpDownCounter
+{
+    static void Increment(
+        ulong @uniffiHandle,
+        long @value,
+        IntPtr @uniffiOutReturn,
+        ref UniffiRustCallStatus _uniffi_out_err
+    )
+    {
         var handle = @uniffiHandle;
-        try {
-            if (!FfiConverterTypeUpDownCounter.INSTANCE.handleMap.TryGet(handle, out var uniffiObject)) {
+        try
+        {
+            if (
+                !FfiConverterTypeUpDownCounter.INSTANCE.handleMap.TryGet(
+                    handle,
+                    out var uniffiObject
+                )
+            )
+            {
                 throw new InternalException($"No callback in handlemap '{handle}'");
             }
-            uniffiObject.Increment(
-                FfiConverterInt64.INSTANCE.Lift(@value));
+            uniffiObject.Increment(FfiConverterInt64.INSTANCE.Lift(@value));
 
             _uniffi_out_err.code = UniffiCallbackResponseStatus.SUCCESS;
         }
-        catch (System.Exception e){
+        catch (System.Exception e)
+        {
             _uniffi_out_err.code = UniffiCallbackResponseStatus.UNEXPECTED_ERROR;
-            try {
+            try
+            {
                 _uniffi_out_err.error_buf = FfiConverterString.INSTANCE.Lower(e.Message);
             }
-            catch {
-            }
+            catch { }
         }
     }
 
-    static void UniffiFree(ulong @handle) {
+    static void UniffiFree(ulong @handle)
+    {
         FfiConverterTypeUpDownCounter.INSTANCE.handleMap.Remove(@handle);
     }
 
-    static ulong UniffiClone(ulong @handle) {
-        try {
-            if (!FfiConverterTypeUpDownCounter.INSTANCE.handleMap.TryGet(@handle, out var obj)) {
+    static ulong UniffiClone(ulong @handle)
+    {
+        try
+        {
+            if (!FfiConverterTypeUpDownCounter.INSTANCE.handleMap.TryGet(@handle, out var obj))
+            {
                 throw new InternalException($"No callback in handlemap '{@handle}'");
             }
             return FfiConverterTypeUpDownCounter.INSTANCE.handleMap.Insert(obj);
-        } catch (System.Exception) {
+        }
+        catch (System.Exception)
+        {
             return 0; // 0 is never a valid handle; ConcurrentHandleMap starts at 1
         }
     }
-    static _UniFFILib.UniffiCallbackInterfaceUpDownCounterMethod0 _m0 = new _UniFFILib.UniffiCallbackInterfaceUpDownCounterMethod0(Increment);
-    static _UniFFILib.UniffiCallbackInterfaceFree _callback_interface_free = new _UniFFILib.UniffiCallbackInterfaceFree(UniffiFree);
-    static _UniFFILib.UniffiCallbackInterfaceClone _callback_interface_clone = new _UniFFILib.UniffiCallbackInterfaceClone(UniffiClone);
+
+    static _UniFFILib.UniffiCallbackInterfaceUpDownCounterMethod0 _m0 =
+        new _UniFFILib.UniffiCallbackInterfaceUpDownCounterMethod0(Increment);
+    static _UniFFILib.UniffiCallbackInterfaceFree _callback_interface_free =
+        new _UniFFILib.UniffiCallbackInterfaceFree(UniffiFree);
+    static _UniFFILib.UniffiCallbackInterfaceClone _callback_interface_clone =
+        new _UniFFILib.UniffiCallbackInterfaceClone(UniffiClone);
 
     private static GCHandle? _vtablePin;
 
-    public static void Register() {
-        if (_vtablePin.HasValue) return;
-        _UniFFILib.UniffiVTableCallbackInterfaceUpDownCounter _vtable = new _UniFFILib.UniffiVTableCallbackInterfaceUpDownCounter {
-            @increment = Marshal.GetFunctionPointerForDelegate(_m0),
-            @uniffiFree = Marshal.GetFunctionPointerForDelegate(_callback_interface_free),
-            @uniffiClone = Marshal.GetFunctionPointerForDelegate(_callback_interface_clone),
-        };
+    public static void Register()
+    {
+        if (_vtablePin.HasValue)
+            return;
+        _UniFFILib.UniffiVTableCallbackInterfaceUpDownCounter _vtable =
+            new _UniFFILib.UniffiVTableCallbackInterfaceUpDownCounter
+            {
+                @increment = Marshal.GetFunctionPointerForDelegate(_m0),
+                @uniffiFree = Marshal.GetFunctionPointerForDelegate(_callback_interface_free),
+                @uniffiClone = Marshal.GetFunctionPointerForDelegate(_callback_interface_clone),
+            };
 
         // Pin the vtable so the GC never moves it. The GCHandle is intentionally never freed —
         // this pin must remain valid for the process lifetime.
         _vtablePin = GCHandle.Alloc(_vtable, GCHandleType.Pinned);
-        _UniFFILib.uniffi_slatedb_csharp_ffi_fn_init_callback_vtable_updowncounter(_vtablePin.Value.AddrOfPinnedObject());
+        _UniFFILib.uniffi_slatedb_csharp_ffi_fn_init_callback_vtable_updowncounter(
+            _vtablePin.Value.AddrOfPinnedObject()
+        );
     }
 }
 
-
-
-
-class FfiConverterTypeUpDownCounter: FfiConverter<UpDownCounter, ulong> {
+class FfiConverterTypeUpDownCounter : FfiConverter<UpDownCounter, ulong>
+{
     public ConcurrentHandleMap<UpDownCounter> handleMap = new ConcurrentHandleMap<UpDownCounter>();
-    
+
     public static FfiConverterTypeUpDownCounter INSTANCE = new FfiConverterTypeUpDownCounter();
 
-    static FfiConverterTypeUpDownCounter() {
+    static FfiConverterTypeUpDownCounter()
+    {
         UniffiCallbackInterfaceUpDownCounter.Register();
     }
 
-    public override ulong Lower(UpDownCounter value) {
-        if (value is UpDownCounterImpl rustObj) {
+    public override ulong Lower(UpDownCounter value)
+    {
+        if (value is UpDownCounterImpl rustObj)
+        {
             // Rust-implemented object. Clone the handle and return it.
             return rustObj.CallWithPointer(thisPtr => thisPtr);
-        } else {
+        }
+        else
+        {
             // C# object, generate a new handle map entry and return it.
             return handleMap.Insert(value);
         }
     }
 
-    public override UpDownCounter Lift(ulong value) {
-        if ((value & 1UL) == 0UL) {
+    public override UpDownCounter Lift(ulong value)
+    {
+        if ((value & 1UL) == 0UL)
+        {
             // Rust-generated handle, construct a new wrapper.
             return new UpDownCounterImpl(value);
-        } else {
+        }
+        else
+        {
             // C#-generated handle, retrieve and remove from the handle map.
-            if (handleMap.Remove(value, out var obj)) {
+            if (handleMap.Remove(value, out var obj))
+            {
                 return obj;
-            } else {
+            }
+            else
+            {
                 throw new InternalException($"No callback in handlemap '{value}'");
             }
         }
     }
 
-    public override UpDownCounter Read(BigEndianStream stream) {
+    public override UpDownCounter Read(BigEndianStream stream)
+    {
         return Lift(stream.ReadULong());
     }
 
-    public override int AllocationSize(UpDownCounter value) {
+    public override int AllocationSize(UpDownCounter value)
+    {
         return 8;
     }
 
-    public override void Write(UpDownCounter value, BigEndianStream stream) {
+    public override void Write(UpDownCounter value, BigEndianStream stream)
+    {
         stream.WriteULong(Lower(value));
     }
 }
 
-
-
 /// <summary>
 /// Handle for a single WAL file.
 /// </summary>
-internal interface IWalFile {
+internal interface IWalFile
+{
     /// <summary>
     /// Returns the WAL file ID.
     /// </summary>
     ulong Id();
+
     /// <summary>
     /// Opens an iterator over raw row entries in this WAL file.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task<WalFileIterator> Iterator();
+
     /// <summary>
     /// Reads object-store metadata for this WAL file.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task<WalFileMetadata> Metadata();
+
     /// <summary>
     /// Returns a handle for the next WAL file ID without checking existence.
     /// </summary>
     WalFile NextFile();
+
     /// <summary>
     /// Returns the WAL ID immediately after this file.
     /// </summary>
     ulong NextId();
 }
+
 /// <summary>
 /// Handle for a single WAL file.
 /// </summary>
-internal class WalFile : IWalFile, IDisposable {
+internal class WalFile : IWalFile, IDisposable
+{
     protected ulong pointer;
     private int _wasDestroyed = 0;
     private long _callCounter = 1;
 
-    public WalFile(ulong pointer) {
+    public WalFile(ulong pointer)
+    {
         this.pointer = pointer;
     }
 
-    ~WalFile() {
+    ~WalFile()
+    {
         Destroy();
     }
 
-    protected void FreeRustArcPtr() {
-        _UniffiHelpers.RustCall((ref UniffiRustCallStatus status) => {
-            _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_walfile(this.pointer, ref status);
-        });
+    protected void FreeRustArcPtr()
+    {
+        _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_walfile(this.pointer, ref status);
+            }
+        );
     }
 
-    protected ulong CloneRustArcPtr() {
-        return _UniffiHelpers.RustCall((ref UniffiRustCallStatus status) => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_walfile(this.pointer, ref status);
-        });
+    protected ulong CloneRustArcPtr()
+    {
+        return _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_walfile(
+                    this.pointer,
+                    ref status
+                );
+            }
+        );
     }
 
     public void Destroy()
@@ -11530,7 +14163,7 @@ internal class WalFile : IWalFile, IDisposable {
         GC.SuppressFinalize(this); // Suppress finalization to avoid unnecessary GC overhead.
     }
 
-    private void IncrementCallCounter() 
+    private void IncrementCallCounter()
     {
         // Check and increment the call counter, to keep the object alive.
         // This needs a compare-and-set retry loop in case of concurrent updates.
@@ -11538,16 +14171,22 @@ internal class WalFile : IWalFile, IDisposable {
         do
         {
             count = Interlocked.Read(ref _callCounter);
-            if (count == 0L) throw new System.ObjectDisposedException(String.Format("'{0}' object has already been destroyed", this.GetType().Name));
-            if (count == long.MaxValue) throw new System.OverflowException(String.Format("'{0}' call counter would overflow", this.GetType().Name));
-
+            if (count == 0L)
+                throw new System.ObjectDisposedException(
+                    String.Format("'{0}' object has already been destroyed", this.GetType().Name)
+                );
+            if (count == long.MaxValue)
+                throw new System.OverflowException(
+                    String.Format("'{0}' call counter would overflow", this.GetType().Name)
+                );
         } while (Interlocked.CompareExchange(ref _callCounter, count + 1, count) != count);
     }
 
-    private void DecrementCallCounter() 
+    private void DecrementCallCounter()
     {
         // This decrement always matches the increment we performed above.
-        if (Interlocked.Decrement(ref _callCounter) == 0) {
+        if (Interlocked.Decrement(ref _callCounter) == 0)
+        {
             FreeRustArcPtr();
         }
     }
@@ -11555,175 +14194,238 @@ internal class WalFile : IWalFile, IDisposable {
     internal void CallWithPointer(Action<ulong> action)
     {
         IncrementCallCounter();
-        try {
+        try
+        {
             action(CloneRustArcPtr());
         }
-        finally {
+        finally
+        {
             DecrementCallCounter();
         }
     }
 
     internal T CallWithPointer<T>(Func<ulong, T> func)
-    {   
+    {
         IncrementCallCounter();
-        try {
+        try
+        {
             return func(CloneRustArcPtr());
         }
-        finally {
+        finally
+        {
             DecrementCallCounter();
         }
     }
 
-    
     /// <summary>
     /// Returns the WAL file ID.
     /// </summary>
-    public ulong Id() {
-        return CallWithPointer(thisPtr => FfiConverterUInt64.INSTANCE.Lift(
-    _UniffiHelpers.RustCall( (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_walfile_id(thisPtr,  ref _status)
-)));
+    public ulong Id()
+    {
+        return CallWithPointer(thisPtr =>
+            FfiConverterUInt64.INSTANCE.Lift(
+                _UniffiHelpers.RustCall(
+                    (ref UniffiRustCallStatus _status) =>
+                        _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_walfile_id(
+                            thisPtr,
+                            ref _status
+                        )
+                )
+            )
+        );
     }
-    
-    
+
     /// <summary>
     /// Opens an iterator over raw row entries in this WAL file.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<WalFileIterator> Iterator() {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_walfile_iterator(thisPtr);
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_u64(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_u64(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_u64(future),
-        // Lift
-        (result) => FfiConverterTypeWalFileIterator.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<WalFileIterator> Iterator()
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_walfile_iterator(thisPtr);
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_u64(future, continuation, data),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_u64(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_u64(future),
+            // Lift
+            (result) => FfiConverterTypeWalFileIterator.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Reads object-store metadata for this WAL file.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<WalFileMetadata> Metadata() {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_walfile_metadata(thisPtr);
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
-        // Lift
-        (result) => FfiConverterTypeWalFileMetadata.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<WalFileMetadata> Metadata()
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_walfile_metadata(thisPtr);
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(
+                    future,
+                    continuation,
+                    data
+                ),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
+            // Lift
+            (result) => FfiConverterTypeWalFileMetadata.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
+
     /// <summary>
     /// Returns a handle for the next WAL file ID without checking existence.
     /// </summary>
-    public WalFile NextFile() {
-        return CallWithPointer(thisPtr => FfiConverterTypeWalFile.INSTANCE.Lift(
-    _UniffiHelpers.RustCall( (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_walfile_next_file(thisPtr,  ref _status)
-)));
+    public WalFile NextFile()
+    {
+        return CallWithPointer(thisPtr =>
+            FfiConverterTypeWalFile.INSTANCE.Lift(
+                _UniffiHelpers.RustCall(
+                    (ref UniffiRustCallStatus _status) =>
+                        _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_walfile_next_file(
+                            thisPtr,
+                            ref _status
+                        )
+                )
+            )
+        );
     }
-    
-    
+
     /// <summary>
     /// Returns the WAL ID immediately after this file.
     /// </summary>
-    public ulong NextId() {
-        return CallWithPointer(thisPtr => FfiConverterUInt64.INSTANCE.Lift(
-    _UniffiHelpers.RustCall( (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_walfile_next_id(thisPtr,  ref _status)
-)));
+    public ulong NextId()
+    {
+        return CallWithPointer(thisPtr =>
+            FfiConverterUInt64.INSTANCE.Lift(
+                _UniffiHelpers.RustCall(
+                    (ref UniffiRustCallStatus _status) =>
+                        _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_walfile_next_id(
+                            thisPtr,
+                            ref _status
+                        )
+                )
+            )
+        );
     }
-    
-    
-
-    
 }
-class FfiConverterTypeWalFile: FfiConverter<WalFile, ulong> {
+
+class FfiConverterTypeWalFile : FfiConverter<WalFile, ulong>
+{
     public static FfiConverterTypeWalFile INSTANCE = new FfiConverterTypeWalFile();
 
-
-    public override ulong Lower(WalFile value) {
+    public override ulong Lower(WalFile value)
+    {
         return value.CallWithPointer(thisPtr => thisPtr);
     }
 
-    public override WalFile Lift(ulong value) {
+    public override WalFile Lift(ulong value)
+    {
         return new WalFile(value);
     }
 
-    public override WalFile Read(BigEndianStream stream) {
+    public override WalFile Read(BigEndianStream stream)
+    {
         return Lift(stream.ReadULong());
     }
 
-    public override int AllocationSize(WalFile value) {
+    public override int AllocationSize(WalFile value)
+    {
         return 8;
     }
 
-    public override void Write(WalFile value, BigEndianStream stream) {
+    public override void Write(WalFile value, BigEndianStream stream)
+    {
         stream.WriteULong(Lower(value));
     }
 }
 
-
-
 /// <summary>
 /// Iterator over raw row entries stored in a WAL file.
 /// </summary>
-internal interface IWalFileIterator {
+internal interface IWalFileIterator
+{
     /// <summary>
     /// Returns the next raw row entry from the WAL file.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task<RowEntry?> Next();
 }
+
 /// <summary>
 /// Iterator over raw row entries stored in a WAL file.
 /// </summary>
-internal class WalFileIterator : IWalFileIterator, IDisposable {
+internal class WalFileIterator : IWalFileIterator, IDisposable
+{
     protected ulong pointer;
     private int _wasDestroyed = 0;
     private long _callCounter = 1;
 
-    public WalFileIterator(ulong pointer) {
+    public WalFileIterator(ulong pointer)
+    {
         this.pointer = pointer;
     }
 
-    ~WalFileIterator() {
+    ~WalFileIterator()
+    {
         Destroy();
     }
 
-    protected void FreeRustArcPtr() {
-        _UniffiHelpers.RustCall((ref UniffiRustCallStatus status) => {
-            _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_walfileiterator(this.pointer, ref status);
-        });
+    protected void FreeRustArcPtr()
+    {
+        _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_walfileiterator(
+                    this.pointer,
+                    ref status
+                );
+            }
+        );
     }
 
-    protected ulong CloneRustArcPtr() {
-        return _UniffiHelpers.RustCall((ref UniffiRustCallStatus status) => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_walfileiterator(this.pointer, ref status);
-        });
+    protected ulong CloneRustArcPtr()
+    {
+        return _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_walfileiterator(
+                    this.pointer,
+                    ref status
+                );
+            }
+        );
     }
 
     public void Destroy()
@@ -11745,7 +14447,7 @@ internal class WalFileIterator : IWalFileIterator, IDisposable {
         GC.SuppressFinalize(this); // Suppress finalization to avoid unnecessary GC overhead.
     }
 
-    private void IncrementCallCounter() 
+    private void IncrementCallCounter()
     {
         // Check and increment the call counter, to keep the object alive.
         // This needs a compare-and-set retry loop in case of concurrent updates.
@@ -11753,16 +14455,22 @@ internal class WalFileIterator : IWalFileIterator, IDisposable {
         do
         {
             count = Interlocked.Read(ref _callCounter);
-            if (count == 0L) throw new System.ObjectDisposedException(String.Format("'{0}' object has already been destroyed", this.GetType().Name));
-            if (count == long.MaxValue) throw new System.OverflowException(String.Format("'{0}' call counter would overflow", this.GetType().Name));
-
+            if (count == 0L)
+                throw new System.ObjectDisposedException(
+                    String.Format("'{0}' object has already been destroyed", this.GetType().Name)
+                );
+            if (count == long.MaxValue)
+                throw new System.OverflowException(
+                    String.Format("'{0}' call counter would overflow", this.GetType().Name)
+                );
         } while (Interlocked.CompareExchange(ref _callCounter, count + 1, count) != count);
     }
 
-    private void DecrementCallCounter() 
+    private void DecrementCallCounter()
     {
         // This decrement always matches the increment we performed above.
-        if (Interlocked.Decrement(ref _callCounter) == 0) {
+        if (Interlocked.Decrement(ref _callCounter) == 0)
+        {
             FreeRustArcPtr();
         }
     }
@@ -11770,89 +14478,107 @@ internal class WalFileIterator : IWalFileIterator, IDisposable {
     internal void CallWithPointer(Action<ulong> action)
     {
         IncrementCallCounter();
-        try {
+        try
+        {
             action(CloneRustArcPtr());
         }
-        finally {
+        finally
+        {
             DecrementCallCounter();
         }
     }
 
     internal T CallWithPointer<T>(Func<ulong, T> func)
-    {   
+    {
         IncrementCallCounter();
-        try {
+        try
+        {
             return func(CloneRustArcPtr());
         }
-        finally {
+        finally
+        {
             DecrementCallCounter();
         }
     }
 
-    
     /// <summary>
     /// Returns the next raw row entry from the WAL file.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<RowEntry?> Next() {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_walfileiterator_next(thisPtr);
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
-        // Lift
-        (result) => FfiConverterOptionalTypeRowEntry.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<RowEntry?> Next()
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_walfileiterator_next(thisPtr);
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(
+                    future,
+                    continuation,
+                    data
+                ),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
+            // Lift
+            (result) => FfiConverterOptionalTypeRowEntry.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
-
-    
 }
-class FfiConverterTypeWalFileIterator: FfiConverter<WalFileIterator, ulong> {
+
+class FfiConverterTypeWalFileIterator : FfiConverter<WalFileIterator, ulong>
+{
     public static FfiConverterTypeWalFileIterator INSTANCE = new FfiConverterTypeWalFileIterator();
 
-
-    public override ulong Lower(WalFileIterator value) {
+    public override ulong Lower(WalFileIterator value)
+    {
         return value.CallWithPointer(thisPtr => thisPtr);
     }
 
-    public override WalFileIterator Lift(ulong value) {
+    public override WalFileIterator Lift(ulong value)
+    {
         return new WalFileIterator(value);
     }
 
-    public override WalFileIterator Read(BigEndianStream stream) {
+    public override WalFileIterator Read(BigEndianStream stream)
+    {
         return Lift(stream.ReadULong());
     }
 
-    public override int AllocationSize(WalFileIterator value) {
+    public override int AllocationSize(WalFileIterator value)
+    {
         return 8;
     }
 
-    public override void Write(WalFileIterator value, BigEndianStream stream) {
+    public override void Write(WalFileIterator value, BigEndianStream stream)
+    {
         stream.WriteULong(Lower(value));
     }
 }
 
-
-
 /// <summary>
 /// Reader for WAL files stored under a database path.
 /// </summary>
-internal interface IWalReader {
+internal interface IWalReader
+{
     /// <summary>
     /// Returns a handle for the WAL file with the given ID.
     /// </summary>
     WalFile Get(ulong @id);
+
     /// <summary>
     /// Lists WAL files in ascending ID order.
     ///
@@ -11861,40 +14587,62 @@ internal interface IWalReader {
     /// <exception cref="Exception"></exception>
     Task<WalFile[]> List(ulong? @startId, ulong? @endId);
 }
+
 /// <summary>
 /// Reader for WAL files stored under a database path.
 /// </summary>
-internal class WalReader : IWalReader, IDisposable {
+internal class WalReader : IWalReader, IDisposable
+{
     protected ulong pointer;
     private int _wasDestroyed = 0;
     private long _callCounter = 1;
 
-    public WalReader(ulong pointer) {
+    public WalReader(ulong pointer)
+    {
         this.pointer = pointer;
     }
 
-    ~WalReader() {
+    ~WalReader()
+    {
         Destroy();
     }
+
     /// <summary>
     /// Creates a WAL reader for `path` in `object_store`.
     /// </summary>
-    public WalReader(string @path, ObjectStore @objectStore) :
-        this(
-    _UniffiHelpers.RustCall( (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_constructor_walreader_new(FfiConverterString.INSTANCE.Lower(@path), FfiConverterTypeObjectStore.INSTANCE.Lower(@objectStore), ref _status)
-)) {}
+    public WalReader(string @path, ObjectStore @objectStore)
+        : this(
+            _UniffiHelpers.RustCall(
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_constructor_walreader_new(
+                        FfiConverterString.INSTANCE.Lower(@path),
+                        FfiConverterTypeObjectStore.INSTANCE.Lower(@objectStore),
+                        ref _status
+                    )
+            )
+        ) { }
 
-    protected void FreeRustArcPtr() {
-        _UniffiHelpers.RustCall((ref UniffiRustCallStatus status) => {
-            _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_walreader(this.pointer, ref status);
-        });
+    protected void FreeRustArcPtr()
+    {
+        _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_walreader(this.pointer, ref status);
+            }
+        );
     }
 
-    protected ulong CloneRustArcPtr() {
-        return _UniffiHelpers.RustCall((ref UniffiRustCallStatus status) => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_walreader(this.pointer, ref status);
-        });
+    protected ulong CloneRustArcPtr()
+    {
+        return _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_walreader(
+                    this.pointer,
+                    ref status
+                );
+            }
+        );
     }
 
     public void Destroy()
@@ -11916,7 +14664,7 @@ internal class WalReader : IWalReader, IDisposable {
         GC.SuppressFinalize(this); // Suppress finalization to avoid unnecessary GC overhead.
     }
 
-    private void IncrementCallCounter() 
+    private void IncrementCallCounter()
     {
         // Check and increment the call counter, to keep the object alive.
         // This needs a compare-and-set retry loop in case of concurrent updates.
@@ -11924,16 +14672,22 @@ internal class WalReader : IWalReader, IDisposable {
         do
         {
             count = Interlocked.Read(ref _callCounter);
-            if (count == 0L) throw new System.ObjectDisposedException(String.Format("'{0}' object has already been destroyed", this.GetType().Name));
-            if (count == long.MaxValue) throw new System.OverflowException(String.Format("'{0}' call counter would overflow", this.GetType().Name));
-
+            if (count == 0L)
+                throw new System.ObjectDisposedException(
+                    String.Format("'{0}' object has already been destroyed", this.GetType().Name)
+                );
+            if (count == long.MaxValue)
+                throw new System.OverflowException(
+                    String.Format("'{0}' call counter would overflow", this.GetType().Name)
+                );
         } while (Interlocked.CompareExchange(ref _callCounter, count + 1, count) != count);
     }
 
-    private void DecrementCallCounter() 
+    private void DecrementCallCounter()
     {
         // This decrement always matches the increment we performed above.
-        if (Interlocked.Decrement(ref _callCounter) == 0) {
+        if (Interlocked.Decrement(ref _callCounter) == 0)
+        {
             FreeRustArcPtr();
         }
     }
@@ -11941,162 +14695,213 @@ internal class WalReader : IWalReader, IDisposable {
     internal void CallWithPointer(Action<ulong> action)
     {
         IncrementCallCounter();
-        try {
+        try
+        {
             action(CloneRustArcPtr());
         }
-        finally {
+        finally
+        {
             DecrementCallCounter();
         }
     }
 
     internal T CallWithPointer<T>(Func<ulong, T> func)
-    {   
+    {
         IncrementCallCounter();
-        try {
+        try
+        {
             return func(CloneRustArcPtr());
         }
-        finally {
+        finally
+        {
             DecrementCallCounter();
         }
     }
 
-    
     /// <summary>
     /// Returns a handle for the WAL file with the given ID.
     /// </summary>
-    public WalFile Get(ulong @id) {
-        return CallWithPointer(thisPtr => FfiConverterTypeWalFile.INSTANCE.Lift(
-    _UniffiHelpers.RustCall( (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_walreader_get(thisPtr, FfiConverterUInt64.INSTANCE.Lower(@id), ref _status)
-)));
+    public WalFile Get(ulong @id)
+    {
+        return CallWithPointer(thisPtr =>
+            FfiConverterTypeWalFile.INSTANCE.Lift(
+                _UniffiHelpers.RustCall(
+                    (ref UniffiRustCallStatus _status) =>
+                        _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_walreader_get(
+                            thisPtr,
+                            FfiConverterUInt64.INSTANCE.Lower(@id),
+                            ref _status
+                        )
+                )
+            )
+        );
     }
-    
-    
+
     /// <summary>
     /// Lists WAL files in ascending ID order.
     ///
     /// `start_id` is inclusive and `end_id` is exclusive when provided.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<WalFile[]> List(ulong? @startId, ulong? @endId) {
-    return await _UniFFIAsync.UniffiRustCallAsync(
-        // Get rust future
-        CallWithPointer(thisPtr => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_walreader_list(thisPtr, FfiConverterOptionalUInt64.INSTANCE.Lower(@startId), FfiConverterOptionalUInt64.INSTANCE.Lower(@endId));
-        }),
-        // Poll
-        (ulong future, IntPtr continuation, ulong data) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(future, continuation, data),
-        // Complete
-        (ulong future, ref UniffiRustCallStatus status) => {
-            return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(future, ref status);
-        },
-        // Free
-        (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
-        // Lift
-        (result) => FfiConverterSequenceTypeWalFile.INSTANCE.Lift(result),
-        // Error
-        FfiConverterTypeError.INSTANCE
-    );
+    public async Task<WalFile[]> List(ulong? @startId, ulong? @endId)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_walreader_list(
+                    thisPtr,
+                    FfiConverterOptionalUInt64.INSTANCE.Lower(@startId),
+                    FfiConverterOptionalUInt64.INSTANCE.Lower(@endId)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(
+                    future,
+                    continuation,
+                    data
+                ),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
+            // Lift
+            (result) => FfiConverterSequenceTypeWalFile.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
-    
-
-    
 }
-class FfiConverterTypeWalReader: FfiConverter<WalReader, ulong> {
+
+class FfiConverterTypeWalReader : FfiConverter<WalReader, ulong>
+{
     public static FfiConverterTypeWalReader INSTANCE = new FfiConverterTypeWalReader();
 
-
-    public override ulong Lower(WalReader value) {
+    public override ulong Lower(WalReader value)
+    {
         return value.CallWithPointer(thisPtr => thisPtr);
     }
 
-    public override WalReader Lift(ulong value) {
+    public override WalReader Lift(ulong value)
+    {
         return new WalReader(value);
     }
 
-    public override WalReader Read(BigEndianStream stream) {
+    public override WalReader Read(BigEndianStream stream)
+    {
         return Lift(stream.ReadULong());
     }
 
-    public override int AllocationSize(WalReader value) {
+    public override int AllocationSize(WalReader value)
+    {
         return 8;
     }
 
-    public override void Write(WalReader value, BigEndianStream stream) {
+    public override void Write(WalReader value, BigEndianStream stream)
+    {
         stream.WriteULong(Lower(value));
     }
 }
-
-
 
 /// <summary>
 /// Mutable batch of write operations applied atomically by [`crate::Db::write`].
 ///
 /// A batch is single-use once submitted to the database.
 /// </summary>
-internal interface IWriteBatch {
+internal interface IWriteBatch
+{
     /// <summary>
     /// Appends a delete operation to the batch.
     /// </summary>
     /// <exception cref="Exception"></exception>
     void Delete(byte[] @key);
+
     /// <summary>
     /// Appends a merge operation to the batch.
     /// </summary>
     /// <exception cref="Exception"></exception>
     void Merge(byte[] @key, byte[] @operand);
+
     /// <summary>
     /// Appends a merge operation with custom merge options.
     /// </summary>
     /// <exception cref="Exception"></exception>
     void MergeWithOptions(byte[] @key, byte[] @operand, MergeOptions @options);
+
     /// <summary>
     /// Appends a put operation to the batch.
     /// </summary>
     /// <exception cref="Exception"></exception>
     void Put(byte[] @key, byte[] @value);
+
     /// <summary>
     /// Appends a put operation with custom put options.
     /// </summary>
     /// <exception cref="Exception"></exception>
     void PutWithOptions(byte[] @key, byte[] @value, PutOptions @options);
 }
+
 /// <summary>
 /// Mutable batch of write operations applied atomically by [`crate::Db::write`].
 ///
 /// A batch is single-use once submitted to the database.
 /// </summary>
-internal class WriteBatch : IWriteBatch, IDisposable {
+internal class WriteBatch : IWriteBatch, IDisposable
+{
     protected ulong pointer;
     private int _wasDestroyed = 0;
     private long _callCounter = 1;
 
-    public WriteBatch(ulong pointer) {
+    public WriteBatch(ulong pointer)
+    {
         this.pointer = pointer;
     }
 
-    ~WriteBatch() {
+    ~WriteBatch()
+    {
         Destroy();
     }
+
     /// <summary>
     /// Creates an empty write batch.
     /// </summary>
-    public WriteBatch() :
-        this(
-    _UniffiHelpers.RustCall( (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_constructor_writebatch_new( ref _status)
-)) {}
+    public WriteBatch()
+        : this(
+            _UniffiHelpers.RustCall(
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_constructor_writebatch_new(ref _status)
+            )
+        ) { }
 
-    protected void FreeRustArcPtr() {
-        _UniffiHelpers.RustCall((ref UniffiRustCallStatus status) => {
-            _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_writebatch(this.pointer, ref status);
-        });
+    protected void FreeRustArcPtr()
+    {
+        _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_writebatch(this.pointer, ref status);
+            }
+        );
     }
 
-    protected ulong CloneRustArcPtr() {
-        return _UniffiHelpers.RustCall((ref UniffiRustCallStatus status) => {
-            return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_writebatch(this.pointer, ref status);
-        });
+    protected ulong CloneRustArcPtr()
+    {
+        return _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_writebatch(
+                    this.pointer,
+                    ref status
+                );
+            }
+        );
     }
 
     public void Destroy()
@@ -12118,7 +14923,7 @@ internal class WriteBatch : IWriteBatch, IDisposable {
         GC.SuppressFinalize(this); // Suppress finalization to avoid unnecessary GC overhead.
     }
 
-    private void IncrementCallCounter() 
+    private void IncrementCallCounter()
     {
         // Check and increment the call counter, to keep the object alive.
         // This needs a compare-and-set retry loop in case of concurrent updates.
@@ -12126,16 +14931,22 @@ internal class WriteBatch : IWriteBatch, IDisposable {
         do
         {
             count = Interlocked.Read(ref _callCounter);
-            if (count == 0L) throw new System.ObjectDisposedException(String.Format("'{0}' object has already been destroyed", this.GetType().Name));
-            if (count == long.MaxValue) throw new System.OverflowException(String.Format("'{0}' call counter would overflow", this.GetType().Name));
-
+            if (count == 0L)
+                throw new System.ObjectDisposedException(
+                    String.Format("'{0}' object has already been destroyed", this.GetType().Name)
+                );
+            if (count == long.MaxValue)
+                throw new System.OverflowException(
+                    String.Format("'{0}' call counter would overflow", this.GetType().Name)
+                );
         } while (Interlocked.CompareExchange(ref _callCounter, count + 1, count) != count);
     }
 
-    private void DecrementCallCounter() 
+    private void DecrementCallCounter()
     {
         // This decrement always matches the increment we performed above.
-        if (Interlocked.Decrement(ref _callCounter) == 0) {
+        if (Interlocked.Decrement(ref _callCounter) == 0)
+        {
             FreeRustArcPtr();
         }
     }
@@ -12143,120 +14954,160 @@ internal class WriteBatch : IWriteBatch, IDisposable {
     internal void CallWithPointer(Action<ulong> action)
     {
         IncrementCallCounter();
-        try {
+        try
+        {
             action(CloneRustArcPtr());
         }
-        finally {
+        finally
+        {
             DecrementCallCounter();
         }
     }
 
     internal T CallWithPointer<T>(Func<ulong, T> func)
-    {   
+    {
         IncrementCallCounter();
-        try {
+        try
+        {
             return func(CloneRustArcPtr());
         }
-        finally {
+        finally
+        {
             DecrementCallCounter();
         }
     }
 
-    
     /// <summary>
     /// Appends a delete operation to the batch.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public void Delete(byte[] @key) {
+    public void Delete(byte[] @key)
+    {
         CallWithPointer(thisPtr =>
-    _UniffiHelpers.RustCallWithError(FfiConverterTypeError.INSTANCE, (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_writebatch_delete(thisPtr, FfiConverterByteArray.INSTANCE.Lower(@key), ref _status)
-));
+            _UniffiHelpers.RustCallWithError(
+                FfiConverterTypeError.INSTANCE,
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_writebatch_delete(
+                        thisPtr,
+                        FfiConverterByteArray.INSTANCE.Lower(@key),
+                        ref _status
+                    )
+            )
+        );
     }
-    
-    
-    
+
     /// <summary>
     /// Appends a merge operation to the batch.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public void Merge(byte[] @key, byte[] @operand) {
+    public void Merge(byte[] @key, byte[] @operand)
+    {
         CallWithPointer(thisPtr =>
-    _UniffiHelpers.RustCallWithError(FfiConverterTypeError.INSTANCE, (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_writebatch_merge(thisPtr, FfiConverterByteArray.INSTANCE.Lower(@key), FfiConverterByteArray.INSTANCE.Lower(@operand), ref _status)
-));
+            _UniffiHelpers.RustCallWithError(
+                FfiConverterTypeError.INSTANCE,
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_writebatch_merge(
+                        thisPtr,
+                        FfiConverterByteArray.INSTANCE.Lower(@key),
+                        FfiConverterByteArray.INSTANCE.Lower(@operand),
+                        ref _status
+                    )
+            )
+        );
     }
-    
-    
-    
+
     /// <summary>
     /// Appends a merge operation with custom merge options.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public void MergeWithOptions(byte[] @key, byte[] @operand, MergeOptions @options) {
+    public void MergeWithOptions(byte[] @key, byte[] @operand, MergeOptions @options)
+    {
         CallWithPointer(thisPtr =>
-    _UniffiHelpers.RustCallWithError(FfiConverterTypeError.INSTANCE, (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_writebatch_merge_with_options(thisPtr, FfiConverterByteArray.INSTANCE.Lower(@key), FfiConverterByteArray.INSTANCE.Lower(@operand), FfiConverterTypeMergeOptions.INSTANCE.Lower(@options), ref _status)
-));
+            _UniffiHelpers.RustCallWithError(
+                FfiConverterTypeError.INSTANCE,
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_writebatch_merge_with_options(
+                        thisPtr,
+                        FfiConverterByteArray.INSTANCE.Lower(@key),
+                        FfiConverterByteArray.INSTANCE.Lower(@operand),
+                        FfiConverterTypeMergeOptions.INSTANCE.Lower(@options),
+                        ref _status
+                    )
+            )
+        );
     }
-    
-    
-    
+
     /// <summary>
     /// Appends a put operation to the batch.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public void Put(byte[] @key, byte[] @value) {
+    public void Put(byte[] @key, byte[] @value)
+    {
         CallWithPointer(thisPtr =>
-    _UniffiHelpers.RustCallWithError(FfiConverterTypeError.INSTANCE, (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_writebatch_put(thisPtr, FfiConverterByteArray.INSTANCE.Lower(@key), FfiConverterByteArray.INSTANCE.Lower(@value), ref _status)
-));
+            _UniffiHelpers.RustCallWithError(
+                FfiConverterTypeError.INSTANCE,
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_writebatch_put(
+                        thisPtr,
+                        FfiConverterByteArray.INSTANCE.Lower(@key),
+                        FfiConverterByteArray.INSTANCE.Lower(@value),
+                        ref _status
+                    )
+            )
+        );
     }
-    
-    
-    
+
     /// <summary>
     /// Appends a put operation with custom put options.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public void PutWithOptions(byte[] @key, byte[] @value, PutOptions @options) {
+    public void PutWithOptions(byte[] @key, byte[] @value, PutOptions @options)
+    {
         CallWithPointer(thisPtr =>
-    _UniffiHelpers.RustCallWithError(FfiConverterTypeError.INSTANCE, (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_writebatch_put_with_options(thisPtr, FfiConverterByteArray.INSTANCE.Lower(@key), FfiConverterByteArray.INSTANCE.Lower(@value), FfiConverterTypePutOptions.INSTANCE.Lower(@options), ref _status)
-));
+            _UniffiHelpers.RustCallWithError(
+                FfiConverterTypeError.INSTANCE,
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_writebatch_put_with_options(
+                        thisPtr,
+                        FfiConverterByteArray.INSTANCE.Lower(@key),
+                        FfiConverterByteArray.INSTANCE.Lower(@value),
+                        FfiConverterTypePutOptions.INSTANCE.Lower(@options),
+                        ref _status
+                    )
+            )
+        );
     }
-    
-    
-    
-
-    
 }
-class FfiConverterTypeWriteBatch: FfiConverter<WriteBatch, ulong> {
+
+class FfiConverterTypeWriteBatch : FfiConverter<WriteBatch, ulong>
+{
     public static FfiConverterTypeWriteBatch INSTANCE = new FfiConverterTypeWriteBatch();
 
-
-    public override ulong Lower(WriteBatch value) {
+    public override ulong Lower(WriteBatch value)
+    {
         return value.CallWithPointer(thisPtr => thisPtr);
     }
 
-    public override WriteBatch Lift(ulong value) {
+    public override WriteBatch Lift(ulong value)
+    {
         return new WriteBatch(value);
     }
 
-    public override WriteBatch Read(BigEndianStream stream) {
+    public override WriteBatch Read(BigEndianStream stream)
+    {
         return Lift(stream.ReadULong());
     }
 
-    public override int AllocationSize(WriteBatch value) {
+    public override int AllocationSize(WriteBatch value)
+    {
         return 8;
     }
 
-    public override void Write(WriteBatch value, BigEndianStream stream) {
+    public override void Write(WriteBatch value, BigEndianStream stream)
+    {
         stream.WriteULong(Lower(value));
     }
 }
-
-
 
 /// <summary>
 /// Snapshot of the current database lifecycle and durability state.
@@ -12267,41 +15118,42 @@ class FfiConverterTypeWriteBatch: FfiConverter<WriteBatch, ulong> {
 /// <param name="CloseReason">
 /// Present once the handle has been closed.
 /// </param>
-internal record DbStatus (
+internal record DbStatus(
     /// <summary>
     /// Highest durable sequence number observed by this handle.
     /// </summary>
-    ulong DurableSeq, 
+    ulong DurableSeq,
     /// <summary>
     /// Present once the handle has been closed.
     /// </summary>
     CloseReason? CloseReason
-) {
-}
+) { }
 
-class FfiConverterTypeDbStatus: FfiConverterRustBuffer<DbStatus> {
+class FfiConverterTypeDbStatus : FfiConverterRustBuffer<DbStatus>
+{
     public static FfiConverterTypeDbStatus INSTANCE = new FfiConverterTypeDbStatus();
 
-    public override DbStatus Read(BigEndianStream stream) {
+    public override DbStatus Read(BigEndianStream stream)
+    {
         return new DbStatus(
             DurableSeq: FfiConverterUInt64.INSTANCE.Read(stream),
             CloseReason: FfiConverterOptionalTypeCloseReason.INSTANCE.Read(stream)
         );
     }
 
-    public override int AllocationSize(DbStatus value) {
+    public override int AllocationSize(DbStatus value)
+    {
         return 0
             + FfiConverterUInt64.INSTANCE.AllocationSize(value.DurableSeq)
             + FfiConverterOptionalTypeCloseReason.INSTANCE.AllocationSize(value.CloseReason);
     }
 
-    public override void Write(DbStatus value, BigEndianStream stream) {
-            FfiConverterUInt64.INSTANCE.Write(value.DurableSeq, stream);
-            FfiConverterOptionalTypeCloseReason.INSTANCE.Write(value.CloseReason, stream);
+    public override void Write(DbStatus value, BigEndianStream stream)
+    {
+        FfiConverterUInt64.INSTANCE.Write(value.DurableSeq, stream);
+        FfiConverterOptionalTypeCloseReason.INSTANCE.Write(value.CloseReason, stream);
     }
 }
-
-
 
 /// <summary>
 /// Options for an explicit flush request.
@@ -12309,34 +15161,32 @@ class FfiConverterTypeDbStatus: FfiConverterRustBuffer<DbStatus> {
 /// <param name="FlushType">
 /// Which storage layer should be flushed.
 /// </param>
-internal record FlushOptions (
+internal record FlushOptions(
     /// <summary>
     /// Which storage layer should be flushed.
     /// </summary>
     FlushType FlushType
-) {
-}
+) { }
 
-class FfiConverterTypeFlushOptions: FfiConverterRustBuffer<FlushOptions> {
+class FfiConverterTypeFlushOptions : FfiConverterRustBuffer<FlushOptions>
+{
     public static FfiConverterTypeFlushOptions INSTANCE = new FfiConverterTypeFlushOptions();
 
-    public override FlushOptions Read(BigEndianStream stream) {
-        return new FlushOptions(
-            FlushType: FfiConverterTypeFlushType.INSTANCE.Read(stream)
-        );
+    public override FlushOptions Read(BigEndianStream stream)
+    {
+        return new FlushOptions(FlushType: FfiConverterTypeFlushType.INSTANCE.Read(stream));
     }
 
-    public override int AllocationSize(FlushOptions value) {
-        return 0
-            + FfiConverterTypeFlushType.INSTANCE.AllocationSize(value.FlushType);
+    public override int AllocationSize(FlushOptions value)
+    {
+        return 0 + FfiConverterTypeFlushType.INSTANCE.AllocationSize(value.FlushType);
     }
 
-    public override void Write(FlushOptions value, BigEndianStream stream) {
-            FfiConverterTypeFlushType.INSTANCE.Write(value.FlushType, stream);
+    public override void Write(FlushOptions value, BigEndianStream stream)
+    {
+        FfiConverterTypeFlushType.INSTANCE.Write(value.FlushType, stream);
     }
 }
-
-
 
 /// <summary>
 /// Histogram payload captured in a metric snapshot.
@@ -12359,38 +15209,40 @@ class FfiConverterTypeFlushOptions: FfiConverterRustBuffer<FlushOptions> {
 /// <param name="BucketCounts">
 /// Number of observations in each bucket.
 /// </param>
-internal record HistogramMetricValue (
+internal record HistogramMetricValue(
     /// <summary>
     /// Total number of recorded observations.
     /// </summary>
-    ulong Count, 
+    ulong Count,
     /// <summary>
     /// Sum of all observed values.
     /// </summary>
-    double Sum, 
+    double Sum,
     /// <summary>
     /// Minimum observed value.
     /// </summary>
-    double Min, 
+    double Min,
     /// <summary>
     /// Maximum observed value.
     /// </summary>
-    double Max, 
+    double Max,
     /// <summary>
     /// Histogram bucket boundaries.
     /// </summary>
-    double[] Boundaries, 
+    double[] Boundaries,
     /// <summary>
     /// Number of observations in each bucket.
     /// </summary>
     ulong[] BucketCounts
-) {
-}
+) { }
 
-class FfiConverterTypeHistogramMetricValue: FfiConverterRustBuffer<HistogramMetricValue> {
-    public static FfiConverterTypeHistogramMetricValue INSTANCE = new FfiConverterTypeHistogramMetricValue();
+class FfiConverterTypeHistogramMetricValue : FfiConverterRustBuffer<HistogramMetricValue>
+{
+    public static FfiConverterTypeHistogramMetricValue INSTANCE =
+        new FfiConverterTypeHistogramMetricValue();
 
-    public override HistogramMetricValue Read(BigEndianStream stream) {
+    public override HistogramMetricValue Read(BigEndianStream stream)
+    {
         return new HistogramMetricValue(
             Count: FfiConverterUInt64.INSTANCE.Read(stream),
             Sum: FfiConverterDouble.INSTANCE.Read(stream),
@@ -12401,7 +15253,8 @@ class FfiConverterTypeHistogramMetricValue: FfiConverterRustBuffer<HistogramMetr
         );
     }
 
-    public override int AllocationSize(HistogramMetricValue value) {
+    public override int AllocationSize(HistogramMetricValue value)
+    {
         return 0
             + FfiConverterUInt64.INSTANCE.AllocationSize(value.Count)
             + FfiConverterDouble.INSTANCE.AllocationSize(value.Sum)
@@ -12411,17 +15264,16 @@ class FfiConverterTypeHistogramMetricValue: FfiConverterRustBuffer<HistogramMetr
             + FfiConverterSequenceUInt64.INSTANCE.AllocationSize(value.BucketCounts);
     }
 
-    public override void Write(HistogramMetricValue value, BigEndianStream stream) {
-            FfiConverterUInt64.INSTANCE.Write(value.Count, stream);
-            FfiConverterDouble.INSTANCE.Write(value.Sum, stream);
-            FfiConverterDouble.INSTANCE.Write(value.Min, stream);
-            FfiConverterDouble.INSTANCE.Write(value.Max, stream);
-            FfiConverterSequenceDouble.INSTANCE.Write(value.Boundaries, stream);
-            FfiConverterSequenceUInt64.INSTANCE.Write(value.BucketCounts, stream);
+    public override void Write(HistogramMetricValue value, BigEndianStream stream)
+    {
+        FfiConverterUInt64.INSTANCE.Write(value.Count, stream);
+        FfiConverterDouble.INSTANCE.Write(value.Sum, stream);
+        FfiConverterDouble.INSTANCE.Write(value.Min, stream);
+        FfiConverterDouble.INSTANCE.Write(value.Max, stream);
+        FfiConverterSequenceDouble.INSTANCE.Write(value.Boundaries, stream);
+        FfiConverterSequenceUInt64.INSTANCE.Write(value.BucketCounts, stream);
     }
 }
-
-
 
 /// <summary>
 /// A half-open or closed byte-key range used by scan APIs.
@@ -12438,30 +15290,31 @@ class FfiConverterTypeHistogramMetricValue: FfiConverterRustBuffer<HistogramMetr
 /// <param name="EndInclusive">
 /// Whether `end` is inclusive when present.
 /// </param>
-internal record KeyRange (
+internal record KeyRange(
     /// <summary>
     /// Inclusive or exclusive lower bound. `None` means unbounded.
     /// </summary>
-    byte[]? Start, 
+    byte[]? Start,
     /// <summary>
     /// Whether `start` is inclusive when present.
     /// </summary>
-    bool StartInclusive, 
+    bool StartInclusive,
     /// <summary>
     /// Inclusive or exclusive upper bound. `None` means unbounded.
     /// </summary>
-    byte[]? End, 
+    byte[]? End,
     /// <summary>
     /// Whether `end` is inclusive when present.
     /// </summary>
     bool EndInclusive
-) {
-}
+) { }
 
-class FfiConverterTypeKeyRange: FfiConverterRustBuffer<KeyRange> {
+class FfiConverterTypeKeyRange : FfiConverterRustBuffer<KeyRange>
+{
     public static FfiConverterTypeKeyRange INSTANCE = new FfiConverterTypeKeyRange();
 
-    public override KeyRange Read(BigEndianStream stream) {
+    public override KeyRange Read(BigEndianStream stream)
+    {
         return new KeyRange(
             Start: FfiConverterOptionalByteArray.INSTANCE.Read(stream),
             StartInclusive: FfiConverterBoolean.INSTANCE.Read(stream),
@@ -12470,7 +15323,8 @@ class FfiConverterTypeKeyRange: FfiConverterRustBuffer<KeyRange> {
         );
     }
 
-    public override int AllocationSize(KeyRange value) {
+    public override int AllocationSize(KeyRange value)
+    {
         return 0
             + FfiConverterOptionalByteArray.INSTANCE.AllocationSize(value.Start)
             + FfiConverterBoolean.INSTANCE.AllocationSize(value.StartInclusive)
@@ -12478,15 +15332,14 @@ class FfiConverterTypeKeyRange: FfiConverterRustBuffer<KeyRange> {
             + FfiConverterBoolean.INSTANCE.AllocationSize(value.EndInclusive);
     }
 
-    public override void Write(KeyRange value, BigEndianStream stream) {
-            FfiConverterOptionalByteArray.INSTANCE.Write(value.Start, stream);
-            FfiConverterBoolean.INSTANCE.Write(value.StartInclusive, stream);
-            FfiConverterOptionalByteArray.INSTANCE.Write(value.End, stream);
-            FfiConverterBoolean.INSTANCE.Write(value.EndInclusive, stream);
+    public override void Write(KeyRange value, BigEndianStream stream)
+    {
+        FfiConverterOptionalByteArray.INSTANCE.Write(value.Start, stream);
+        FfiConverterBoolean.INSTANCE.Write(value.StartInclusive, stream);
+        FfiConverterOptionalByteArray.INSTANCE.Write(value.End, stream);
+        FfiConverterBoolean.INSTANCE.Write(value.EndInclusive, stream);
     }
 }
-
-
 
 /// <summary>
 /// A key/value pair together with the row version metadata that produced it.
@@ -12506,34 +15359,35 @@ class FfiConverterTypeKeyRange: FfiConverterRustBuffer<KeyRange> {
 /// <param name="ExpireTs">
 /// Expiration timestamp, if the row has a TTL.
 /// </param>
-internal record KeyValue (
+internal record KeyValue(
     /// <summary>
     /// Row key.
     /// </summary>
-    byte[] Key, 
+    byte[] Key,
     /// <summary>
     /// Row value bytes.
     /// </summary>
-    byte[] Value, 
+    byte[] Value,
     /// <summary>
     /// Sequence number of the row version.
     /// </summary>
-    ulong Seq, 
+    ulong Seq,
     /// <summary>
     /// Creation timestamp of the row version.
     /// </summary>
-    long CreateTs, 
+    long CreateTs,
     /// <summary>
     /// Expiration timestamp, if the row has a TTL.
     /// </summary>
     long? ExpireTs
-) {
-}
+) { }
 
-class FfiConverterTypeKeyValue: FfiConverterRustBuffer<KeyValue> {
+class FfiConverterTypeKeyValue : FfiConverterRustBuffer<KeyValue>
+{
     public static FfiConverterTypeKeyValue INSTANCE = new FfiConverterTypeKeyValue();
 
-    public override KeyValue Read(BigEndianStream stream) {
+    public override KeyValue Read(BigEndianStream stream)
+    {
         return new KeyValue(
             Key: FfiConverterByteArray.INSTANCE.Read(stream),
             Value: FfiConverterByteArray.INSTANCE.Read(stream),
@@ -12543,7 +15397,8 @@ class FfiConverterTypeKeyValue: FfiConverterRustBuffer<KeyValue> {
         );
     }
 
-    public override int AllocationSize(KeyValue value) {
+    public override int AllocationSize(KeyValue value)
+    {
         return 0
             + FfiConverterByteArray.INSTANCE.AllocationSize(value.Key)
             + FfiConverterByteArray.INSTANCE.AllocationSize(value.Value)
@@ -12552,16 +15407,15 @@ class FfiConverterTypeKeyValue: FfiConverterRustBuffer<KeyValue> {
             + FfiConverterOptionalInt64.INSTANCE.AllocationSize(value.ExpireTs);
     }
 
-    public override void Write(KeyValue value, BigEndianStream stream) {
-            FfiConverterByteArray.INSTANCE.Write(value.Key, stream);
-            FfiConverterByteArray.INSTANCE.Write(value.Value, stream);
-            FfiConverterUInt64.INSTANCE.Write(value.Seq, stream);
-            FfiConverterInt64.INSTANCE.Write(value.CreateTs, stream);
-            FfiConverterOptionalInt64.INSTANCE.Write(value.ExpireTs, stream);
+    public override void Write(KeyValue value, BigEndianStream stream)
+    {
+        FfiConverterByteArray.INSTANCE.Write(value.Key, stream);
+        FfiConverterByteArray.INSTANCE.Write(value.Value, stream);
+        FfiConverterUInt64.INSTANCE.Write(value.Seq, stream);
+        FfiConverterInt64.INSTANCE.Write(value.CreateTs, stream);
+        FfiConverterOptionalInt64.INSTANCE.Write(value.ExpireTs, stream);
     }
 }
-
-
 
 /// <summary>
 /// A single log event forwarded to a foreign callback.
@@ -12584,38 +15438,39 @@ class FfiConverterTypeKeyValue: FfiConverterRustBuffer<KeyValue> {
 /// <param name="Line">
 /// Source line number, when available.
 /// </param>
-internal record LogRecord (
+internal record LogRecord(
     /// <summary>
     /// Event severity.
     /// </summary>
-    LogLevel Level, 
+    LogLevel Level,
     /// <summary>
     /// Logging target or explicit `log.target` field.
     /// </summary>
-    string Target, 
+    string Target,
     /// <summary>
     /// Rendered log message.
     /// </summary>
-    string Message, 
+    string Message,
     /// <summary>
     /// Rust module path, when available.
     /// </summary>
-    string? ModulePath, 
+    string? ModulePath,
     /// <summary>
     /// Source file path, when available.
     /// </summary>
-    string? File, 
+    string? File,
     /// <summary>
     /// Source line number, when available.
     /// </summary>
     uint? Line
-) {
-}
+) { }
 
-class FfiConverterTypeLogRecord: FfiConverterRustBuffer<LogRecord> {
+class FfiConverterTypeLogRecord : FfiConverterRustBuffer<LogRecord>
+{
     public static FfiConverterTypeLogRecord INSTANCE = new FfiConverterTypeLogRecord();
 
-    public override LogRecord Read(BigEndianStream stream) {
+    public override LogRecord Read(BigEndianStream stream)
+    {
         return new LogRecord(
             Level: FfiConverterTypeLogLevel.INSTANCE.Read(stream),
             Target: FfiConverterString.INSTANCE.Read(stream),
@@ -12626,7 +15481,8 @@ class FfiConverterTypeLogRecord: FfiConverterRustBuffer<LogRecord> {
         );
     }
 
-    public override int AllocationSize(LogRecord value) {
+    public override int AllocationSize(LogRecord value)
+    {
         return 0
             + FfiConverterTypeLogLevel.INSTANCE.AllocationSize(value.Level)
             + FfiConverterString.INSTANCE.AllocationSize(value.Target)
@@ -12636,17 +15492,16 @@ class FfiConverterTypeLogRecord: FfiConverterRustBuffer<LogRecord> {
             + FfiConverterOptionalUInt32.INSTANCE.AllocationSize(value.Line);
     }
 
-    public override void Write(LogRecord value, BigEndianStream stream) {
-            FfiConverterTypeLogLevel.INSTANCE.Write(value.Level, stream);
-            FfiConverterString.INSTANCE.Write(value.Target, stream);
-            FfiConverterString.INSTANCE.Write(value.Message, stream);
-            FfiConverterOptionalString.INSTANCE.Write(value.ModulePath, stream);
-            FfiConverterOptionalString.INSTANCE.Write(value.File, stream);
-            FfiConverterOptionalUInt32.INSTANCE.Write(value.Line, stream);
+    public override void Write(LogRecord value, BigEndianStream stream)
+    {
+        FfiConverterTypeLogLevel.INSTANCE.Write(value.Level, stream);
+        FfiConverterString.INSTANCE.Write(value.Target, stream);
+        FfiConverterString.INSTANCE.Write(value.Message, stream);
+        FfiConverterOptionalString.INSTANCE.Write(value.ModulePath, stream);
+        FfiConverterOptionalString.INSTANCE.Write(value.File, stream);
+        FfiConverterOptionalUInt32.INSTANCE.Write(value.Line, stream);
     }
 }
-
-
 
 /// <summary>
 /// Options applied to a merge operation.
@@ -12654,34 +15509,32 @@ class FfiConverterTypeLogRecord: FfiConverterRustBuffer<LogRecord> {
 /// <param name="Ttl">
 /// TTL policy for the inserted merge operand.
 /// </param>
-internal record MergeOptions (
+internal record MergeOptions(
     /// <summary>
     /// TTL policy for the inserted merge operand.
     /// </summary>
     Ttl Ttl
-) {
-}
+) { }
 
-class FfiConverterTypeMergeOptions: FfiConverterRustBuffer<MergeOptions> {
+class FfiConverterTypeMergeOptions : FfiConverterRustBuffer<MergeOptions>
+{
     public static FfiConverterTypeMergeOptions INSTANCE = new FfiConverterTypeMergeOptions();
 
-    public override MergeOptions Read(BigEndianStream stream) {
-        return new MergeOptions(
-            Ttl: FfiConverterTypeTtl.INSTANCE.Read(stream)
-        );
+    public override MergeOptions Read(BigEndianStream stream)
+    {
+        return new MergeOptions(Ttl: FfiConverterTypeTtl.INSTANCE.Read(stream));
     }
 
-    public override int AllocationSize(MergeOptions value) {
-        return 0
-            + FfiConverterTypeTtl.INSTANCE.AllocationSize(value.Ttl);
+    public override int AllocationSize(MergeOptions value)
+    {
+        return 0 + FfiConverterTypeTtl.INSTANCE.AllocationSize(value.Ttl);
     }
 
-    public override void Write(MergeOptions value, BigEndianStream stream) {
-            FfiConverterTypeTtl.INSTANCE.Write(value.Ttl, stream);
+    public override void Write(MergeOptions value, BigEndianStream stream)
+    {
+        FfiConverterTypeTtl.INSTANCE.Write(value.Ttl, stream);
     }
 }
-
-
 
 /// <summary>
 /// One metric from a [`DefaultMetricsRecorder`] snapshot.
@@ -12698,30 +15551,31 @@ class FfiConverterTypeMergeOptions: FfiConverterRustBuffer<MergeOptions> {
 /// <param name="Value">
 /// Current metric value.
 /// </param>
-internal record Metric (
+internal record Metric(
     /// <summary>
     /// Dotted metric name.
     /// </summary>
-    string Name, 
+    string Name,
     /// <summary>
     /// Canonical label set for the metric instance.
     /// </summary>
-    MetricLabel[] Labels, 
+    MetricLabel[] Labels,
     /// <summary>
     /// Human-readable description.
     /// </summary>
-    string Description, 
+    string Description,
     /// <summary>
     /// Current metric value.
     /// </summary>
     MetricValue Value
-) {
-}
+) { }
 
-class FfiConverterTypeMetric: FfiConverterRustBuffer<Metric> {
+class FfiConverterTypeMetric : FfiConverterRustBuffer<Metric>
+{
     public static FfiConverterTypeMetric INSTANCE = new FfiConverterTypeMetric();
 
-    public override Metric Read(BigEndianStream stream) {
+    public override Metric Read(BigEndianStream stream)
+    {
         return new Metric(
             Name: FfiConverterString.INSTANCE.Read(stream),
             Labels: FfiConverterSequenceTypeMetricLabel.INSTANCE.Read(stream),
@@ -12730,7 +15584,8 @@ class FfiConverterTypeMetric: FfiConverterRustBuffer<Metric> {
         );
     }
 
-    public override int AllocationSize(Metric value) {
+    public override int AllocationSize(Metric value)
+    {
         return 0
             + FfiConverterString.INSTANCE.AllocationSize(value.Name)
             + FfiConverterSequenceTypeMetricLabel.INSTANCE.AllocationSize(value.Labels)
@@ -12738,15 +15593,14 @@ class FfiConverterTypeMetric: FfiConverterRustBuffer<Metric> {
             + FfiConverterTypeMetricValue.INSTANCE.AllocationSize(value.Value);
     }
 
-    public override void Write(Metric value, BigEndianStream stream) {
-            FfiConverterString.INSTANCE.Write(value.Name, stream);
-            FfiConverterSequenceTypeMetricLabel.INSTANCE.Write(value.Labels, stream);
-            FfiConverterString.INSTANCE.Write(value.Description, stream);
-            FfiConverterTypeMetricValue.INSTANCE.Write(value.Value, stream);
+    public override void Write(Metric value, BigEndianStream stream)
+    {
+        FfiConverterString.INSTANCE.Write(value.Name, stream);
+        FfiConverterSequenceTypeMetricLabel.INSTANCE.Write(value.Labels, stream);
+        FfiConverterString.INSTANCE.Write(value.Description, stream);
+        FfiConverterTypeMetricValue.INSTANCE.Write(value.Value, stream);
     }
 }
-
-
 
 /// <summary>
 /// Key-value label attached to a metric.
@@ -12757,41 +15611,42 @@ class FfiConverterTypeMetric: FfiConverterRustBuffer<Metric> {
 /// <param name="Value">
 /// Label value.
 /// </param>
-internal record MetricLabel (
+internal record MetricLabel(
     /// <summary>
     /// Label key.
     /// </summary>
-    string Key, 
+    string Key,
     /// <summary>
     /// Label value.
     /// </summary>
     string Value
-) {
-}
+) { }
 
-class FfiConverterTypeMetricLabel: FfiConverterRustBuffer<MetricLabel> {
+class FfiConverterTypeMetricLabel : FfiConverterRustBuffer<MetricLabel>
+{
     public static FfiConverterTypeMetricLabel INSTANCE = new FfiConverterTypeMetricLabel();
 
-    public override MetricLabel Read(BigEndianStream stream) {
+    public override MetricLabel Read(BigEndianStream stream)
+    {
         return new MetricLabel(
             Key: FfiConverterString.INSTANCE.Read(stream),
             Value: FfiConverterString.INSTANCE.Read(stream)
         );
     }
 
-    public override int AllocationSize(MetricLabel value) {
+    public override int AllocationSize(MetricLabel value)
+    {
         return 0
             + FfiConverterString.INSTANCE.AllocationSize(value.Key)
             + FfiConverterString.INSTANCE.AllocationSize(value.Value);
     }
 
-    public override void Write(MetricLabel value, BigEndianStream stream) {
-            FfiConverterString.INSTANCE.Write(value.Key, stream);
-            FfiConverterString.INSTANCE.Write(value.Value, stream);
+    public override void Write(MetricLabel value, BigEndianStream stream)
+    {
+        FfiConverterString.INSTANCE.Write(value.Key, stream);
+        FfiConverterString.INSTANCE.Write(value.Value, stream);
     }
 }
-
-
 
 /// <summary>
 /// Options applied to a put operation.
@@ -12799,34 +15654,32 @@ class FfiConverterTypeMetricLabel: FfiConverterRustBuffer<MetricLabel> {
 /// <param name="Ttl">
 /// TTL policy for the inserted value.
 /// </param>
-internal record PutOptions (
+internal record PutOptions(
     /// <summary>
     /// TTL policy for the inserted value.
     /// </summary>
     Ttl Ttl
-) {
-}
+) { }
 
-class FfiConverterTypePutOptions: FfiConverterRustBuffer<PutOptions> {
+class FfiConverterTypePutOptions : FfiConverterRustBuffer<PutOptions>
+{
     public static FfiConverterTypePutOptions INSTANCE = new FfiConverterTypePutOptions();
 
-    public override PutOptions Read(BigEndianStream stream) {
-        return new PutOptions(
-            Ttl: FfiConverterTypeTtl.INSTANCE.Read(stream)
-        );
+    public override PutOptions Read(BigEndianStream stream)
+    {
+        return new PutOptions(Ttl: FfiConverterTypeTtl.INSTANCE.Read(stream));
     }
 
-    public override int AllocationSize(PutOptions value) {
-        return 0
-            + FfiConverterTypeTtl.INSTANCE.AllocationSize(value.Ttl);
+    public override int AllocationSize(PutOptions value)
+    {
+        return 0 + FfiConverterTypeTtl.INSTANCE.AllocationSize(value.Ttl);
     }
 
-    public override void Write(PutOptions value, BigEndianStream stream) {
-            FfiConverterTypeTtl.INSTANCE.Write(value.Ttl, stream);
+    public override void Write(PutOptions value, BigEndianStream stream)
+    {
+        FfiConverterTypeTtl.INSTANCE.Write(value.Ttl, stream);
     }
 }
-
-
 
 /// <summary>
 /// Options that control a point read.
@@ -12840,26 +15693,27 @@ class FfiConverterTypePutOptions: FfiConverterRustBuffer<PutOptions> {
 /// <param name="CacheBlocks">
 /// Whether fetched blocks should be inserted into the block cache.
 /// </param>
-internal record ReadOptions (
+internal record ReadOptions(
     /// <summary>
     /// Minimum durability level a returned row must satisfy.
     /// </summary>
-    DurabilityLevel DurabilityFilter, 
+    DurabilityLevel DurabilityFilter,
     /// <summary>
     /// Whether uncommitted dirty data may be returned.
     /// </summary>
-    bool Dirty, 
+    bool Dirty,
     /// <summary>
     /// Whether fetched blocks should be inserted into the block cache.
     /// </summary>
     bool CacheBlocks
-) {
-}
+) { }
 
-class FfiConverterTypeReadOptions: FfiConverterRustBuffer<ReadOptions> {
+class FfiConverterTypeReadOptions : FfiConverterRustBuffer<ReadOptions>
+{
     public static FfiConverterTypeReadOptions INSTANCE = new FfiConverterTypeReadOptions();
 
-    public override ReadOptions Read(BigEndianStream stream) {
+    public override ReadOptions Read(BigEndianStream stream)
+    {
         return new ReadOptions(
             DurabilityFilter: FfiConverterTypeDurabilityLevel.INSTANCE.Read(stream),
             Dirty: FfiConverterBoolean.INSTANCE.Read(stream),
@@ -12867,21 +15721,21 @@ class FfiConverterTypeReadOptions: FfiConverterRustBuffer<ReadOptions> {
         );
     }
 
-    public override int AllocationSize(ReadOptions value) {
+    public override int AllocationSize(ReadOptions value)
+    {
         return 0
             + FfiConverterTypeDurabilityLevel.INSTANCE.AllocationSize(value.DurabilityFilter)
             + FfiConverterBoolean.INSTANCE.AllocationSize(value.Dirty)
             + FfiConverterBoolean.INSTANCE.AllocationSize(value.CacheBlocks);
     }
 
-    public override void Write(ReadOptions value, BigEndianStream stream) {
-            FfiConverterTypeDurabilityLevel.INSTANCE.Write(value.DurabilityFilter, stream);
-            FfiConverterBoolean.INSTANCE.Write(value.Dirty, stream);
-            FfiConverterBoolean.INSTANCE.Write(value.CacheBlocks, stream);
+    public override void Write(ReadOptions value, BigEndianStream stream)
+    {
+        FfiConverterTypeDurabilityLevel.INSTANCE.Write(value.DurabilityFilter, stream);
+        FfiConverterBoolean.INSTANCE.Write(value.Dirty, stream);
+        FfiConverterBoolean.INSTANCE.Write(value.CacheBlocks, stream);
     }
 }
-
-
 
 /// <summary>
 /// Options for opening a [`crate::DbReader`].
@@ -12898,30 +15752,31 @@ class FfiConverterTypeReadOptions: FfiConverterRustBuffer<ReadOptions> {
 /// <param name="SkipWalReplay">
 /// Whether WAL replay should be skipped entirely.
 /// </param>
-internal record ReaderOptions (
+internal record ReaderOptions(
     /// <summary>
     /// How often the reader polls for new manifests and WAL data, in milliseconds.
     /// </summary>
-    ulong ManifestPollIntervalMs, 
+    ulong ManifestPollIntervalMs,
     /// <summary>
     /// Lifetime of an internally managed checkpoint, in milliseconds.
     /// </summary>
-    ulong CheckpointLifetimeMs, 
+    ulong CheckpointLifetimeMs,
     /// <summary>
     /// Maximum size of one in-memory table used while replaying WAL data.
     /// </summary>
-    ulong MaxMemtableBytes, 
+    ulong MaxMemtableBytes,
     /// <summary>
     /// Whether WAL replay should be skipped entirely.
     /// </summary>
     bool SkipWalReplay
-) {
-}
+) { }
 
-class FfiConverterTypeReaderOptions: FfiConverterRustBuffer<ReaderOptions> {
+class FfiConverterTypeReaderOptions : FfiConverterRustBuffer<ReaderOptions>
+{
     public static FfiConverterTypeReaderOptions INSTANCE = new FfiConverterTypeReaderOptions();
 
-    public override ReaderOptions Read(BigEndianStream stream) {
+    public override ReaderOptions Read(BigEndianStream stream)
+    {
         return new ReaderOptions(
             ManifestPollIntervalMs: FfiConverterUInt64.INSTANCE.Read(stream),
             CheckpointLifetimeMs: FfiConverterUInt64.INSTANCE.Read(stream),
@@ -12930,7 +15785,8 @@ class FfiConverterTypeReaderOptions: FfiConverterRustBuffer<ReaderOptions> {
         );
     }
 
-    public override int AllocationSize(ReaderOptions value) {
+    public override int AllocationSize(ReaderOptions value)
+    {
         return 0
             + FfiConverterUInt64.INSTANCE.AllocationSize(value.ManifestPollIntervalMs)
             + FfiConverterUInt64.INSTANCE.AllocationSize(value.CheckpointLifetimeMs)
@@ -12938,15 +15794,14 @@ class FfiConverterTypeReaderOptions: FfiConverterRustBuffer<ReaderOptions> {
             + FfiConverterBoolean.INSTANCE.AllocationSize(value.SkipWalReplay);
     }
 
-    public override void Write(ReaderOptions value, BigEndianStream stream) {
-            FfiConverterUInt64.INSTANCE.Write(value.ManifestPollIntervalMs, stream);
-            FfiConverterUInt64.INSTANCE.Write(value.CheckpointLifetimeMs, stream);
-            FfiConverterUInt64.INSTANCE.Write(value.MaxMemtableBytes, stream);
-            FfiConverterBoolean.INSTANCE.Write(value.SkipWalReplay, stream);
+    public override void Write(ReaderOptions value, BigEndianStream stream)
+    {
+        FfiConverterUInt64.INSTANCE.Write(value.ManifestPollIntervalMs, stream);
+        FfiConverterUInt64.INSTANCE.Write(value.CheckpointLifetimeMs, stream);
+        FfiConverterUInt64.INSTANCE.Write(value.MaxMemtableBytes, stream);
+        FfiConverterBoolean.INSTANCE.Write(value.SkipWalReplay, stream);
     }
 }
-
-
 
 /// <summary>
 /// A raw row entry returned from WAL inspection.
@@ -12969,38 +15824,39 @@ class FfiConverterTypeReaderOptions: FfiConverterRustBuffer<ReaderOptions> {
 /// <param name="ExpireTs">
 /// Expiration timestamp if present in the WAL entry.
 /// </param>
-internal record RowEntry (
+internal record RowEntry(
     /// <summary>
     /// Encoded row kind.
     /// </summary>
-    RowEntryKind Kind, 
+    RowEntryKind Kind,
     /// <summary>
     /// Row key.
     /// </summary>
-    byte[] Key, 
+    byte[] Key,
     /// <summary>
     /// Row value for value and merge entries. `None` for tombstones.
     /// </summary>
-    byte[]? Value, 
+    byte[]? Value,
     /// <summary>
     /// Sequence number of the entry.
     /// </summary>
-    ulong Seq, 
+    ulong Seq,
     /// <summary>
     /// Creation timestamp if present in the WAL entry.
     /// </summary>
-    long? CreateTs, 
+    long? CreateTs,
     /// <summary>
     /// Expiration timestamp if present in the WAL entry.
     /// </summary>
     long? ExpireTs
-) {
-}
+) { }
 
-class FfiConverterTypeRowEntry: FfiConverterRustBuffer<RowEntry> {
+class FfiConverterTypeRowEntry : FfiConverterRustBuffer<RowEntry>
+{
     public static FfiConverterTypeRowEntry INSTANCE = new FfiConverterTypeRowEntry();
 
-    public override RowEntry Read(BigEndianStream stream) {
+    public override RowEntry Read(BigEndianStream stream)
+    {
         return new RowEntry(
             Kind: FfiConverterTypeRowEntryKind.INSTANCE.Read(stream),
             Key: FfiConverterByteArray.INSTANCE.Read(stream),
@@ -13011,7 +15867,8 @@ class FfiConverterTypeRowEntry: FfiConverterRustBuffer<RowEntry> {
         );
     }
 
-    public override int AllocationSize(RowEntry value) {
+    public override int AllocationSize(RowEntry value)
+    {
         return 0
             + FfiConverterTypeRowEntryKind.INSTANCE.AllocationSize(value.Kind)
             + FfiConverterByteArray.INSTANCE.AllocationSize(value.Key)
@@ -13021,17 +15878,16 @@ class FfiConverterTypeRowEntry: FfiConverterRustBuffer<RowEntry> {
             + FfiConverterOptionalInt64.INSTANCE.AllocationSize(value.ExpireTs);
     }
 
-    public override void Write(RowEntry value, BigEndianStream stream) {
-            FfiConverterTypeRowEntryKind.INSTANCE.Write(value.Kind, stream);
-            FfiConverterByteArray.INSTANCE.Write(value.Key, stream);
-            FfiConverterOptionalByteArray.INSTANCE.Write(value.Value, stream);
-            FfiConverterUInt64.INSTANCE.Write(value.Seq, stream);
-            FfiConverterOptionalInt64.INSTANCE.Write(value.CreateTs, stream);
-            FfiConverterOptionalInt64.INSTANCE.Write(value.ExpireTs, stream);
+    public override void Write(RowEntry value, BigEndianStream stream)
+    {
+        FfiConverterTypeRowEntryKind.INSTANCE.Write(value.Kind, stream);
+        FfiConverterByteArray.INSTANCE.Write(value.Key, stream);
+        FfiConverterOptionalByteArray.INSTANCE.Write(value.Value, stream);
+        FfiConverterUInt64.INSTANCE.Write(value.Seq, stream);
+        FfiConverterOptionalInt64.INSTANCE.Write(value.CreateTs, stream);
+        FfiConverterOptionalInt64.INSTANCE.Write(value.ExpireTs, stream);
     }
 }
-
-
 
 /// <summary>
 /// Options that control range scans and prefix scans.
@@ -13054,38 +15910,39 @@ class FfiConverterTypeRowEntry: FfiConverterRustBuffer<RowEntry> {
 /// <param name="Order">
 /// The iteration order for the scan. Defaults to ascending when not set.
 /// </param>
-internal record ScanOptions (
+internal record ScanOptions(
     /// <summary>
     /// Minimum durability level a returned row must satisfy.
     /// </summary>
-    DurabilityLevel DurabilityFilter, 
+    DurabilityLevel DurabilityFilter,
     /// <summary>
     /// Whether uncommitted dirty data may be returned.
     /// </summary>
-    bool Dirty, 
+    bool Dirty,
     /// <summary>
     /// Number of bytes to read ahead while scanning.
     /// </summary>
-    ulong ReadAheadBytes, 
+    ulong ReadAheadBytes,
     /// <summary>
     /// Whether fetched blocks should be inserted into the block cache.
     /// </summary>
-    bool CacheBlocks, 
+    bool CacheBlocks,
     /// <summary>
     /// Maximum number of concurrent fetch tasks used by the scan.
     /// </summary>
-    ulong MaxFetchTasks, 
+    ulong MaxFetchTasks,
     /// <summary>
     /// The iteration order for the scan. Defaults to ascending when not set.
     /// </summary>
     IterationOrder Order
-) {
-}
+) { }
 
-class FfiConverterTypeScanOptions: FfiConverterRustBuffer<ScanOptions> {
+class FfiConverterTypeScanOptions : FfiConverterRustBuffer<ScanOptions>
+{
     public static FfiConverterTypeScanOptions INSTANCE = new FfiConverterTypeScanOptions();
 
-    public override ScanOptions Read(BigEndianStream stream) {
+    public override ScanOptions Read(BigEndianStream stream)
+    {
         return new ScanOptions(
             DurabilityFilter: FfiConverterTypeDurabilityLevel.INSTANCE.Read(stream),
             Dirty: FfiConverterBoolean.INSTANCE.Read(stream),
@@ -13096,7 +15953,8 @@ class FfiConverterTypeScanOptions: FfiConverterRustBuffer<ScanOptions> {
         );
     }
 
-    public override int AllocationSize(ScanOptions value) {
+    public override int AllocationSize(ScanOptions value)
+    {
         return 0
             + FfiConverterTypeDurabilityLevel.INSTANCE.AllocationSize(value.DurabilityFilter)
             + FfiConverterBoolean.INSTANCE.AllocationSize(value.Dirty)
@@ -13106,17 +15964,16 @@ class FfiConverterTypeScanOptions: FfiConverterRustBuffer<ScanOptions> {
             + FfiConverterTypeIterationOrder.INSTANCE.AllocationSize(value.Order);
     }
 
-    public override void Write(ScanOptions value, BigEndianStream stream) {
-            FfiConverterTypeDurabilityLevel.INSTANCE.Write(value.DurabilityFilter, stream);
-            FfiConverterBoolean.INSTANCE.Write(value.Dirty, stream);
-            FfiConverterUInt64.INSTANCE.Write(value.ReadAheadBytes, stream);
-            FfiConverterBoolean.INSTANCE.Write(value.CacheBlocks, stream);
-            FfiConverterUInt64.INSTANCE.Write(value.MaxFetchTasks, stream);
-            FfiConverterTypeIterationOrder.INSTANCE.Write(value.Order, stream);
+    public override void Write(ScanOptions value, BigEndianStream stream)
+    {
+        FfiConverterTypeDurabilityLevel.INSTANCE.Write(value.DurabilityFilter, stream);
+        FfiConverterBoolean.INSTANCE.Write(value.Dirty, stream);
+        FfiConverterUInt64.INSTANCE.Write(value.ReadAheadBytes, stream);
+        FfiConverterBoolean.INSTANCE.Write(value.CacheBlocks, stream);
+        FfiConverterUInt64.INSTANCE.Write(value.MaxFetchTasks, stream);
+        FfiConverterTypeIterationOrder.INSTANCE.Write(value.Order, stream);
     }
 }
-
-
 
 /// <summary>
 /// Metadata describing a WAL file in object storage.
@@ -13133,30 +15990,31 @@ class FfiConverterTypeScanOptions: FfiConverterRustBuffer<ScanOptions> {
 /// <param name="Location">
 /// Object-store location of the file.
 /// </param>
-internal record WalFileMetadata (
+internal record WalFileMetadata(
     /// <summary>
     /// Last-modified timestamp seconds component.
     /// </summary>
-    long LastModifiedSeconds, 
+    long LastModifiedSeconds,
     /// <summary>
     /// Last-modified timestamp nanoseconds component.
     /// </summary>
-    uint LastModifiedNanos, 
+    uint LastModifiedNanos,
     /// <summary>
     /// File size in bytes.
     /// </summary>
-    ulong SizeBytes, 
+    ulong SizeBytes,
     /// <summary>
     /// Object-store location of the file.
     /// </summary>
     string Location
-) {
-}
+) { }
 
-class FfiConverterTypeWalFileMetadata: FfiConverterRustBuffer<WalFileMetadata> {
+class FfiConverterTypeWalFileMetadata : FfiConverterRustBuffer<WalFileMetadata>
+{
     public static FfiConverterTypeWalFileMetadata INSTANCE = new FfiConverterTypeWalFileMetadata();
 
-    public override WalFileMetadata Read(BigEndianStream stream) {
+    public override WalFileMetadata Read(BigEndianStream stream)
+    {
         return new WalFileMetadata(
             LastModifiedSeconds: FfiConverterInt64.INSTANCE.Read(stream),
             LastModifiedNanos: FfiConverterUInt32.INSTANCE.Read(stream),
@@ -13165,7 +16023,8 @@ class FfiConverterTypeWalFileMetadata: FfiConverterRustBuffer<WalFileMetadata> {
         );
     }
 
-    public override int AllocationSize(WalFileMetadata value) {
+    public override int AllocationSize(WalFileMetadata value)
+    {
         return 0
             + FfiConverterInt64.INSTANCE.AllocationSize(value.LastModifiedSeconds)
             + FfiConverterUInt32.INSTANCE.AllocationSize(value.LastModifiedNanos)
@@ -13173,15 +16032,14 @@ class FfiConverterTypeWalFileMetadata: FfiConverterRustBuffer<WalFileMetadata> {
             + FfiConverterString.INSTANCE.AllocationSize(value.Location);
     }
 
-    public override void Write(WalFileMetadata value, BigEndianStream stream) {
-            FfiConverterInt64.INSTANCE.Write(value.LastModifiedSeconds, stream);
-            FfiConverterUInt32.INSTANCE.Write(value.LastModifiedNanos, stream);
-            FfiConverterUInt64.INSTANCE.Write(value.SizeBytes, stream);
-            FfiConverterString.INSTANCE.Write(value.Location, stream);
+    public override void Write(WalFileMetadata value, BigEndianStream stream)
+    {
+        FfiConverterInt64.INSTANCE.Write(value.LastModifiedSeconds, stream);
+        FfiConverterUInt32.INSTANCE.Write(value.LastModifiedNanos, stream);
+        FfiConverterUInt64.INSTANCE.Write(value.SizeBytes, stream);
+        FfiConverterString.INSTANCE.Write(value.Location, stream);
     }
 }
-
-
 
 /// <summary>
 /// Metadata returned by a successful write.
@@ -13192,41 +16050,42 @@ class FfiConverterTypeWalFileMetadata: FfiConverterRustBuffer<WalFileMetadata> {
 /// <param name="CreateTs">
 /// Creation timestamp assigned to the write.
 /// </param>
-internal record WriteHandle (
+internal record WriteHandle(
     /// <summary>
     /// Sequence number assigned to the write.
     /// </summary>
-    ulong Seqnum, 
+    ulong Seqnum,
     /// <summary>
     /// Creation timestamp assigned to the write.
     /// </summary>
     long CreateTs
-) {
-}
+) { }
 
-class FfiConverterTypeWriteHandle: FfiConverterRustBuffer<WriteHandle> {
+class FfiConverterTypeWriteHandle : FfiConverterRustBuffer<WriteHandle>
+{
     public static FfiConverterTypeWriteHandle INSTANCE = new FfiConverterTypeWriteHandle();
 
-    public override WriteHandle Read(BigEndianStream stream) {
+    public override WriteHandle Read(BigEndianStream stream)
+    {
         return new WriteHandle(
             Seqnum: FfiConverterUInt64.INSTANCE.Read(stream),
             CreateTs: FfiConverterInt64.INSTANCE.Read(stream)
         );
     }
 
-    public override int AllocationSize(WriteHandle value) {
+    public override int AllocationSize(WriteHandle value)
+    {
         return 0
             + FfiConverterUInt64.INSTANCE.AllocationSize(value.Seqnum)
             + FfiConverterInt64.INSTANCE.AllocationSize(value.CreateTs);
     }
 
-    public override void Write(WriteHandle value, BigEndianStream stream) {
-            FfiConverterUInt64.INSTANCE.Write(value.Seqnum, stream);
-            FfiConverterInt64.INSTANCE.Write(value.CreateTs, stream);
+    public override void Write(WriteHandle value, BigEndianStream stream)
+    {
+        FfiConverterUInt64.INSTANCE.Write(value.Seqnum, stream);
+        FfiConverterInt64.INSTANCE.Write(value.CreateTs, stream);
     }
 }
-
-
 
 /// <summary>
 /// Options that control durability behavior for writes and commits.
@@ -13234,295 +16093,336 @@ class FfiConverterTypeWriteHandle: FfiConverterRustBuffer<WriteHandle> {
 /// <param name="AwaitDurable">
 /// Whether the call waits for the write to become durable before returning.
 /// </param>
-internal record WriteOptions (
+internal record WriteOptions(
     /// <summary>
     /// Whether the call waits for the write to become durable before returning.
     /// </summary>
     bool AwaitDurable
-) {
-}
+) { }
 
-class FfiConverterTypeWriteOptions: FfiConverterRustBuffer<WriteOptions> {
+class FfiConverterTypeWriteOptions : FfiConverterRustBuffer<WriteOptions>
+{
     public static FfiConverterTypeWriteOptions INSTANCE = new FfiConverterTypeWriteOptions();
 
-    public override WriteOptions Read(BigEndianStream stream) {
-        return new WriteOptions(
-            AwaitDurable: FfiConverterBoolean.INSTANCE.Read(stream)
-        );
+    public override WriteOptions Read(BigEndianStream stream)
+    {
+        return new WriteOptions(AwaitDurable: FfiConverterBoolean.INSTANCE.Read(stream));
     }
 
-    public override int AllocationSize(WriteOptions value) {
-        return 0
-            + FfiConverterBoolean.INSTANCE.AllocationSize(value.AwaitDurable);
+    public override int AllocationSize(WriteOptions value)
+    {
+        return 0 + FfiConverterBoolean.INSTANCE.AllocationSize(value.AwaitDurable);
     }
 
-    public override void Write(WriteOptions value, BigEndianStream stream) {
-            FfiConverterBoolean.INSTANCE.Write(value.AwaitDurable, stream);
+    public override void Write(WriteOptions value, BigEndianStream stream)
+    {
+        FfiConverterBoolean.INSTANCE.Write(value.AwaitDurable, stream);
     }
 }
-
-
-
-
 
 /// <summary>
 /// Reason a database or reader reports itself as closed.
 /// </summary>
-internal enum CloseReason: int {
+internal enum CloseReason : int
+{
     /// <summary>
     /// Closed cleanly by the caller.
     /// </summary>
     Clean,
+
     /// <summary>
     /// Closed because another writer fenced this instance.
     /// </summary>
     Fenced,
+
     /// <summary>
     /// Closed because of a panic in a background task.
     /// </summary>
     Panic,
+
     /// <summary>
     /// Closed for a reason not modeled explicitly by this binding.
     /// </summary>
-    Unknown
+    Unknown,
 }
 
-class FfiConverterTypeCloseReason: FfiConverterRustBuffer<CloseReason> {
+class FfiConverterTypeCloseReason : FfiConverterRustBuffer<CloseReason>
+{
     public static FfiConverterTypeCloseReason INSTANCE = new FfiConverterTypeCloseReason();
 
-    public override CloseReason Read(BigEndianStream stream) {
+    public override CloseReason Read(BigEndianStream stream)
+    {
         var value = stream.ReadInt();
-        switch (value) {
-            case 1: return CloseReason.Clean;
-            case 2: return CloseReason.Fenced;
-            case 3: return CloseReason.Panic;
-            case 4: return CloseReason.Unknown;
-            default: throw new InternalException(String.Format("invalid enum value '{0}' in FfiConverterTypeCloseReason.Read()", value));
+        switch (value)
+        {
+            case 1:
+                return CloseReason.Clean;
+            case 2:
+                return CloseReason.Fenced;
+            case 3:
+                return CloseReason.Panic;
+            case 4:
+                return CloseReason.Unknown;
+            default:
+                throw new InternalException(
+                    String.Format(
+                        "invalid enum value '{0}' in FfiConverterTypeCloseReason.Read()",
+                        value
+                    )
+                );
         }
     }
 
-    public override int AllocationSize(CloseReason value) {
+    public override int AllocationSize(CloseReason value)
+    {
         return 4;
     }
 
-    public override void Write(CloseReason value, BigEndianStream stream) {
-        switch (value) {
-            case CloseReason.Clean: stream.WriteInt(1); break;
-            case CloseReason.Fenced: stream.WriteInt(2); break;
-            case CloseReason.Panic: stream.WriteInt(3); break;
-            case CloseReason.Unknown: stream.WriteInt(4); break;
-            default: throw new InternalException(String.Format("invalid enum value '{0}' in FfiConverterTypeCloseReason.Write()", value));
+    public override void Write(CloseReason value, BigEndianStream stream)
+    {
+        switch (value)
+        {
+            case CloseReason.Clean:
+                stream.WriteInt(1);
+                break;
+            case CloseReason.Fenced:
+                stream.WriteInt(2);
+                break;
+            case CloseReason.Panic:
+                stream.WriteInt(3);
+                break;
+            case CloseReason.Unknown:
+                stream.WriteInt(4);
+                break;
+            default:
+                throw new InternalException(
+                    String.Format(
+                        "invalid enum value '{0}' in FfiConverterTypeCloseReason.Write()",
+                        value
+                    )
+                );
         }
     }
 }
-
-
-
-
-
-
 
 /// <summary>
 /// Minimum durability level required for data returned by reads and scans.
 /// </summary>
-internal enum DurabilityLevel: int {
+internal enum DurabilityLevel : int
+{
     /// <summary>
     /// Return only data that has been flushed to remote object storage.
     /// </summary>
     Remote,
+
     /// <summary>
     /// Return both remote data and newer in-memory data.
     /// </summary>
-    Memory
+    Memory,
 }
 
-class FfiConverterTypeDurabilityLevel: FfiConverterRustBuffer<DurabilityLevel> {
+class FfiConverterTypeDurabilityLevel : FfiConverterRustBuffer<DurabilityLevel>
+{
     public static FfiConverterTypeDurabilityLevel INSTANCE = new FfiConverterTypeDurabilityLevel();
 
-    public override DurabilityLevel Read(BigEndianStream stream) {
+    public override DurabilityLevel Read(BigEndianStream stream)
+    {
         var value = stream.ReadInt();
-        switch (value) {
-            case 1: return DurabilityLevel.Remote;
-            case 2: return DurabilityLevel.Memory;
-            default: throw new InternalException(String.Format("invalid enum value '{0}' in FfiConverterTypeDurabilityLevel.Read()", value));
+        switch (value)
+        {
+            case 1:
+                return DurabilityLevel.Remote;
+            case 2:
+                return DurabilityLevel.Memory;
+            default:
+                throw new InternalException(
+                    String.Format(
+                        "invalid enum value '{0}' in FfiConverterTypeDurabilityLevel.Read()",
+                        value
+                    )
+                );
         }
     }
 
-    public override int AllocationSize(DurabilityLevel value) {
+    public override int AllocationSize(DurabilityLevel value)
+    {
         return 4;
     }
 
-    public override void Write(DurabilityLevel value, BigEndianStream stream) {
-        switch (value) {
-            case DurabilityLevel.Remote: stream.WriteInt(1); break;
-            case DurabilityLevel.Memory: stream.WriteInt(2); break;
-            default: throw new InternalException(String.Format("invalid enum value '{0}' in FfiConverterTypeDurabilityLevel.Write()", value));
+    public override void Write(DurabilityLevel value, BigEndianStream stream)
+    {
+        switch (value)
+        {
+            case DurabilityLevel.Remote:
+                stream.WriteInt(1);
+                break;
+            case DurabilityLevel.Memory:
+                stream.WriteInt(2);
+                break;
+            default:
+                throw new InternalException(
+                    String.Format(
+                        "invalid enum value '{0}' in FfiConverterTypeDurabilityLevel.Write()",
+                        value
+                    )
+                );
         }
     }
 }
-
-
-
-
-
-
 
 /// <summary>
 /// Error type returned by the UniFFI bindings.
 /// </summary>
-internal class Exception: UniffiException {
-    Exception() : base() {}
-    Exception(String @Message) : base(@Message) {}
+internal class Exception : UniffiException
+{
+    Exception()
+        : base() { }
+
+    Exception(String @Message)
+        : base(@Message) { }
 
     // Each variant is a nested class
-    
+
     /// <summary>
     /// Transaction-specific failure.
     /// </summary>
-    
-    public class Transaction : Exception {
+    public class Transaction : Exception
+    {
         // Members
         public string @message;
 
         // Constructor
-        public Transaction(
-                string @message) : base(
-                "@message" + "=" + @message) {
-
+        public Transaction(string @message)
+            : base("@message" + "=" + @message)
+        {
             this.@message = @message;
         }
     }
-    
+
     /// <summary>
     /// Operation attempted on a closed handle.
     /// </summary>
-    
-    public class Closed : Exception {
+    public class Closed : Exception
+    {
         // Members
         public CloseReason @reason;
         public string @message;
 
         // Constructor
-        public Closed(
-                CloseReason @reason, 
-                string @message) : base(
-                "@reason" + "=" + @reason+ ", " +
-                "@message" + "=" + @message) {
-
+        public Closed(CloseReason @reason, string @message)
+            : base("@reason" + "=" + @reason + ", " + "@message" + "=" + @message)
+        {
             this.@reason = @reason;
 
             this.@message = @message;
         }
     }
-    
+
     /// <summary>
     /// Temporary unavailability, such as an unavailable dependency.
     /// </summary>
-    
-    public class Unavailable : Exception {
+    public class Unavailable : Exception
+    {
         // Members
         public string @message;
 
         // Constructor
-        public Unavailable(
-                string @message) : base(
-                "@message" + "=" + @message) {
-
+        public Unavailable(string @message)
+            : base("@message" + "=" + @message)
+        {
             this.@message = @message;
         }
     }
-    
+
     /// <summary>
     /// Invalid input or invalid API usage.
     /// </summary>
-    
-    public class Invalid : Exception {
+    public class Invalid : Exception
+    {
         // Members
         public string @message;
 
         // Constructor
-        public Invalid(
-                string @message) : base(
-                "@message" + "=" + @message) {
-
+        public Invalid(string @message)
+            : base("@message" + "=" + @message)
+        {
             this.@message = @message;
         }
     }
-    
+
     /// <summary>
     /// Corrupt, missing, or otherwise invalid data was encountered.
     /// </summary>
-    
-    public class Data : Exception {
+    public class Data : Exception
+    {
         // Members
         public string @message;
 
         // Constructor
-        public Data(
-                string @message) : base(
-                "@message" + "=" + @message) {
-
+        public Data(string @message)
+            : base("@message" + "=" + @message)
+        {
             this.@message = @message;
         }
     }
-    
+
     /// <summary>
     /// Internal failure inside SlateDB or the binding layer.
     /// </summary>
-    
-    public class Internal : Exception {
+    public class Internal : Exception
+    {
         // Members
         public string @message;
 
         // Constructor
-        public Internal(
-                string @message) : base(
-                "@message" + "=" + @message) {
-
+        public Internal(string @message)
+            : base("@message" + "=" + @message)
+        {
             this.@message = @message;
         }
     }
-    
-
-    
 }
 
-class FfiConverterTypeError : FfiConverterRustBuffer<Exception>, CallStatusErrorHandler<Exception> {
+class FfiConverterTypeError : FfiConverterRustBuffer<Exception>, CallStatusErrorHandler<Exception>
+{
     public static FfiConverterTypeError INSTANCE = new FfiConverterTypeError();
 
-    public override Exception Read(BigEndianStream stream) {
+    public override Exception Read(BigEndianStream stream)
+    {
         var value = stream.ReadInt();
-        switch (value) {
+        switch (value)
+        {
             case 1:
-                return new Exception.Transaction(
-                    FfiConverterString.INSTANCE.Read(stream));
+                return new Exception.Transaction(FfiConverterString.INSTANCE.Read(stream));
             case 2:
                 return new Exception.Closed(
                     FfiConverterTypeCloseReason.INSTANCE.Read(stream),
-                    FfiConverterString.INSTANCE.Read(stream));
+                    FfiConverterString.INSTANCE.Read(stream)
+                );
             case 3:
-                return new Exception.Unavailable(
-                    FfiConverterString.INSTANCE.Read(stream));
+                return new Exception.Unavailable(FfiConverterString.INSTANCE.Read(stream));
             case 4:
-                return new Exception.Invalid(
-                    FfiConverterString.INSTANCE.Read(stream));
+                return new Exception.Invalid(FfiConverterString.INSTANCE.Read(stream));
             case 5:
-                return new Exception.Data(
-                    FfiConverterString.INSTANCE.Read(stream));
+                return new Exception.Data(FfiConverterString.INSTANCE.Read(stream));
             case 6:
-                return new Exception.Internal(
-                    FfiConverterString.INSTANCE.Read(stream));
+                return new Exception.Internal(FfiConverterString.INSTANCE.Read(stream));
             default:
-                throw new InternalException(String.Format("invalid error value '{0}' in FfiConverterTypeError.Read()", value));
+                throw new InternalException(
+                    String.Format(
+                        "invalid error value '{0}' in FfiConverterTypeError.Read()",
+                        value
+                    )
+                );
         }
     }
 
-    public override int AllocationSize(Exception value) {
-        switch (value) {
-
+    public override int AllocationSize(Exception value)
+    {
+        switch (value)
+        {
             case Exception.Transaction variant_value:
-                return 4
-                    + FfiConverterString.INSTANCE.AllocationSize(variant_value.@message);
+                return 4 + FfiConverterString.INSTANCE.AllocationSize(variant_value.@message);
 
             case Exception.Closed variant_value:
                 return 4
@@ -13530,27 +16430,30 @@ class FfiConverterTypeError : FfiConverterRustBuffer<Exception>, CallStatusError
                     + FfiConverterString.INSTANCE.AllocationSize(variant_value.@message);
 
             case Exception.Unavailable variant_value:
-                return 4
-                    + FfiConverterString.INSTANCE.AllocationSize(variant_value.@message);
+                return 4 + FfiConverterString.INSTANCE.AllocationSize(variant_value.@message);
 
             case Exception.Invalid variant_value:
-                return 4
-                    + FfiConverterString.INSTANCE.AllocationSize(variant_value.@message);
+                return 4 + FfiConverterString.INSTANCE.AllocationSize(variant_value.@message);
 
             case Exception.Data variant_value:
-                return 4
-                    + FfiConverterString.INSTANCE.AllocationSize(variant_value.@message);
+                return 4 + FfiConverterString.INSTANCE.AllocationSize(variant_value.@message);
 
             case Exception.Internal variant_value:
-                return 4
-                    + FfiConverterString.INSTANCE.AllocationSize(variant_value.@message);
+                return 4 + FfiConverterString.INSTANCE.AllocationSize(variant_value.@message);
             default:
-                throw new InternalException(String.Format("invalid error value '{0}' in FfiConverterTypeError.AllocationSize()", value));
+                throw new InternalException(
+                    String.Format(
+                        "invalid error value '{0}' in FfiConverterTypeError.AllocationSize()",
+                        value
+                    )
+                );
         }
     }
 
-    public override void Write(Exception value, BigEndianStream stream) {
-        switch (value) {
+    public override void Write(Exception value, BigEndianStream stream)
+    {
+        switch (value)
+        {
             case Exception.Transaction variant_value:
                 stream.WriteInt(1);
                 FfiConverterString.INSTANCE.Write(variant_value.@message, stream);
@@ -13577,369 +16480,484 @@ class FfiConverterTypeError : FfiConverterRustBuffer<Exception>, CallStatusError
                 FfiConverterString.INSTANCE.Write(variant_value.@message, stream);
                 break;
             default:
-                throw new InternalException(String.Format("invalid error value '{0}' in FfiConverterTypeError.Write()", value));
+                throw new InternalException(
+                    String.Format(
+                        "invalid error value '{0}' in FfiConverterTypeError.Write()",
+                        value
+                    )
+                );
         }
     }
 }
-
-
-
-
 
 /// <summary>
 /// Storage layer targeted by an explicit flush.
 /// </summary>
-internal enum FlushType: int {
+internal enum FlushType : int
+{
     /// <summary>
     /// Flush the active memtable and any immutable memtables to object storage.
     /// </summary>
     MemTable,
+
     /// <summary>
     /// Flush the active WAL and any immutable WAL segments to object storage.
     /// </summary>
-    Wal
+    Wal,
 }
 
-class FfiConverterTypeFlushType: FfiConverterRustBuffer<FlushType> {
+class FfiConverterTypeFlushType : FfiConverterRustBuffer<FlushType>
+{
     public static FfiConverterTypeFlushType INSTANCE = new FfiConverterTypeFlushType();
 
-    public override FlushType Read(BigEndianStream stream) {
+    public override FlushType Read(BigEndianStream stream)
+    {
         var value = stream.ReadInt();
-        switch (value) {
-            case 1: return FlushType.MemTable;
-            case 2: return FlushType.Wal;
-            default: throw new InternalException(String.Format("invalid enum value '{0}' in FfiConverterTypeFlushType.Read()", value));
+        switch (value)
+        {
+            case 1:
+                return FlushType.MemTable;
+            case 2:
+                return FlushType.Wal;
+            default:
+                throw new InternalException(
+                    String.Format(
+                        "invalid enum value '{0}' in FfiConverterTypeFlushType.Read()",
+                        value
+                    )
+                );
         }
     }
 
-    public override int AllocationSize(FlushType value) {
+    public override int AllocationSize(FlushType value)
+    {
         return 4;
     }
 
-    public override void Write(FlushType value, BigEndianStream stream) {
-        switch (value) {
-            case FlushType.MemTable: stream.WriteInt(1); break;
-            case FlushType.Wal: stream.WriteInt(2); break;
-            default: throw new InternalException(String.Format("invalid enum value '{0}' in FfiConverterTypeFlushType.Write()", value));
+    public override void Write(FlushType value, BigEndianStream stream)
+    {
+        switch (value)
+        {
+            case FlushType.MemTable:
+                stream.WriteInt(1);
+                break;
+            case FlushType.Wal:
+                stream.WriteInt(2);
+                break;
+            default:
+                throw new InternalException(
+                    String.Format(
+                        "invalid enum value '{0}' in FfiConverterTypeFlushType.Write()",
+                        value
+                    )
+                );
         }
     }
 }
-
-
-
-
-
-
 
 /// <summary>
 /// Isolation level used when starting a transaction.
 /// </summary>
-internal enum IsolationLevel: int {
+internal enum IsolationLevel : int
+{
     /// <summary>
     /// Reads see a stable snapshot without full serializable conflict checking.
     /// </summary>
     Snapshot,
+
     /// <summary>
     /// Reads see a stable snapshot with serializable conflict detection.
     /// </summary>
-    SerializableSnapshot
+    SerializableSnapshot,
 }
 
-class FfiConverterTypeIsolationLevel: FfiConverterRustBuffer<IsolationLevel> {
+class FfiConverterTypeIsolationLevel : FfiConverterRustBuffer<IsolationLevel>
+{
     public static FfiConverterTypeIsolationLevel INSTANCE = new FfiConverterTypeIsolationLevel();
 
-    public override IsolationLevel Read(BigEndianStream stream) {
+    public override IsolationLevel Read(BigEndianStream stream)
+    {
         var value = stream.ReadInt();
-        switch (value) {
-            case 1: return IsolationLevel.Snapshot;
-            case 2: return IsolationLevel.SerializableSnapshot;
-            default: throw new InternalException(String.Format("invalid enum value '{0}' in FfiConverterTypeIsolationLevel.Read()", value));
+        switch (value)
+        {
+            case 1:
+                return IsolationLevel.Snapshot;
+            case 2:
+                return IsolationLevel.SerializableSnapshot;
+            default:
+                throw new InternalException(
+                    String.Format(
+                        "invalid enum value '{0}' in FfiConverterTypeIsolationLevel.Read()",
+                        value
+                    )
+                );
         }
     }
 
-    public override int AllocationSize(IsolationLevel value) {
+    public override int AllocationSize(IsolationLevel value)
+    {
         return 4;
     }
 
-    public override void Write(IsolationLevel value, BigEndianStream stream) {
-        switch (value) {
-            case IsolationLevel.Snapshot: stream.WriteInt(1); break;
-            case IsolationLevel.SerializableSnapshot: stream.WriteInt(2); break;
-            default: throw new InternalException(String.Format("invalid enum value '{0}' in FfiConverterTypeIsolationLevel.Write()", value));
+    public override void Write(IsolationLevel value, BigEndianStream stream)
+    {
+        switch (value)
+        {
+            case IsolationLevel.Snapshot:
+                stream.WriteInt(1);
+                break;
+            case IsolationLevel.SerializableSnapshot:
+                stream.WriteInt(2);
+                break;
+            default:
+                throw new InternalException(
+                    String.Format(
+                        "invalid enum value '{0}' in FfiConverterTypeIsolationLevel.Write()",
+                        value
+                    )
+                );
         }
     }
 }
-
-
-
-
-
-
 
 /// <summary>
 /// The iteration order for a scan.
 /// </summary>
-internal enum IterationOrder: int {
+internal enum IterationOrder : int
+{
     Ascending,
-    Descending
+    Descending,
 }
 
-class FfiConverterTypeIterationOrder: FfiConverterRustBuffer<IterationOrder> {
+class FfiConverterTypeIterationOrder : FfiConverterRustBuffer<IterationOrder>
+{
     public static FfiConverterTypeIterationOrder INSTANCE = new FfiConverterTypeIterationOrder();
 
-    public override IterationOrder Read(BigEndianStream stream) {
+    public override IterationOrder Read(BigEndianStream stream)
+    {
         var value = stream.ReadInt();
-        switch (value) {
-            case 1: return IterationOrder.Ascending;
-            case 2: return IterationOrder.Descending;
-            default: throw new InternalException(String.Format("invalid enum value '{0}' in FfiConverterTypeIterationOrder.Read()", value));
+        switch (value)
+        {
+            case 1:
+                return IterationOrder.Ascending;
+            case 2:
+                return IterationOrder.Descending;
+            default:
+                throw new InternalException(
+                    String.Format(
+                        "invalid enum value '{0}' in FfiConverterTypeIterationOrder.Read()",
+                        value
+                    )
+                );
         }
     }
 
-    public override int AllocationSize(IterationOrder value) {
+    public override int AllocationSize(IterationOrder value)
+    {
         return 4;
     }
 
-    public override void Write(IterationOrder value, BigEndianStream stream) {
-        switch (value) {
-            case IterationOrder.Ascending: stream.WriteInt(1); break;
-            case IterationOrder.Descending: stream.WriteInt(2); break;
-            default: throw new InternalException(String.Format("invalid enum value '{0}' in FfiConverterTypeIterationOrder.Write()", value));
+    public override void Write(IterationOrder value, BigEndianStream stream)
+    {
+        switch (value)
+        {
+            case IterationOrder.Ascending:
+                stream.WriteInt(1);
+                break;
+            case IterationOrder.Descending:
+                stream.WriteInt(2);
+                break;
+            default:
+                throw new InternalException(
+                    String.Format(
+                        "invalid enum value '{0}' in FfiConverterTypeIterationOrder.Write()",
+                        value
+                    )
+                );
         }
     }
 }
-
-
-
-
-
-
 
 /// <summary>
 /// Log level used by [`init_logging`].
 /// </summary>
-internal enum LogLevel: int {
+internal enum LogLevel : int
+{
     /// <summary>
     /// Disable logging.
     /// </summary>
     Off,
+
     /// <summary>
     /// Error-level logs only.
     /// </summary>
     Error,
+
     /// <summary>
     /// Warning and error logs.
     /// </summary>
     Warn,
+
     /// <summary>
     /// Info, warning, and error logs.
     /// </summary>
     Info,
+
     /// <summary>
     /// Debug, info, warning, and error logs.
     /// </summary>
     Debug,
+
     /// <summary>
     /// Trace and all higher-severity logs.
     /// </summary>
-    Trace
+    Trace,
 }
 
-class FfiConverterTypeLogLevel: FfiConverterRustBuffer<LogLevel> {
+class FfiConverterTypeLogLevel : FfiConverterRustBuffer<LogLevel>
+{
     public static FfiConverterTypeLogLevel INSTANCE = new FfiConverterTypeLogLevel();
 
-    public override LogLevel Read(BigEndianStream stream) {
+    public override LogLevel Read(BigEndianStream stream)
+    {
         var value = stream.ReadInt();
-        switch (value) {
-            case 1: return LogLevel.Off;
-            case 2: return LogLevel.Error;
-            case 3: return LogLevel.Warn;
-            case 4: return LogLevel.Info;
-            case 5: return LogLevel.Debug;
-            case 6: return LogLevel.Trace;
-            default: throw new InternalException(String.Format("invalid enum value '{0}' in FfiConverterTypeLogLevel.Read()", value));
+        switch (value)
+        {
+            case 1:
+                return LogLevel.Off;
+            case 2:
+                return LogLevel.Error;
+            case 3:
+                return LogLevel.Warn;
+            case 4:
+                return LogLevel.Info;
+            case 5:
+                return LogLevel.Debug;
+            case 6:
+                return LogLevel.Trace;
+            default:
+                throw new InternalException(
+                    String.Format(
+                        "invalid enum value '{0}' in FfiConverterTypeLogLevel.Read()",
+                        value
+                    )
+                );
         }
     }
 
-    public override int AllocationSize(LogLevel value) {
+    public override int AllocationSize(LogLevel value)
+    {
         return 4;
     }
 
-    public override void Write(LogLevel value, BigEndianStream stream) {
-        switch (value) {
-            case LogLevel.Off: stream.WriteInt(1); break;
-            case LogLevel.Error: stream.WriteInt(2); break;
-            case LogLevel.Warn: stream.WriteInt(3); break;
-            case LogLevel.Info: stream.WriteInt(4); break;
-            case LogLevel.Debug: stream.WriteInt(5); break;
-            case LogLevel.Trace: stream.WriteInt(6); break;
-            default: throw new InternalException(String.Format("invalid enum value '{0}' in FfiConverterTypeLogLevel.Write()", value));
+    public override void Write(LogLevel value, BigEndianStream stream)
+    {
+        switch (value)
+        {
+            case LogLevel.Off:
+                stream.WriteInt(1);
+                break;
+            case LogLevel.Error:
+                stream.WriteInt(2);
+                break;
+            case LogLevel.Warn:
+                stream.WriteInt(3);
+                break;
+            case LogLevel.Info:
+                stream.WriteInt(4);
+                break;
+            case LogLevel.Debug:
+                stream.WriteInt(5);
+                break;
+            case LogLevel.Trace:
+                stream.WriteInt(6);
+                break;
+            default:
+                throw new InternalException(
+                    String.Format(
+                        "invalid enum value '{0}' in FfiConverterTypeLogLevel.Write()",
+                        value
+                    )
+                );
         }
     }
 }
-
-
-
-
-
-
 
 /// <summary>
 /// Error returned by a foreign [`crate::MergeOperator`] implementation.
 /// </summary>
-internal class MergeOperatorCallbackException: UniffiException {
-    MergeOperatorCallbackException() : base() {}
-    MergeOperatorCallbackException(String @Message) : base(@Message) {}
+internal class MergeOperatorCallbackException : UniffiException
+{
+    MergeOperatorCallbackException()
+        : base() { }
+
+    MergeOperatorCallbackException(String @Message)
+        : base(@Message) { }
 
     // Each variant is a nested class
-    
+
     /// <summary>
     /// The merge callback failed with an application-defined message.
     /// </summary>
-    
-    public class Failed : MergeOperatorCallbackException {
+    public class Failed : MergeOperatorCallbackException
+    {
         // Members
         public string @message;
 
         // Constructor
-        public Failed(
-                string @message) : base(
-                "@message" + "=" + @message) {
-
+        public Failed(string @message)
+            : base("@message" + "=" + @message)
+        {
             this.@message = @message;
         }
     }
-    
-
-    
 }
 
-class FfiConverterTypeMergeOperatorCallbackError : FfiConverterRustBuffer<MergeOperatorCallbackException>, CallStatusErrorHandler<MergeOperatorCallbackException> {
-    public static FfiConverterTypeMergeOperatorCallbackError INSTANCE = new FfiConverterTypeMergeOperatorCallbackError();
+class FfiConverterTypeMergeOperatorCallbackError
+    : FfiConverterRustBuffer<MergeOperatorCallbackException>,
+        CallStatusErrorHandler<MergeOperatorCallbackException>
+{
+    public static FfiConverterTypeMergeOperatorCallbackError INSTANCE =
+        new FfiConverterTypeMergeOperatorCallbackError();
 
-    public override MergeOperatorCallbackException Read(BigEndianStream stream) {
+    public override MergeOperatorCallbackException Read(BigEndianStream stream)
+    {
         var value = stream.ReadInt();
-        switch (value) {
+        switch (value)
+        {
             case 1:
                 return new MergeOperatorCallbackException.Failed(
-                    FfiConverterString.INSTANCE.Read(stream));
+                    FfiConverterString.INSTANCE.Read(stream)
+                );
             default:
-                throw new InternalException(String.Format("invalid error value '{0}' in FfiConverterTypeMergeOperatorCallbackError.Read()", value));
+                throw new InternalException(
+                    String.Format(
+                        "invalid error value '{0}' in FfiConverterTypeMergeOperatorCallbackError.Read()",
+                        value
+                    )
+                );
         }
     }
 
-    public override int AllocationSize(MergeOperatorCallbackException value) {
-        switch (value) {
-
+    public override int AllocationSize(MergeOperatorCallbackException value)
+    {
+        switch (value)
+        {
             case MergeOperatorCallbackException.Failed variant_value:
-                return 4
-                    + FfiConverterString.INSTANCE.AllocationSize(variant_value.@message);
+                return 4 + FfiConverterString.INSTANCE.AllocationSize(variant_value.@message);
             default:
-                throw new InternalException(String.Format("invalid error value '{0}' in FfiConverterTypeMergeOperatorCallbackError.AllocationSize()", value));
+                throw new InternalException(
+                    String.Format(
+                        "invalid error value '{0}' in FfiConverterTypeMergeOperatorCallbackError.AllocationSize()",
+                        value
+                    )
+                );
         }
     }
 
-    public override void Write(MergeOperatorCallbackException value, BigEndianStream stream) {
-        switch (value) {
+    public override void Write(MergeOperatorCallbackException value, BigEndianStream stream)
+    {
+        switch (value)
+        {
             case MergeOperatorCallbackException.Failed variant_value:
                 stream.WriteInt(1);
                 FfiConverterString.INSTANCE.Write(variant_value.@message, stream);
                 break;
             default:
-                throw new InternalException(String.Format("invalid error value '{0}' in FfiConverterTypeMergeOperatorCallbackError.Write()", value));
+                throw new InternalException(
+                    String.Format(
+                        "invalid error value '{0}' in FfiConverterTypeMergeOperatorCallbackError.Write()",
+                        value
+                    )
+                );
         }
     }
 }
 
-
-
-
-
 /// <summary>
 /// Value stored in a metric snapshot.
 /// </summary>
-internal record MetricValue {
-    
+internal record MetricValue
+{
     /// <summary>
     /// Monotonic counter value.
     /// </summary>
-    public record Counter (
-        ulong V1
-    ) : MetricValue {}
-    
+    public record Counter(ulong V1) : MetricValue { }
+
     /// <summary>
     /// Gauge value.
     /// </summary>
-    public record Gauge (
-        long V1
-    ) : MetricValue {}
-    
+    public record Gauge(long V1) : MetricValue { }
+
     /// <summary>
     /// Up/down counter value.
     /// </summary>
-    public record UpDownCounter (
-        long V1
-    ) : MetricValue {}
-    
+    public record UpDownCounter(long V1) : MetricValue { }
+
     /// <summary>
     /// Histogram summary and buckets.
     /// </summary>
-    public record Histogram (
-        HistogramMetricValue V1
-    ) : MetricValue {}
-    
-
-    
+    public record Histogram(HistogramMetricValue V1) : MetricValue { }
 }
 
-class FfiConverterTypeMetricValue : FfiConverterRustBuffer<MetricValue>{
+class FfiConverterTypeMetricValue : FfiConverterRustBuffer<MetricValue>
+{
     public static FfiConverterRustBuffer<MetricValue> INSTANCE = new FfiConverterTypeMetricValue();
 
-    public override MetricValue Read(BigEndianStream stream) {
+    public override MetricValue Read(BigEndianStream stream)
+    {
         var value = stream.ReadInt();
-        switch (value) {
+        switch (value)
+        {
             case 1:
-                return new MetricValue.Counter(
-                    FfiConverterUInt64.INSTANCE.Read(stream)
-                );
+                return new MetricValue.Counter(FfiConverterUInt64.INSTANCE.Read(stream));
             case 2:
-                return new MetricValue.Gauge(
-                    FfiConverterInt64.INSTANCE.Read(stream)
-                );
+                return new MetricValue.Gauge(FfiConverterInt64.INSTANCE.Read(stream));
             case 3:
-                return new MetricValue.UpDownCounter(
-                    FfiConverterInt64.INSTANCE.Read(stream)
-                );
+                return new MetricValue.UpDownCounter(FfiConverterInt64.INSTANCE.Read(stream));
             case 4:
                 return new MetricValue.Histogram(
                     FfiConverterTypeHistogramMetricValue.INSTANCE.Read(stream)
                 );
             default:
-                throw new InternalException(String.Format("invalid enum value '{0}' in FfiConverterTypeMetricValue.Read()", value));
+                throw new InternalException(
+                    String.Format(
+                        "invalid enum value '{0}' in FfiConverterTypeMetricValue.Read()",
+                        value
+                    )
+                );
         }
     }
 
-    public override int AllocationSize(MetricValue value) {
-        switch (value) {
+    public override int AllocationSize(MetricValue value)
+    {
+        switch (value)
+        {
             case MetricValue.Counter variant_value:
-                return 4
-                    + FfiConverterUInt64.INSTANCE.AllocationSize(variant_value.V1);
+                return 4 + FfiConverterUInt64.INSTANCE.AllocationSize(variant_value.V1);
             case MetricValue.Gauge variant_value:
-                return 4
-                    + FfiConverterInt64.INSTANCE.AllocationSize(variant_value.V1);
+                return 4 + FfiConverterInt64.INSTANCE.AllocationSize(variant_value.V1);
             case MetricValue.UpDownCounter variant_value:
-                return 4
-                    + FfiConverterInt64.INSTANCE.AllocationSize(variant_value.V1);
+                return 4 + FfiConverterInt64.INSTANCE.AllocationSize(variant_value.V1);
             case MetricValue.Histogram variant_value:
                 return 4
-                    + FfiConverterTypeHistogramMetricValue.INSTANCE.AllocationSize(variant_value.V1);
+                    + FfiConverterTypeHistogramMetricValue.INSTANCE.AllocationSize(
+                        variant_value.V1
+                    );
             default:
-                throw new InternalException(String.Format("invalid enum value '{0}' in FfiConverterTypeMetricValue.AllocationSize()", value));
+                throw new InternalException(
+                    String.Format(
+                        "invalid enum value '{0}' in FfiConverterTypeMetricValue.AllocationSize()",
+                        value
+                    )
+                );
         }
     }
 
-    public override void Write(MetricValue value, BigEndianStream stream) {
-        switch (value) {
+    public override void Write(MetricValue value, BigEndianStream stream)
+    {
+        switch (value)
+        {
             case MetricValue.Counter variant_value:
                 stream.WriteInt(1);
                 FfiConverterUInt64.INSTANCE.Write(variant_value.V1, stream);
@@ -13957,285 +16975,377 @@ class FfiConverterTypeMetricValue : FfiConverterRustBuffer<MetricValue>{
                 FfiConverterTypeHistogramMetricValue.INSTANCE.Write(variant_value.V1, stream);
                 break;
             default:
-                throw new InternalException(String.Format("invalid enum value '{0}' in FfiConverterTypeMetricValue.Write()", value));
+                throw new InternalException(
+                    String.Format(
+                        "invalid enum value '{0}' in FfiConverterTypeMetricValue.Write()",
+                        value
+                    )
+                );
         }
     }
 }
-
-
-
-
-
-
 
 /// <summary>
 /// Backing provider targeted by an [`ObjectStoreBuilder`].
 /// </summary>
-internal enum ObjectStoreType: int {
+internal enum ObjectStoreType : int
+{
     /// <summary>
     /// Amazon S3, or an S3-compatible store.
     /// </summary>
     S3,
+
     /// <summary>
     /// Azure Blob Storage.
     /// </summary>
     Azure,
+
     /// <summary>
     /// Google Cloud Storage.
     /// </summary>
     Gcs,
+
     /// <summary>
     /// A local filesystem rooted at the `local_path` config entry.
     /// </summary>
     Local,
+
     /// <summary>
     /// An in-memory store, useful for tests.
     /// </summary>
-    InMemory
+    InMemory,
 }
 
-class FfiConverterTypeObjectStoreType: FfiConverterRustBuffer<ObjectStoreType> {
+class FfiConverterTypeObjectStoreType : FfiConverterRustBuffer<ObjectStoreType>
+{
     public static FfiConverterTypeObjectStoreType INSTANCE = new FfiConverterTypeObjectStoreType();
 
-    public override ObjectStoreType Read(BigEndianStream stream) {
+    public override ObjectStoreType Read(BigEndianStream stream)
+    {
         var value = stream.ReadInt();
-        switch (value) {
-            case 1: return ObjectStoreType.S3;
-            case 2: return ObjectStoreType.Azure;
-            case 3: return ObjectStoreType.Gcs;
-            case 4: return ObjectStoreType.Local;
-            case 5: return ObjectStoreType.InMemory;
-            default: throw new InternalException(String.Format("invalid enum value '{0}' in FfiConverterTypeObjectStoreType.Read()", value));
+        switch (value)
+        {
+            case 1:
+                return ObjectStoreType.S3;
+            case 2:
+                return ObjectStoreType.Azure;
+            case 3:
+                return ObjectStoreType.Gcs;
+            case 4:
+                return ObjectStoreType.Local;
+            case 5:
+                return ObjectStoreType.InMemory;
+            default:
+                throw new InternalException(
+                    String.Format(
+                        "invalid enum value '{0}' in FfiConverterTypeObjectStoreType.Read()",
+                        value
+                    )
+                );
         }
     }
 
-    public override int AllocationSize(ObjectStoreType value) {
+    public override int AllocationSize(ObjectStoreType value)
+    {
         return 4;
     }
 
-    public override void Write(ObjectStoreType value, BigEndianStream stream) {
-        switch (value) {
-            case ObjectStoreType.S3: stream.WriteInt(1); break;
-            case ObjectStoreType.Azure: stream.WriteInt(2); break;
-            case ObjectStoreType.Gcs: stream.WriteInt(3); break;
-            case ObjectStoreType.Local: stream.WriteInt(4); break;
-            case ObjectStoreType.InMemory: stream.WriteInt(5); break;
-            default: throw new InternalException(String.Format("invalid enum value '{0}' in FfiConverterTypeObjectStoreType.Write()", value));
+    public override void Write(ObjectStoreType value, BigEndianStream stream)
+    {
+        switch (value)
+        {
+            case ObjectStoreType.S3:
+                stream.WriteInt(1);
+                break;
+            case ObjectStoreType.Azure:
+                stream.WriteInt(2);
+                break;
+            case ObjectStoreType.Gcs:
+                stream.WriteInt(3);
+                break;
+            case ObjectStoreType.Local:
+                stream.WriteInt(4);
+                break;
+            case ObjectStoreType.InMemory:
+                stream.WriteInt(5);
+                break;
+            default:
+                throw new InternalException(
+                    String.Format(
+                        "invalid enum value '{0}' in FfiConverterTypeObjectStoreType.Write()",
+                        value
+                    )
+                );
         }
     }
 }
-
-
-
-
-
-
 
 /// <summary>
 /// Kind of row entry stored in WAL iteration results.
 /// </summary>
-internal enum RowEntryKind: int {
+internal enum RowEntryKind : int
+{
     /// <summary>
     /// A regular value row.
     /// </summary>
     Value,
+
     /// <summary>
     /// A delete tombstone.
     /// </summary>
     Tombstone,
+
     /// <summary>
     /// A merge operand row.
     /// </summary>
-    Merge
+    Merge,
 }
 
-class FfiConverterTypeRowEntryKind: FfiConverterRustBuffer<RowEntryKind> {
+class FfiConverterTypeRowEntryKind : FfiConverterRustBuffer<RowEntryKind>
+{
     public static FfiConverterTypeRowEntryKind INSTANCE = new FfiConverterTypeRowEntryKind();
 
-    public override RowEntryKind Read(BigEndianStream stream) {
+    public override RowEntryKind Read(BigEndianStream stream)
+    {
         var value = stream.ReadInt();
-        switch (value) {
-            case 1: return RowEntryKind.Value;
-            case 2: return RowEntryKind.Tombstone;
-            case 3: return RowEntryKind.Merge;
-            default: throw new InternalException(String.Format("invalid enum value '{0}' in FfiConverterTypeRowEntryKind.Read()", value));
+        switch (value)
+        {
+            case 1:
+                return RowEntryKind.Value;
+            case 2:
+                return RowEntryKind.Tombstone;
+            case 3:
+                return RowEntryKind.Merge;
+            default:
+                throw new InternalException(
+                    String.Format(
+                        "invalid enum value '{0}' in FfiConverterTypeRowEntryKind.Read()",
+                        value
+                    )
+                );
         }
     }
 
-    public override int AllocationSize(RowEntryKind value) {
+    public override int AllocationSize(RowEntryKind value)
+    {
         return 4;
     }
 
-    public override void Write(RowEntryKind value, BigEndianStream stream) {
-        switch (value) {
-            case RowEntryKind.Value: stream.WriteInt(1); break;
-            case RowEntryKind.Tombstone: stream.WriteInt(2); break;
-            case RowEntryKind.Merge: stream.WriteInt(3); break;
-            default: throw new InternalException(String.Format("invalid enum value '{0}' in FfiConverterTypeRowEntryKind.Write()", value));
+    public override void Write(RowEntryKind value, BigEndianStream stream)
+    {
+        switch (value)
+        {
+            case RowEntryKind.Value:
+                stream.WriteInt(1);
+                break;
+            case RowEntryKind.Tombstone:
+                stream.WriteInt(2);
+                break;
+            case RowEntryKind.Merge:
+                stream.WriteInt(3);
+                break;
+            default:
+                throw new InternalException(
+                    String.Format(
+                        "invalid enum value '{0}' in FfiConverterTypeRowEntryKind.Write()",
+                        value
+                    )
+                );
         }
     }
 }
-
-
-
-
-
-
 
 /// <summary>
 /// Block size used for newly written SSTable blocks.
 /// </summary>
-internal enum SstBlockSize: int {
+internal enum SstBlockSize : int
+{
     /// <summary>
     /// 1 KiB blocks.
     /// </summary>
     Block1Kib,
+
     /// <summary>
     /// 2 KiB blocks.
     /// </summary>
     Block2Kib,
+
     /// <summary>
     /// 4 KiB blocks.
     /// </summary>
     Block4Kib,
+
     /// <summary>
     /// 8 KiB blocks.
     /// </summary>
     Block8Kib,
+
     /// <summary>
     /// 16 KiB blocks.
     /// </summary>
     Block16Kib,
+
     /// <summary>
     /// 32 KiB blocks.
     /// </summary>
     Block32Kib,
+
     /// <summary>
     /// 64 KiB blocks.
     /// </summary>
-    Block64Kib
+    Block64Kib,
 }
 
-class FfiConverterTypeSstBlockSize: FfiConverterRustBuffer<SstBlockSize> {
+class FfiConverterTypeSstBlockSize : FfiConverterRustBuffer<SstBlockSize>
+{
     public static FfiConverterTypeSstBlockSize INSTANCE = new FfiConverterTypeSstBlockSize();
 
-    public override SstBlockSize Read(BigEndianStream stream) {
+    public override SstBlockSize Read(BigEndianStream stream)
+    {
         var value = stream.ReadInt();
-        switch (value) {
-            case 1: return SstBlockSize.Block1Kib;
-            case 2: return SstBlockSize.Block2Kib;
-            case 3: return SstBlockSize.Block4Kib;
-            case 4: return SstBlockSize.Block8Kib;
-            case 5: return SstBlockSize.Block16Kib;
-            case 6: return SstBlockSize.Block32Kib;
-            case 7: return SstBlockSize.Block64Kib;
-            default: throw new InternalException(String.Format("invalid enum value '{0}' in FfiConverterTypeSstBlockSize.Read()", value));
+        switch (value)
+        {
+            case 1:
+                return SstBlockSize.Block1Kib;
+            case 2:
+                return SstBlockSize.Block2Kib;
+            case 3:
+                return SstBlockSize.Block4Kib;
+            case 4:
+                return SstBlockSize.Block8Kib;
+            case 5:
+                return SstBlockSize.Block16Kib;
+            case 6:
+                return SstBlockSize.Block32Kib;
+            case 7:
+                return SstBlockSize.Block64Kib;
+            default:
+                throw new InternalException(
+                    String.Format(
+                        "invalid enum value '{0}' in FfiConverterTypeSstBlockSize.Read()",
+                        value
+                    )
+                );
         }
     }
 
-    public override int AllocationSize(SstBlockSize value) {
+    public override int AllocationSize(SstBlockSize value)
+    {
         return 4;
     }
 
-    public override void Write(SstBlockSize value, BigEndianStream stream) {
-        switch (value) {
-            case SstBlockSize.Block1Kib: stream.WriteInt(1); break;
-            case SstBlockSize.Block2Kib: stream.WriteInt(2); break;
-            case SstBlockSize.Block4Kib: stream.WriteInt(3); break;
-            case SstBlockSize.Block8Kib: stream.WriteInt(4); break;
-            case SstBlockSize.Block16Kib: stream.WriteInt(5); break;
-            case SstBlockSize.Block32Kib: stream.WriteInt(6); break;
-            case SstBlockSize.Block64Kib: stream.WriteInt(7); break;
-            default: throw new InternalException(String.Format("invalid enum value '{0}' in FfiConverterTypeSstBlockSize.Write()", value));
+    public override void Write(SstBlockSize value, BigEndianStream stream)
+    {
+        switch (value)
+        {
+            case SstBlockSize.Block1Kib:
+                stream.WriteInt(1);
+                break;
+            case SstBlockSize.Block2Kib:
+                stream.WriteInt(2);
+                break;
+            case SstBlockSize.Block4Kib:
+                stream.WriteInt(3);
+                break;
+            case SstBlockSize.Block8Kib:
+                stream.WriteInt(4);
+                break;
+            case SstBlockSize.Block16Kib:
+                stream.WriteInt(5);
+                break;
+            case SstBlockSize.Block32Kib:
+                stream.WriteInt(6);
+                break;
+            case SstBlockSize.Block64Kib:
+                stream.WriteInt(7);
+                break;
+            default:
+                throw new InternalException(
+                    String.Format(
+                        "invalid enum value '{0}' in FfiConverterTypeSstBlockSize.Write()",
+                        value
+                    )
+                );
         }
     }
 }
-
-
-
-
-
-
 
 /// <summary>
 /// Time-to-live policy applied to an inserted value or merge operand.
 /// </summary>
-internal record Ttl {
-    
+internal record Ttl
+{
     /// <summary>
     /// Use the database default TTL.
     /// </summary>
-    public record Default: Ttl {}
-    
-    
+    public record Default : Ttl { }
+
     /// <summary>
     /// Store the value without expiration.
     /// </summary>
-    public record NoExpiry: Ttl {}
-    
-    
+    public record NoExpiry : Ttl { }
+
     /// <summary>
     /// Expire the value after the given number of clock ticks.
     /// </summary>
-    public record ExpireAfterTicks (
-        ulong V1
-    ) : Ttl {}
-    
+    public record ExpireAfterTicks(ulong V1) : Ttl { }
+
     /// <summary>
     /// Expire the value at the given absolute timestamp (clock ticks).
     /// </summary>
-    public record ExpireAt (
-        long V1
-    ) : Ttl {}
-    
-
-    
+    public record ExpireAt(long V1) : Ttl { }
 }
 
-class FfiConverterTypeTtl : FfiConverterRustBuffer<Ttl>{
+class FfiConverterTypeTtl : FfiConverterRustBuffer<Ttl>
+{
     public static FfiConverterRustBuffer<Ttl> INSTANCE = new FfiConverterTypeTtl();
 
-    public override Ttl Read(BigEndianStream stream) {
+    public override Ttl Read(BigEndianStream stream)
+    {
         var value = stream.ReadInt();
-        switch (value) {
+        switch (value)
+        {
             case 1:
-                return new Ttl.Default(
-                );
+                return new Ttl.Default();
             case 2:
-                return new Ttl.NoExpiry(
-                );
+                return new Ttl.NoExpiry();
             case 3:
-                return new Ttl.ExpireAfterTicks(
-                    FfiConverterUInt64.INSTANCE.Read(stream)
-                );
+                return new Ttl.ExpireAfterTicks(FfiConverterUInt64.INSTANCE.Read(stream));
             case 4:
-                return new Ttl.ExpireAt(
-                    FfiConverterInt64.INSTANCE.Read(stream)
-                );
+                return new Ttl.ExpireAt(FfiConverterInt64.INSTANCE.Read(stream));
             default:
-                throw new InternalException(String.Format("invalid enum value '{0}' in FfiConverterTypeTtl.Read()", value));
+                throw new InternalException(
+                    String.Format("invalid enum value '{0}' in FfiConverterTypeTtl.Read()", value)
+                );
         }
     }
 
-    public override int AllocationSize(Ttl value) {
-        switch (value) {
+    public override int AllocationSize(Ttl value)
+    {
+        switch (value)
+        {
             case Ttl.Default variant_value:
                 return 4;
             case Ttl.NoExpiry variant_value:
                 return 4;
             case Ttl.ExpireAfterTicks variant_value:
-                return 4
-                    + FfiConverterUInt64.INSTANCE.AllocationSize(variant_value.V1);
+                return 4 + FfiConverterUInt64.INSTANCE.AllocationSize(variant_value.V1);
             case Ttl.ExpireAt variant_value:
-                return 4
-                    + FfiConverterInt64.INSTANCE.AllocationSize(variant_value.V1);
+                return 4 + FfiConverterInt64.INSTANCE.AllocationSize(variant_value.V1);
             default:
-                throw new InternalException(String.Format("invalid enum value '{0}' in FfiConverterTypeTtl.AllocationSize()", value));
+                throw new InternalException(
+                    String.Format(
+                        "invalid enum value '{0}' in FfiConverterTypeTtl.AllocationSize()",
+                        value
+                    )
+                );
         }
     }
 
-    public override void Write(Ttl value, BigEndianStream stream) {
-        switch (value) {
+    public override void Write(Ttl value, BigEndianStream stream)
+    {
+        switch (value)
+        {
             case Ttl.Default variant_value:
                 stream.WriteInt(1);
                 break;
@@ -14251,379 +17361,475 @@ class FfiConverterTypeTtl : FfiConverterRustBuffer<Ttl>{
                 FfiConverterInt64.INSTANCE.Write(variant_value.V1, stream);
                 break;
             default:
-                throw new InternalException(String.Format("invalid enum value '{0}' in FfiConverterTypeTtl.Write()", value));
+                throw new InternalException(
+                    String.Format("invalid enum value '{0}' in FfiConverterTypeTtl.Write()", value)
+                );
         }
     }
 }
 
-
-
-
-
-
-class FfiConverterOptionalUInt32: FfiConverterRustBuffer<uint?> {
+class FfiConverterOptionalUInt32 : FfiConverterRustBuffer<uint?>
+{
     public static FfiConverterOptionalUInt32 INSTANCE = new FfiConverterOptionalUInt32();
 
-    public override uint? Read(BigEndianStream stream) {
-        if (stream.ReadByte() == 0) {
+    public override uint? Read(BigEndianStream stream)
+    {
+        if (stream.ReadByte() == 0)
+        {
             return null;
         }
         return FfiConverterUInt32.INSTANCE.Read(stream);
     }
 
-    public override int AllocationSize(uint? value) {
-        if (value == null) {
+    public override int AllocationSize(uint? value)
+    {
+        if (value == null)
+        {
             return 1;
-        } else {
+        }
+        else
+        {
             return 1 + FfiConverterUInt32.INSTANCE.AllocationSize((uint)value);
         }
     }
 
-    public override void Write(uint? value, BigEndianStream stream) {
-        if (value == null) {
+    public override void Write(uint? value, BigEndianStream stream)
+    {
+        if (value == null)
+        {
             stream.WriteByte(0);
-        } else {
+        }
+        else
+        {
             stream.WriteByte(1);
             FfiConverterUInt32.INSTANCE.Write((uint)value, stream);
         }
     }
 }
 
-
-
-
-class FfiConverterOptionalUInt64: FfiConverterRustBuffer<ulong?> {
+class FfiConverterOptionalUInt64 : FfiConverterRustBuffer<ulong?>
+{
     public static FfiConverterOptionalUInt64 INSTANCE = new FfiConverterOptionalUInt64();
 
-    public override ulong? Read(BigEndianStream stream) {
-        if (stream.ReadByte() == 0) {
+    public override ulong? Read(BigEndianStream stream)
+    {
+        if (stream.ReadByte() == 0)
+        {
             return null;
         }
         return FfiConverterUInt64.INSTANCE.Read(stream);
     }
 
-    public override int AllocationSize(ulong? value) {
-        if (value == null) {
+    public override int AllocationSize(ulong? value)
+    {
+        if (value == null)
+        {
             return 1;
-        } else {
+        }
+        else
+        {
             return 1 + FfiConverterUInt64.INSTANCE.AllocationSize((ulong)value);
         }
     }
 
-    public override void Write(ulong? value, BigEndianStream stream) {
-        if (value == null) {
+    public override void Write(ulong? value, BigEndianStream stream)
+    {
+        if (value == null)
+        {
             stream.WriteByte(0);
-        } else {
+        }
+        else
+        {
             stream.WriteByte(1);
             FfiConverterUInt64.INSTANCE.Write((ulong)value, stream);
         }
     }
 }
 
-
-
-
-class FfiConverterOptionalInt64: FfiConverterRustBuffer<long?> {
+class FfiConverterOptionalInt64 : FfiConverterRustBuffer<long?>
+{
     public static FfiConverterOptionalInt64 INSTANCE = new FfiConverterOptionalInt64();
 
-    public override long? Read(BigEndianStream stream) {
-        if (stream.ReadByte() == 0) {
+    public override long? Read(BigEndianStream stream)
+    {
+        if (stream.ReadByte() == 0)
+        {
             return null;
         }
         return FfiConverterInt64.INSTANCE.Read(stream);
     }
 
-    public override int AllocationSize(long? value) {
-        if (value == null) {
+    public override int AllocationSize(long? value)
+    {
+        if (value == null)
+        {
             return 1;
-        } else {
+        }
+        else
+        {
             return 1 + FfiConverterInt64.INSTANCE.AllocationSize((long)value);
         }
     }
 
-    public override void Write(long? value, BigEndianStream stream) {
-        if (value == null) {
+    public override void Write(long? value, BigEndianStream stream)
+    {
+        if (value == null)
+        {
             stream.WriteByte(0);
-        } else {
+        }
+        else
+        {
             stream.WriteByte(1);
             FfiConverterInt64.INSTANCE.Write((long)value, stream);
         }
     }
 }
 
-
-
-
-class FfiConverterOptionalString: FfiConverterRustBuffer<string?> {
+class FfiConverterOptionalString : FfiConverterRustBuffer<string?>
+{
     public static FfiConverterOptionalString INSTANCE = new FfiConverterOptionalString();
 
-    public override string? Read(BigEndianStream stream) {
-        if (stream.ReadByte() == 0) {
+    public override string? Read(BigEndianStream stream)
+    {
+        if (stream.ReadByte() == 0)
+        {
             return null;
         }
         return FfiConverterString.INSTANCE.Read(stream);
     }
 
-    public override int AllocationSize(string? value) {
-        if (value == null) {
+    public override int AllocationSize(string? value)
+    {
+        if (value == null)
+        {
             return 1;
-        } else {
+        }
+        else
+        {
             return 1 + FfiConverterString.INSTANCE.AllocationSize((string)value);
         }
     }
 
-    public override void Write(string? value, BigEndianStream stream) {
-        if (value == null) {
+    public override void Write(string? value, BigEndianStream stream)
+    {
+        if (value == null)
+        {
             stream.WriteByte(0);
-        } else {
+        }
+        else
+        {
             stream.WriteByte(1);
             FfiConverterString.INSTANCE.Write((string)value, stream);
         }
     }
 }
 
-
-
-
-class FfiConverterOptionalByteArray: FfiConverterRustBuffer<byte[]?> {
+class FfiConverterOptionalByteArray : FfiConverterRustBuffer<byte[]?>
+{
     public static FfiConverterOptionalByteArray INSTANCE = new FfiConverterOptionalByteArray();
 
-    public override byte[]? Read(BigEndianStream stream) {
-        if (stream.ReadByte() == 0) {
+    public override byte[]? Read(BigEndianStream stream)
+    {
+        if (stream.ReadByte() == 0)
+        {
             return null;
         }
         return FfiConverterByteArray.INSTANCE.Read(stream);
     }
 
-    public override int AllocationSize(byte[]? value) {
-        if (value == null) {
+    public override int AllocationSize(byte[]? value)
+    {
+        if (value == null)
+        {
             return 1;
-        } else {
+        }
+        else
+        {
             return 1 + FfiConverterByteArray.INSTANCE.AllocationSize((byte[])value);
         }
     }
 
-    public override void Write(byte[]? value, BigEndianStream stream) {
-        if (value == null) {
+    public override void Write(byte[]? value, BigEndianStream stream)
+    {
+        if (value == null)
+        {
             stream.WriteByte(0);
-        } else {
+        }
+        else
+        {
             stream.WriteByte(1);
             FfiConverterByteArray.INSTANCE.Write((byte[])value, stream);
         }
     }
 }
 
+class FfiConverterOptionalTypeLogCallback : FfiConverterRustBuffer<LogCallback?>
+{
+    public static FfiConverterOptionalTypeLogCallback INSTANCE =
+        new FfiConverterOptionalTypeLogCallback();
 
-
-
-class FfiConverterOptionalTypeLogCallback: FfiConverterRustBuffer<LogCallback?> {
-    public static FfiConverterOptionalTypeLogCallback INSTANCE = new FfiConverterOptionalTypeLogCallback();
-
-    public override LogCallback? Read(BigEndianStream stream) {
-        if (stream.ReadByte() == 0) {
+    public override LogCallback? Read(BigEndianStream stream)
+    {
+        if (stream.ReadByte() == 0)
+        {
             return null;
         }
         return FfiConverterTypeLogCallback.INSTANCE.Read(stream);
     }
 
-    public override int AllocationSize(LogCallback? value) {
-        if (value == null) {
+    public override int AllocationSize(LogCallback? value)
+    {
+        if (value == null)
+        {
             return 1;
-        } else {
+        }
+        else
+        {
             return 1 + FfiConverterTypeLogCallback.INSTANCE.AllocationSize((LogCallback)value);
         }
     }
 
-    public override void Write(LogCallback? value, BigEndianStream stream) {
-        if (value == null) {
+    public override void Write(LogCallback? value, BigEndianStream stream)
+    {
+        if (value == null)
+        {
             stream.WriteByte(0);
-        } else {
+        }
+        else
+        {
             stream.WriteByte(1);
             FfiConverterTypeLogCallback.INSTANCE.Write((LogCallback)value, stream);
         }
     }
 }
 
+class FfiConverterOptionalTypeKeyValue : FfiConverterRustBuffer<KeyValue?>
+{
+    public static FfiConverterOptionalTypeKeyValue INSTANCE =
+        new FfiConverterOptionalTypeKeyValue();
 
-
-
-class FfiConverterOptionalTypeKeyValue: FfiConverterRustBuffer<KeyValue?> {
-    public static FfiConverterOptionalTypeKeyValue INSTANCE = new FfiConverterOptionalTypeKeyValue();
-
-    public override KeyValue? Read(BigEndianStream stream) {
-        if (stream.ReadByte() == 0) {
+    public override KeyValue? Read(BigEndianStream stream)
+    {
+        if (stream.ReadByte() == 0)
+        {
             return null;
         }
         return FfiConverterTypeKeyValue.INSTANCE.Read(stream);
     }
 
-    public override int AllocationSize(KeyValue? value) {
-        if (value == null) {
+    public override int AllocationSize(KeyValue? value)
+    {
+        if (value == null)
+        {
             return 1;
-        } else {
+        }
+        else
+        {
             return 1 + FfiConverterTypeKeyValue.INSTANCE.AllocationSize((KeyValue)value);
         }
     }
 
-    public override void Write(KeyValue? value, BigEndianStream stream) {
-        if (value == null) {
+    public override void Write(KeyValue? value, BigEndianStream stream)
+    {
+        if (value == null)
+        {
             stream.WriteByte(0);
-        } else {
+        }
+        else
+        {
             stream.WriteByte(1);
             FfiConverterTypeKeyValue.INSTANCE.Write((KeyValue)value, stream);
         }
     }
 }
 
-
-
-
-class FfiConverterOptionalTypeMetric: FfiConverterRustBuffer<Metric?> {
+class FfiConverterOptionalTypeMetric : FfiConverterRustBuffer<Metric?>
+{
     public static FfiConverterOptionalTypeMetric INSTANCE = new FfiConverterOptionalTypeMetric();
 
-    public override Metric? Read(BigEndianStream stream) {
-        if (stream.ReadByte() == 0) {
+    public override Metric? Read(BigEndianStream stream)
+    {
+        if (stream.ReadByte() == 0)
+        {
             return null;
         }
         return FfiConverterTypeMetric.INSTANCE.Read(stream);
     }
 
-    public override int AllocationSize(Metric? value) {
-        if (value == null) {
+    public override int AllocationSize(Metric? value)
+    {
+        if (value == null)
+        {
             return 1;
-        } else {
+        }
+        else
+        {
             return 1 + FfiConverterTypeMetric.INSTANCE.AllocationSize((Metric)value);
         }
     }
 
-    public override void Write(Metric? value, BigEndianStream stream) {
-        if (value == null) {
+    public override void Write(Metric? value, BigEndianStream stream)
+    {
+        if (value == null)
+        {
             stream.WriteByte(0);
-        } else {
+        }
+        else
+        {
             stream.WriteByte(1);
             FfiConverterTypeMetric.INSTANCE.Write((Metric)value, stream);
         }
     }
 }
 
+class FfiConverterOptionalTypeRowEntry : FfiConverterRustBuffer<RowEntry?>
+{
+    public static FfiConverterOptionalTypeRowEntry INSTANCE =
+        new FfiConverterOptionalTypeRowEntry();
 
-
-
-class FfiConverterOptionalTypeRowEntry: FfiConverterRustBuffer<RowEntry?> {
-    public static FfiConverterOptionalTypeRowEntry INSTANCE = new FfiConverterOptionalTypeRowEntry();
-
-    public override RowEntry? Read(BigEndianStream stream) {
-        if (stream.ReadByte() == 0) {
+    public override RowEntry? Read(BigEndianStream stream)
+    {
+        if (stream.ReadByte() == 0)
+        {
             return null;
         }
         return FfiConverterTypeRowEntry.INSTANCE.Read(stream);
     }
 
-    public override int AllocationSize(RowEntry? value) {
-        if (value == null) {
+    public override int AllocationSize(RowEntry? value)
+    {
+        if (value == null)
+        {
             return 1;
-        } else {
+        }
+        else
+        {
             return 1 + FfiConverterTypeRowEntry.INSTANCE.AllocationSize((RowEntry)value);
         }
     }
 
-    public override void Write(RowEntry? value, BigEndianStream stream) {
-        if (value == null) {
+    public override void Write(RowEntry? value, BigEndianStream stream)
+    {
+        if (value == null)
+        {
             stream.WriteByte(0);
-        } else {
+        }
+        else
+        {
             stream.WriteByte(1);
             FfiConverterTypeRowEntry.INSTANCE.Write((RowEntry)value, stream);
         }
     }
 }
 
+class FfiConverterOptionalTypeWriteHandle : FfiConverterRustBuffer<WriteHandle?>
+{
+    public static FfiConverterOptionalTypeWriteHandle INSTANCE =
+        new FfiConverterOptionalTypeWriteHandle();
 
-
-
-class FfiConverterOptionalTypeWriteHandle: FfiConverterRustBuffer<WriteHandle?> {
-    public static FfiConverterOptionalTypeWriteHandle INSTANCE = new FfiConverterOptionalTypeWriteHandle();
-
-    public override WriteHandle? Read(BigEndianStream stream) {
-        if (stream.ReadByte() == 0) {
+    public override WriteHandle? Read(BigEndianStream stream)
+    {
+        if (stream.ReadByte() == 0)
+        {
             return null;
         }
         return FfiConverterTypeWriteHandle.INSTANCE.Read(stream);
     }
 
-    public override int AllocationSize(WriteHandle? value) {
-        if (value == null) {
+    public override int AllocationSize(WriteHandle? value)
+    {
+        if (value == null)
+        {
             return 1;
-        } else {
+        }
+        else
+        {
             return 1 + FfiConverterTypeWriteHandle.INSTANCE.AllocationSize((WriteHandle)value);
         }
     }
 
-    public override void Write(WriteHandle? value, BigEndianStream stream) {
-        if (value == null) {
+    public override void Write(WriteHandle? value, BigEndianStream stream)
+    {
+        if (value == null)
+        {
             stream.WriteByte(0);
-        } else {
+        }
+        else
+        {
             stream.WriteByte(1);
             FfiConverterTypeWriteHandle.INSTANCE.Write((WriteHandle)value, stream);
         }
     }
 }
 
+class FfiConverterOptionalTypeCloseReason : FfiConverterRustBuffer<CloseReason?>
+{
+    public static FfiConverterOptionalTypeCloseReason INSTANCE =
+        new FfiConverterOptionalTypeCloseReason();
 
-
-
-class FfiConverterOptionalTypeCloseReason: FfiConverterRustBuffer<CloseReason?> {
-    public static FfiConverterOptionalTypeCloseReason INSTANCE = new FfiConverterOptionalTypeCloseReason();
-
-    public override CloseReason? Read(BigEndianStream stream) {
-        if (stream.ReadByte() == 0) {
+    public override CloseReason? Read(BigEndianStream stream)
+    {
+        if (stream.ReadByte() == 0)
+        {
             return null;
         }
         return FfiConverterTypeCloseReason.INSTANCE.Read(stream);
     }
 
-    public override int AllocationSize(CloseReason? value) {
-        if (value == null) {
+    public override int AllocationSize(CloseReason? value)
+    {
+        if (value == null)
+        {
             return 1;
-        } else {
+        }
+        else
+        {
             return 1 + FfiConverterTypeCloseReason.INSTANCE.AllocationSize((CloseReason)value);
         }
     }
 
-    public override void Write(CloseReason? value, BigEndianStream stream) {
-        if (value == null) {
+    public override void Write(CloseReason? value, BigEndianStream stream)
+    {
+        if (value == null)
+        {
             stream.WriteByte(0);
-        } else {
+        }
+        else
+        {
             stream.WriteByte(1);
             FfiConverterTypeCloseReason.INSTANCE.Write((CloseReason)value, stream);
         }
     }
 }
 
-
-
-
-class FfiConverterSequenceUInt64: FfiConverterRustBuffer<ulong[]> {
+class FfiConverterSequenceUInt64 : FfiConverterRustBuffer<ulong[]>
+{
     public static FfiConverterSequenceUInt64 INSTANCE = new FfiConverterSequenceUInt64();
 
-    public override ulong[]  Read(BigEndianStream stream) {
+    public override ulong[] Read(BigEndianStream stream)
+    {
         var length = stream.ReadInt();
-        if (length == 0) {
+        if (length == 0)
+        {
             return [];
         }
 
         var result = new ulong[length];
         var readFn = FfiConverterUInt64.INSTANCE.Read;
-        for (int i = 0; i < length; i++) {
+        for (int i = 0; i < length; i++)
+        {
             result[i] = readFn(stream);
         }
         return result;
     }
 
-    public override int AllocationSize(ulong[]  value) {
+    public override int AllocationSize(ulong[] value)
+    {
         var sizeForLength = 4;
 
         // details/1-empty-list-as-default-method-parameter.md
-        if (value == null) {
+        if (value == null)
+        {
             return sizeForLength;
         }
 
@@ -14632,9 +17838,11 @@ class FfiConverterSequenceUInt64: FfiConverterRustBuffer<ulong[]> {
         return sizeForLength + sizeForItems;
     }
 
-    public override void Write(ulong[] value, BigEndianStream stream) {
+    public override void Write(ulong[] value, BigEndianStream stream)
+    {
         // details/1-empty-list-as-default-method-parameter.md
-        if (value == null) {
+        if (value == null)
+        {
             stream.WriteInt(0);
             return;
         }
@@ -14645,31 +17853,34 @@ class FfiConverterSequenceUInt64: FfiConverterRustBuffer<ulong[]> {
     }
 }
 
-
-
-
-class FfiConverterSequenceDouble: FfiConverterRustBuffer<double[]> {
+class FfiConverterSequenceDouble : FfiConverterRustBuffer<double[]>
+{
     public static FfiConverterSequenceDouble INSTANCE = new FfiConverterSequenceDouble();
 
-    public override double[]  Read(BigEndianStream stream) {
+    public override double[] Read(BigEndianStream stream)
+    {
         var length = stream.ReadInt();
-        if (length == 0) {
+        if (length == 0)
+        {
             return [];
         }
 
         var result = new double[length];
         var readFn = FfiConverterDouble.INSTANCE.Read;
-        for (int i = 0; i < length; i++) {
+        for (int i = 0; i < length; i++)
+        {
             result[i] = readFn(stream);
         }
         return result;
     }
 
-    public override int AllocationSize(double[]  value) {
+    public override int AllocationSize(double[] value)
+    {
         var sizeForLength = 4;
 
         // details/1-empty-list-as-default-method-parameter.md
-        if (value == null) {
+        if (value == null)
+        {
             return sizeForLength;
         }
 
@@ -14678,9 +17889,11 @@ class FfiConverterSequenceDouble: FfiConverterRustBuffer<double[]> {
         return sizeForLength + sizeForItems;
     }
 
-    public override void Write(double[] value, BigEndianStream stream) {
+    public override void Write(double[] value, BigEndianStream stream)
+    {
         // details/1-empty-list-as-default-method-parameter.md
-        if (value == null) {
+        if (value == null)
+        {
             stream.WriteInt(0);
             return;
         }
@@ -14691,31 +17904,34 @@ class FfiConverterSequenceDouble: FfiConverterRustBuffer<double[]> {
     }
 }
 
-
-
-
-class FfiConverterSequenceByteArray: FfiConverterRustBuffer<byte[][]> {
+class FfiConverterSequenceByteArray : FfiConverterRustBuffer<byte[][]>
+{
     public static FfiConverterSequenceByteArray INSTANCE = new FfiConverterSequenceByteArray();
 
-    public override byte[][]  Read(BigEndianStream stream) {
+    public override byte[][] Read(BigEndianStream stream)
+    {
         var length = stream.ReadInt();
-        if (length == 0) {
+        if (length == 0)
+        {
             return [];
         }
 
         var result = new byte[length][];
         var readFn = FfiConverterByteArray.INSTANCE.Read;
-        for (int i = 0; i < length; i++) {
+        for (int i = 0; i < length; i++)
+        {
             result[i] = readFn(stream);
         }
         return result;
     }
 
-    public override int AllocationSize(byte[][]  value) {
+    public override int AllocationSize(byte[][] value)
+    {
         var sizeForLength = 4;
 
         // details/1-empty-list-as-default-method-parameter.md
-        if (value == null) {
+        if (value == null)
+        {
             return sizeForLength;
         }
 
@@ -14724,9 +17940,11 @@ class FfiConverterSequenceByteArray: FfiConverterRustBuffer<byte[][]> {
         return sizeForLength + sizeForItems;
     }
 
-    public override void Write(byte[][] value, BigEndianStream stream) {
+    public override void Write(byte[][] value, BigEndianStream stream)
+    {
         // details/1-empty-list-as-default-method-parameter.md
-        if (value == null) {
+        if (value == null)
+        {
             stream.WriteInt(0);
             return;
         }
@@ -14737,31 +17955,34 @@ class FfiConverterSequenceByteArray: FfiConverterRustBuffer<byte[][]> {
     }
 }
 
-
-
-
-class FfiConverterSequenceTypeWalFile: FfiConverterRustBuffer<WalFile[]> {
+class FfiConverterSequenceTypeWalFile : FfiConverterRustBuffer<WalFile[]>
+{
     public static FfiConverterSequenceTypeWalFile INSTANCE = new FfiConverterSequenceTypeWalFile();
 
-    public override WalFile[]  Read(BigEndianStream stream) {
+    public override WalFile[] Read(BigEndianStream stream)
+    {
         var length = stream.ReadInt();
-        if (length == 0) {
+        if (length == 0)
+        {
             return [];
         }
 
         var result = new WalFile[length];
         var readFn = FfiConverterTypeWalFile.INSTANCE.Read;
-        for (int i = 0; i < length; i++) {
+        for (int i = 0; i < length; i++)
+        {
             result[i] = readFn(stream);
         }
         return result;
     }
 
-    public override int AllocationSize(WalFile[]  value) {
+    public override int AllocationSize(WalFile[] value)
+    {
         var sizeForLength = 4;
 
         // details/1-empty-list-as-default-method-parameter.md
-        if (value == null) {
+        if (value == null)
+        {
             return sizeForLength;
         }
 
@@ -14770,9 +17991,11 @@ class FfiConverterSequenceTypeWalFile: FfiConverterRustBuffer<WalFile[]> {
         return sizeForLength + sizeForItems;
     }
 
-    public override void Write(WalFile[] value, BigEndianStream stream) {
+    public override void Write(WalFile[] value, BigEndianStream stream)
+    {
         // details/1-empty-list-as-default-method-parameter.md
-        if (value == null) {
+        if (value == null)
+        {
             stream.WriteInt(0);
             return;
         }
@@ -14783,31 +18006,34 @@ class FfiConverterSequenceTypeWalFile: FfiConverterRustBuffer<WalFile[]> {
     }
 }
 
-
-
-
-class FfiConverterSequenceTypeMetric: FfiConverterRustBuffer<Metric[]> {
+class FfiConverterSequenceTypeMetric : FfiConverterRustBuffer<Metric[]>
+{
     public static FfiConverterSequenceTypeMetric INSTANCE = new FfiConverterSequenceTypeMetric();
 
-    public override Metric[]  Read(BigEndianStream stream) {
+    public override Metric[] Read(BigEndianStream stream)
+    {
         var length = stream.ReadInt();
-        if (length == 0) {
+        if (length == 0)
+        {
             return [];
         }
 
         var result = new Metric[length];
         var readFn = FfiConverterTypeMetric.INSTANCE.Read;
-        for (int i = 0; i < length; i++) {
+        for (int i = 0; i < length; i++)
+        {
             result[i] = readFn(stream);
         }
         return result;
     }
 
-    public override int AllocationSize(Metric[]  value) {
+    public override int AllocationSize(Metric[] value)
+    {
         var sizeForLength = 4;
 
         // details/1-empty-list-as-default-method-parameter.md
-        if (value == null) {
+        if (value == null)
+        {
             return sizeForLength;
         }
 
@@ -14816,9 +18042,11 @@ class FfiConverterSequenceTypeMetric: FfiConverterRustBuffer<Metric[]> {
         return sizeForLength + sizeForItems;
     }
 
-    public override void Write(Metric[] value, BigEndianStream stream) {
+    public override void Write(Metric[] value, BigEndianStream stream)
+    {
         // details/1-empty-list-as-default-method-parameter.md
-        if (value == null) {
+        if (value == null)
+        {
             stream.WriteInt(0);
             return;
         }
@@ -14829,31 +18057,35 @@ class FfiConverterSequenceTypeMetric: FfiConverterRustBuffer<Metric[]> {
     }
 }
 
+class FfiConverterSequenceTypeMetricLabel : FfiConverterRustBuffer<MetricLabel[]>
+{
+    public static FfiConverterSequenceTypeMetricLabel INSTANCE =
+        new FfiConverterSequenceTypeMetricLabel();
 
-
-
-class FfiConverterSequenceTypeMetricLabel: FfiConverterRustBuffer<MetricLabel[]> {
-    public static FfiConverterSequenceTypeMetricLabel INSTANCE = new FfiConverterSequenceTypeMetricLabel();
-
-    public override MetricLabel[]  Read(BigEndianStream stream) {
+    public override MetricLabel[] Read(BigEndianStream stream)
+    {
         var length = stream.ReadInt();
-        if (length == 0) {
+        if (length == 0)
+        {
             return [];
         }
 
         var result = new MetricLabel[length];
         var readFn = FfiConverterTypeMetricLabel.INSTANCE.Read;
-        for (int i = 0; i < length; i++) {
+        for (int i = 0; i < length; i++)
+        {
             result[i] = readFn(stream);
         }
         return result;
     }
 
-    public override int AllocationSize(MetricLabel[]  value) {
+    public override int AllocationSize(MetricLabel[] value)
+    {
         var sizeForLength = 4;
 
         // details/1-empty-list-as-default-method-parameter.md
-        if (value == null) {
+        if (value == null)
+        {
             return sizeForLength;
         }
 
@@ -14862,9 +18094,11 @@ class FfiConverterSequenceTypeMetricLabel: FfiConverterRustBuffer<MetricLabel[]>
         return sizeForLength + sizeForItems;
     }
 
-    public override void Write(MetricLabel[] value, BigEndianStream stream) {
+    public override void Write(MetricLabel[] value, BigEndianStream stream)
+    {
         // details/1-empty-list-as-default-method-parameter.md
-        if (value == null) {
+        if (value == null)
+        {
             stream.WriteInt(0);
             return;
         }
@@ -14875,18 +18109,19 @@ class FfiConverterSequenceTypeMetricLabel: FfiConverterRustBuffer<MetricLabel[]>
     }
 }
 
+class FfiConverterDictionaryStringString : FfiConverterRustBuffer<Dictionary<string, string>>
+{
+    public static FfiConverterDictionaryStringString INSTANCE =
+        new FfiConverterDictionaryStringString();
 
-
-
-class FfiConverterDictionaryStringString: FfiConverterRustBuffer<Dictionary<string, string>> {
-    public static FfiConverterDictionaryStringString INSTANCE = new FfiConverterDictionaryStringString();
-
-    public override Dictionary<string, string> Read(BigEndianStream stream) {
+    public override Dictionary<string, string> Read(BigEndianStream stream)
+    {
         var len = stream.ReadInt();
         var result = new Dictionary<string, string>(len);
         var readerKey = FfiConverterString.INSTANCE.Read;
         var readerValue = FfiConverterString.INSTANCE.Read;
-        for (int i = 0; i < len; i++) {
+        for (int i = 0; i < len; i++)
+        {
             var key = readerKey(stream);
             var value = readerValue(stream);
             result[key] = value;
@@ -14895,23 +18130,29 @@ class FfiConverterDictionaryStringString: FfiConverterRustBuffer<Dictionary<stri
         return result;
     }
 
-    public override int AllocationSize(Dictionary<string, string> value) {
+    public override int AllocationSize(Dictionary<string, string> value)
+    {
         var sizeForLength = 4;
 
         // details/1-empty-list-as-default-method-parameter.md
-        if (value == null) {
+        if (value == null)
+        {
             return sizeForLength;
         }
 
         var allocationKeySizeFn = FfiConverterString.INSTANCE.AllocationSize;
         var allocationKValueSizeFn = FfiConverterString.INSTANCE.AllocationSize;
-        var sizeForItems = value.Sum(item => allocationKeySizeFn(item.Key) + allocationKValueSizeFn(item.Value));
+        var sizeForItems = value.Sum(item =>
+            allocationKeySizeFn(item.Key) + allocationKValueSizeFn(item.Value)
+        );
         return sizeForLength + sizeForItems;
     }
 
-    public override void Write(Dictionary<string, string> value, BigEndianStream stream) {
+    public override void Write(Dictionary<string, string> value, BigEndianStream stream)
+    {
         // details/1-empty-list-as-default-method-parameter.md
-        if (value == null) {
+        if (value == null)
+        {
             stream.WriteInt(0);
             return;
         }
@@ -14919,21 +18160,19 @@ class FfiConverterDictionaryStringString: FfiConverterRustBuffer<Dictionary<stri
         stream.WriteInt(value.Count);
         var writerKey = FfiConverterString.INSTANCE.Write;
         var writerValue = FfiConverterString.INSTANCE.Write;
-        foreach (var item in value) {
+        foreach (var item in value)
+        {
             writerKey(item.Key, stream);
             writerValue(item.Value, stream);
         }
     }
 }
 
-
-
-
-
 [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
 delegate void UniFfiFutureCallback(ulong continuationHandle, byte pollResult);
 
-internal sealed class UniffiForeignFutureHandle : System.IDisposable {
+internal sealed class UniffiForeignFutureHandle : System.IDisposable
+{
     internal CancellationTokenSource Cts { get; } = new CancellationTokenSource();
 #if NET9_0_OR_GREATER
     private readonly Lock _lock = new Lock();
@@ -14941,34 +18180,50 @@ internal sealed class UniffiForeignFutureHandle : System.IDisposable {
     private readonly object _lock = new object();
 #endif
 
-    internal void MarkDropped() {
-        lock (_lock) {
-            if (!_callbackInvoked) { Cts.Cancel(); }
+    internal void MarkDropped()
+    {
+        lock (_lock)
+        {
+            if (!_callbackInvoked)
+            {
+                Cts.Cancel();
+            }
         }
     }
 
     private bool _callbackInvoked = false;
 
-    internal void InvokeCallbackOnce(Action invoke) {
+    internal void InvokeCallbackOnce(Action invoke)
+    {
         bool shouldInvoke;
-        lock (_lock) {
+        lock (_lock)
+        {
             shouldInvoke = !_callbackInvoked;
-            if (shouldInvoke) _callbackInvoked = true;
+            if (shouldInvoke)
+                _callbackInvoked = true;
         }
-        if (shouldInvoke) invoke();
+        if (shouldInvoke)
+            invoke();
     }
 
     // Dispose() is called exactly once — from the worker's finally (Task.Run path) or from the
     // synchronous early-return path — always after InvokeCallbackOnce has set _callbackInvoked = true.
-    public void Dispose() { Cts.Dispose(); }
+    public void Dispose()
+    {
+        Cts.Dispose();
+    }
 }
 
-internal static class _UniFFIAsync {
+internal static class _UniFFIAsync
+{
     internal const byte UNIFFI_RUST_FUTURE_POLL_READY = 0;
+
     // internal const byte UNIFFI_RUST_FUTURE_POLL_MAYBE_READY = 1;
 
-    internal static ConcurrentHandleMap<TaskCompletionSource<byte>> _async_handle_map = new ConcurrentHandleMap<TaskCompletionSource<byte>>();
-    public static ConcurrentHandleMap<UniffiForeignFutureHandle> _foreign_futures_map = new ConcurrentHandleMap<UniffiForeignFutureHandle>();
+    internal static ConcurrentHandleMap<TaskCompletionSource<byte>> _async_handle_map =
+        new ConcurrentHandleMap<TaskCompletionSource<byte>>();
+    public static ConcurrentHandleMap<UniffiForeignFutureHandle> _foreign_futures_map =
+        new ConcurrentHandleMap<UniffiForeignFutureHandle>();
 
     // FFI type for Rust future continuations
     internal class UniffiRustFutureContinuationCallback
@@ -14991,7 +18246,11 @@ internal static class _UniFFIAsync {
 
         public static void Callback(ulong handle)
         {
-            if (_foreign_futures_map.Remove(handle, out UniffiForeignFutureHandle? futureHandle) && futureHandle is not null) {
+            if (
+                _foreign_futures_map.Remove(handle, out UniffiForeignFutureHandle? futureHandle)
+                && futureHandle is not null
+            )
+            {
                 futureHandle.MarkDropped();
             }
         }
@@ -15006,13 +18265,16 @@ internal static class _UniFFIAsync {
         byte pollResult;
         do
         {
-            var tcs = new TaskCompletionSource<byte>(TaskCreationOptions.RunContinuationsAsynchronously);
-            IntPtr callback = Marshal.GetFunctionPointerForDelegate(UniffiRustFutureContinuationCallback.callback);
+            var tcs = new TaskCompletionSource<byte>(
+                TaskCreationOptions.RunContinuationsAsynchronously
+            );
+            IntPtr callback = Marshal.GetFunctionPointerForDelegate(
+                UniffiRustFutureContinuationCallback.callback
+            );
             ulong mapEntry = _async_handle_map.Insert(tcs);
             pollFunc(rustFuture, callback, mapEntry);
             pollResult = await tcs.Task;
-        }
-        while(pollResult != UNIFFI_RUST_FUTURE_POLL_READY);
+        } while (pollResult != UNIFFI_RUST_FUTURE_POLL_READY);
     }
 
     public static async Task<T> UniffiRustCallAsync<T, F, E>(
@@ -15022,11 +18284,16 @@ internal static class _UniFFIAsync {
         Action<ulong> freeFunc,
         Func<F, T> liftFunc,
         CallStatusErrorHandler<E> errorHandler
-    ) where E : System.Exception
+    )
+        where E : System.Exception
     {
-        try {
+        try
+        {
             await PollFuture(rustFuture, pollFunc);
-            var result = _UniffiHelpers.RustCallWithError(errorHandler, (ref UniffiRustCallStatus status) => completeFunc(rustFuture, ref status));
+            var result = _UniffiHelpers.RustCallWithError(
+                errorHandler,
+                (ref UniffiRustCallStatus status) => completeFunc(rustFuture, ref status)
+            );
             return liftFunc(result);
         }
         finally
@@ -15041,12 +18308,16 @@ internal static class _UniFFIAsync {
         CompleteActionDelegate completeFunc,
         Action<ulong> freeFunc,
         CallStatusErrorHandler<E> errorHandler
-    ) where E : System.Exception
+    )
+        where E : System.Exception
     {
-         try {
+        try
+        {
             await PollFuture(rustFuture, pollFunc);
-            _UniffiHelpers.RustCallWithError(errorHandler, (ref UniffiRustCallStatus status) => completeFunc(rustFuture, ref status));
-
+            _UniffiHelpers.RustCallWithError(
+                errorHandler,
+                (ref UniffiRustCallStatus status) => completeFunc(rustFuture, ref status)
+            );
         }
         finally
         {
@@ -15055,7 +18326,8 @@ internal static class _UniFFIAsync {
     }
 }
 #pragma warning restore 8625
-internal static class SlatedbMethods {
+internal static class SlatedbMethods
+{
     /// <summary>
     /// Installs SlateDB logging exactly once for the current process.
     ///
@@ -15063,13 +18335,16 @@ internal static class SlatedbMethods {
     /// are written to standard error using the default tracing formatter.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public static void InitLogging(LogLevel @level, LogCallback? @callback) {
-        
-    _UniffiHelpers.RustCallWithError(FfiConverterTypeError.INSTANCE, (ref UniffiRustCallStatus _status) =>
-    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_func_init_logging(FfiConverterTypeLogLevel.INSTANCE.Lower(@level), FfiConverterOptionalTypeLogCallback.INSTANCE.Lower(@callback), ref _status)
-);
+    public static void InitLogging(LogLevel @level, LogCallback? @callback)
+    {
+        _UniffiHelpers.RustCallWithError(
+            FfiConverterTypeError.INSTANCE,
+            (ref UniffiRustCallStatus _status) =>
+                _UniFFILib.uniffi_slatedb_csharp_ffi_fn_func_init_logging(
+                    FfiConverterTypeLogLevel.INSTANCE.Lower(@level),
+                    FfiConverterOptionalTypeLogCallback.INSTANCE.Lower(@callback),
+                    ref _status
+                )
+        );
     }
-
-
 }
-

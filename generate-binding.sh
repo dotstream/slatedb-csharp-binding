@@ -7,6 +7,7 @@ set -e
 all="${1:-false}"
 
 RUNTIMES_DIR="src/SlateDb/runtimes"
+SLATEDB_RUST_TOOLCHAIN="${SLATEDB_RUST_TOOLCHAIN:-1.91.1}"
 
 # Cleaning runtimes directory
 mkdir -p "$RUNTIMES_DIR"
@@ -30,10 +31,13 @@ LIB_NAMES=(
     slatedb_csharp_ffi.dll slatedb_csharp_ffi.dll
 )
 
-# Force nightly toolchain via PATH (Homebrew cargo/rustc ignores RUSTUP_TOOLCHAIN)
-NIGHTLY_BIN="$(dirname "$(rustup which cargo --toolchain nightly)")"
-export PATH="$NIGHTLY_BIN:$PATH"
-echo "Using: $(cargo --version), $(rustc --version)"
+
+CARGO=(rustup run "$SLATEDB_RUST_TOOLCHAIN" cargo)
+RUSTC_BIN="$(rustup which --toolchain "$SLATEDB_RUST_TOOLCHAIN" rustc)"
+echo "Using: $("${CARGO[@]}" --version), $("$RUSTC_BIN" --version)"
+RUST_BIN="$(dirname "$RUSTC_BIN")"
+export PATH="$RUST_BIN:$PATH"
+
 echo "Running on uname -s=$(uname -s), uname -m=$(uname -m)"
 
 # -----------------------------
@@ -125,21 +129,23 @@ for i in "${!RIDS[@]}"; do
     echo ""
     echo "=== Building $RID ($TARGET) ==="
 
-    rustup target add --toolchain nightly "$TARGET" 2>/dev/null || true
+    rustup target add --toolchain "$SLATEDB_RUST_TOOLCHAIN" "$TARGET"
     mkdir -p "$OUT_DIR"
 
     # Use zigbuild for cross-compilation, plain cargo for native
     # Cross-compilation only on Linux
     if $is_linux && [ "$RID" != "$NATIVE_RID" ]; then
-        BUILD_CMD="cargo zigbuild"
+        # BUILD_CMD="cargo zigbuild"
+        BUILD_CMD=("${CARGO[@]}" zigbuild)
     else
-        BUILD_CMD="cargo build"
+        # BUILD_CMD="cargo build"
+        BUILD_CMD=(env "RUSTC=$RUSTC_BIN" "${CARGO[@]}" build)
     fi
 
-    if $BUILD_CMD --release -p slatedb-csharp-ffi --verbose --target "$TARGET" \
+    if "${BUILD_CMD[@]}" --release -p slatedb-csharp-ffi --verbose --target "$TARGET" \
         --manifest-path "Cargo.toml" 2>&1; then
 
-        SRC="target/$TARGET/release/$LIB_NAME"
+        SRC="target/$TARGET/release/$LIB_NAME" 
         
         uniffi-bindgen-cs --library "$SRC" --out-dir . --config ./rust/slatedb-ffi/uniffi.toml
 
