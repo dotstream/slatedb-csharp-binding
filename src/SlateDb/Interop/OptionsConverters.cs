@@ -77,6 +77,12 @@ internal static class OptionsConverters
         _ => throw new ArgumentOutOfRangeException(nameof(level))
     };
 
+    public static MokaCacheOptions ToInterop(Options.MokaCacheOptions options) =>
+        new(options.MaxCapacity, (ulong?)options.TimeToLive?.TotalMilliseconds, (ulong?)options.TimeToIdle?.TotalMilliseconds);
+
+    public static FoyerCacheOptions ToInterop(Options.FoyerCacheOptions options) =>
+        new(options.MaxCapacity, options.Shards);
+
     public static Options.LogLevel ToPublic(LogLevel level) => level switch
     {
         LogLevel.Off => Options.LogLevel.Off,

@@ -1019,6 +1019,226 @@ static class _UniFFILib
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
+    ulong uniffi_slatedb_csharp_ffi_fn_clone_admin(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    void uniffi_slatedb_csharp_ffi_fn_free_admin(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ulong uniffi_slatedb_csharp_ffi_fn_method_admin_get_sequence_for_timestamp(
+        ulong @ptr,
+        long @timestampSecs,
+        sbyte @roundUp
+    );
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ulong uniffi_slatedb_csharp_ffi_fn_method_admin_get_timestamp_for_sequence(
+        ulong @ptr,
+        ulong @seq,
+        sbyte @roundUp
+    );
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ulong uniffi_slatedb_csharp_ffi_fn_method_admin_list_checkpoints(
+        ulong @ptr,
+        RustBuffer @nameFilter
+    );
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ulong uniffi_slatedb_csharp_ffi_fn_method_admin_list_compactions(
+        ulong @ptr,
+        RustBuffer @from,
+        RustBuffer @to
+    );
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ulong uniffi_slatedb_csharp_ffi_fn_method_admin_list_manifests(
+        ulong @ptr,
+        RustBuffer @from,
+        RustBuffer @to
+    );
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ulong uniffi_slatedb_csharp_ffi_fn_method_admin_read_compaction(
+        ulong @ptr,
+        RustBuffer @compactionId,
+        RustBuffer @compactionsId
+    );
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ulong uniffi_slatedb_csharp_ffi_fn_method_admin_read_compactions(ulong @ptr, RustBuffer @id);
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ulong uniffi_slatedb_csharp_ffi_fn_method_admin_read_compactor_state_view(ulong @ptr);
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ulong uniffi_slatedb_csharp_ffi_fn_method_admin_read_manifest(ulong @ptr, RustBuffer @id);
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ulong uniffi_slatedb_csharp_ffi_fn_clone_adminbuilder(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    void uniffi_slatedb_csharp_ffi_fn_free_adminbuilder(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ulong uniffi_slatedb_csharp_ffi_fn_constructor_adminbuilder_new(
+        RustBuffer @path,
+        ulong @objectStore,
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ulong uniffi_slatedb_csharp_ffi_fn_method_adminbuilder_build(
+        ulong @ptr,
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    void uniffi_slatedb_csharp_ffi_fn_method_adminbuilder_with_seed(
+        ulong @ptr,
+        ulong @seed,
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    void uniffi_slatedb_csharp_ffi_fn_method_adminbuilder_with_wal_object_store(
+        ulong @ptr,
+        ulong @walObjectStore,
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
     ulong uniffi_slatedb_csharp_ffi_fn_clone_dbbuilder(
         ulong @handle,
         ref UniffiRustCallStatus _uniffi_out_err
@@ -1060,6 +1280,20 @@ static class _UniFFILib
     public static extern
 #endif
     ulong uniffi_slatedb_csharp_ffi_fn_method_dbbuilder_build(ulong @ptr);
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    void uniffi_slatedb_csharp_ffi_fn_method_dbbuilder_with_db_cache(
+        ulong @ptr,
+        ulong @dbCache,
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
 
 #if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
@@ -1346,6 +1580,16 @@ static class _UniFFILib
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
+    ulong uniffi_slatedb_csharp_ffi_fn_method_db_evict_cached_sst(ulong @ptr, RustBuffer @sstId);
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
     ulong uniffi_slatedb_csharp_ffi_fn_method_db_flush(ulong @ptr);
 
 #if NET8_0_OR_GREATER
@@ -1558,6 +1802,20 @@ static class _UniFFILib
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
+    ulong uniffi_slatedb_csharp_ffi_fn_method_db_warm_sst(
+        ulong @ptr,
+        RustBuffer @sstId,
+        RustBuffer @targets
+    );
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
     ulong uniffi_slatedb_csharp_ffi_fn_method_db_write(ulong @ptr, ulong @batch);
 
 #if NET8_0_OR_GREATER
@@ -1572,6 +1830,72 @@ static class _UniFFILib
         ulong @ptr,
         ulong @batch,
         RustBuffer @options
+    );
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ulong uniffi_slatedb_csharp_ffi_fn_clone_dbcache(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    void uniffi_slatedb_csharp_ffi_fn_free_dbcache(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ulong uniffi_slatedb_csharp_ffi_fn_constructor_dbcache_new_foyer_cache(
+        RustBuffer @options,
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ulong uniffi_slatedb_csharp_ffi_fn_constructor_dbcache_new_moka_cache(
+        RustBuffer @options,
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ulong uniffi_slatedb_csharp_ffi_fn_constructor_dbcache_new_split_cache(
+        ulong @blockCache,
+        ulong @metaCache,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
 #if NET8_0_OR_GREATER
@@ -1608,7 +1932,44 @@ static class _UniFFILib
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
+    ulong uniffi_slatedb_csharp_ffi_fn_method_dbreader_evict_cached_sst(
+        ulong @ptr,
+        RustBuffer @sstId
+    );
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
     ulong uniffi_slatedb_csharp_ffi_fn_method_dbreader_get(ulong @ptr, RustBuffer @key);
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ulong uniffi_slatedb_csharp_ffi_fn_method_dbreader_get_key_value(ulong @ptr, RustBuffer @key);
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ulong uniffi_slatedb_csharp_ffi_fn_method_dbreader_get_key_value_with_options(
+        ulong @ptr,
+        RustBuffer @key,
+        RustBuffer @options
+    );
 
 #if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
@@ -1693,6 +2054,20 @@ static class _UniFFILib
     RustBuffer uniffi_slatedb_csharp_ffi_fn_method_dbreader_status(
         ulong @ptr,
         ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ulong uniffi_slatedb_csharp_ffi_fn_method_dbreader_warm_sst(
+        ulong @ptr,
+        RustBuffer @sstId,
+        RustBuffer @targets
     );
 
 #if NET8_0_OR_GREATER
@@ -3911,7 +4286,137 @@ static class _UniFFILib
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_admin_get_sequence_for_timestamp();
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_admin_get_timestamp_for_sequence();
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_admin_list_checkpoints();
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_admin_list_compactions();
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_admin_list_manifests();
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_admin_read_compaction();
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_admin_read_compactions();
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_admin_read_compactor_state_view();
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_admin_read_manifest();
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_adminbuilder_build();
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_adminbuilder_with_seed();
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_adminbuilder_with_wal_object_store();
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_build();
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_db_cache();
 
 #if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
@@ -4072,6 +4577,16 @@ static class _UniFFILib
     public static extern
 #endif
     ushort uniffi_slatedb_csharp_ffi_checksum_method_db_delete_with_options();
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_db_evict_cached_sst();
 
 #if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
@@ -4251,6 +4766,16 @@ static class _UniFFILib
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_db_warm_sst();
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
     ushort uniffi_slatedb_csharp_ffi_checksum_method_db_write();
 
 #if NET8_0_OR_GREATER
@@ -4271,7 +4796,37 @@ static class _UniFFILib
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbreader_evict_cached_sst();
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbreader_get();
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbreader_get_key_value();
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbreader_get_key_value_with_options();
 
 #if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
@@ -4342,6 +4897,16 @@ static class _UniFFILib
     public static extern
 #endif
     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbreader_status();
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbreader_warm_sst();
 
 #if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
@@ -4991,6 +5556,16 @@ static class _UniFFILib
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
+    ushort uniffi_slatedb_csharp_ffi_checksum_constructor_adminbuilder_new();
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
     ushort uniffi_slatedb_csharp_ffi_checksum_constructor_dbbuilder_new();
 
 #if NET8_0_OR_GREATER
@@ -5002,6 +5577,36 @@ static class _UniFFILib
     public static extern
 #endif
     ushort uniffi_slatedb_csharp_ffi_checksum_constructor_dbreaderbuilder_new();
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ushort uniffi_slatedb_csharp_ffi_checksum_constructor_dbcache_new_foyer_cache();
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ushort uniffi_slatedb_csharp_ffi_checksum_constructor_dbcache_new_moka_cache();
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ushort uniffi_slatedb_csharp_ffi_checksum_constructor_dbcache_new_split_cache();
 
 #if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
@@ -5157,11 +5762,141 @@ static class _UniFFILib
             }
         }
         {
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_admin_get_sequence_for_timestamp();
+            if (checksum != 32572)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_admin_get_sequence_for_timestamp` checksum `32572`, library returned `{checksum}`"
+                );
+            }
+        }
+        {
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_admin_get_timestamp_for_sequence();
+            if (checksum != 38250)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_admin_get_timestamp_for_sequence` checksum `38250`, library returned `{checksum}`"
+                );
+            }
+        }
+        {
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_admin_list_checkpoints();
+            if (checksum != 33520)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_admin_list_checkpoints` checksum `33520`, library returned `{checksum}`"
+                );
+            }
+        }
+        {
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_admin_list_compactions();
+            if (checksum != 62210)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_admin_list_compactions` checksum `62210`, library returned `{checksum}`"
+                );
+            }
+        }
+        {
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_admin_list_manifests();
+            if (checksum != 486)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_admin_list_manifests` checksum `486`, library returned `{checksum}`"
+                );
+            }
+        }
+        {
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_admin_read_compaction();
+            if (checksum != 13746)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_admin_read_compaction` checksum `13746`, library returned `{checksum}`"
+                );
+            }
+        }
+        {
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_admin_read_compactions();
+            if (checksum != 29594)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_admin_read_compactions` checksum `29594`, library returned `{checksum}`"
+                );
+            }
+        }
+        {
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_admin_read_compactor_state_view();
+            if (checksum != 25074)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_admin_read_compactor_state_view` checksum `25074`, library returned `{checksum}`"
+                );
+            }
+        }
+        {
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_admin_read_manifest();
+            if (checksum != 58444)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_admin_read_manifest` checksum `58444`, library returned `{checksum}`"
+                );
+            }
+        }
+        {
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_adminbuilder_build();
+            if (checksum != 60491)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_adminbuilder_build` checksum `60491`, library returned `{checksum}`"
+                );
+            }
+        }
+        {
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_adminbuilder_with_seed();
+            if (checksum != 29660)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_adminbuilder_with_seed` checksum `29660`, library returned `{checksum}`"
+                );
+            }
+        }
+        {
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_adminbuilder_with_wal_object_store();
+            if (checksum != 7398)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_adminbuilder_with_wal_object_store` checksum `7398`, library returned `{checksum}`"
+                );
+            }
+        }
+        {
             var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_build();
             if (checksum != 27767)
             {
                 throw new UniffiContractChecksumException(
                     $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_build` checksum `27767`, library returned `{checksum}`"
+                );
+            }
+        }
+        {
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_db_cache();
+            if (checksum != 60983)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_db_cache` checksum `60983`, library returned `{checksum}`"
                 );
             }
         }
@@ -5320,6 +6055,16 @@ static class _UniFFILib
             {
                 throw new UniffiContractChecksumException(
                     $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_delete_with_options` checksum `41334`, library returned `{checksum}`"
+                );
+            }
+        }
+        {
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_db_evict_cached_sst();
+            if (checksum != 2645)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_evict_cached_sst` checksum `2645`, library returned `{checksum}`"
                 );
             }
         }
@@ -5484,6 +6229,15 @@ static class _UniFFILib
             }
         }
         {
+            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_db_warm_sst();
+            if (checksum != 59418)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_warm_sst` checksum `59418`, library returned `{checksum}`"
+                );
+            }
+        }
+        {
             var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_db_write();
             if (checksum != 18870)
             {
@@ -5503,11 +6257,41 @@ static class _UniFFILib
             }
         }
         {
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbreader_evict_cached_sst();
+            if (checksum != 38082)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbreader_evict_cached_sst` checksum `38082`, library returned `{checksum}`"
+                );
+            }
+        }
+        {
             var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbreader_get();
             if (checksum != 13359)
             {
                 throw new UniffiContractChecksumException(
                     $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbreader_get` checksum `13359`, library returned `{checksum}`"
+                );
+            }
+        }
+        {
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbreader_get_key_value();
+            if (checksum != 64057)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbreader_get_key_value` checksum `64057`, library returned `{checksum}`"
+                );
+            }
+        }
+        {
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbreader_get_key_value_with_options();
+            if (checksum != 22538)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbreader_get_key_value_with_options` checksum `22538`, library returned `{checksum}`"
                 );
             }
         }
@@ -5575,6 +6359,15 @@ static class _UniFFILib
             {
                 throw new UniffiContractChecksumException(
                     $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbreader_status` checksum `22747`, library returned `{checksum}`"
+                );
+            }
+        }
+        {
+            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbreader_warm_sst();
+            if (checksum != 46074)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbreader_warm_sst` checksum `46074`, library returned `{checksum}`"
                 );
             }
         }
@@ -6198,6 +6991,16 @@ static class _UniFFILib
         }
         {
             var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_constructor_adminbuilder_new();
+            if (checksum != 7969)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_constructor_adminbuilder_new` checksum `7969`, library returned `{checksum}`"
+                );
+            }
+        }
+        {
+            var checksum =
                 _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_constructor_dbbuilder_new();
             if (checksum != 9442)
             {
@@ -6213,6 +7016,36 @@ static class _UniFFILib
             {
                 throw new UniffiContractChecksumException(
                     $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_constructor_dbreaderbuilder_new` checksum `24635`, library returned `{checksum}`"
+                );
+            }
+        }
+        {
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_constructor_dbcache_new_foyer_cache();
+            if (checksum != 51066)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_constructor_dbcache_new_foyer_cache` checksum `51066`, library returned `{checksum}`"
+                );
+            }
+        }
+        {
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_constructor_dbcache_new_moka_cache();
+            if (checksum != 56519)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_constructor_dbcache_new_moka_cache` checksum `56519`, library returned `{checksum}`"
+                );
+            }
+        }
+        {
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_constructor_dbcache_new_split_cache();
+            if (checksum != 43896)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_constructor_dbcache_new_split_cache` checksum `43896`, library returned `{checksum}`"
                 );
             }
         }
@@ -6566,6 +7399,823 @@ class FfiConverterByteArray : FfiConverterRustBuffer<byte[]>
     {
         stream.WriteInt(value.Length);
         stream.WriteBytes(value);
+    }
+}
+
+/// <summary>
+/// Administrative read/query handle for SlateDB.
+/// </summary>
+internal interface IAdmin
+{
+    /// <summary>
+    /// Looks up a sequence number for the provided Unix UTC timestamp seconds.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    Task<ulong?> GetSequenceForTimestamp(long @timestampSecs, bool @roundUp);
+
+    /// <summary>
+    /// Looks up a timestamp for the provided sequence number.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    Task<long?> GetTimestampForSequence(ulong @seq, bool @roundUp);
+
+    /// <summary>
+    /// Lists checkpoints, optionally filtering by exact name.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    Task<Checkpoint[]> ListCheckpoints(string? @nameFilter);
+
+    /// <summary>
+    /// Lists compactions files inside the half-open ID range `[from, to)`.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    Task<VersionedCompactions[]> ListCompactions(ulong? @from, ulong? @to);
+
+    /// <summary>
+    /// Lists manifests inside the half-open ID range `[from, to)`.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    Task<VersionedManifest[]> ListManifests(ulong? @from, ulong? @to);
+
+    /// <summary>
+    /// Reads a compaction by ULID string from a specific or latest compactions file.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    Task<Compaction?> ReadCompaction(string @compactionId, ulong? @compactionsId);
+
+    /// <summary>
+    /// Reads a specific compactions file by ID, or the latest when `id` is `None`.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    Task<VersionedCompactions?> ReadCompactions(ulong? @id);
+
+    /// <summary>
+    /// Reads the latest compactor state view.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    Task<CompactorStateView> ReadCompactorStateView();
+
+    /// <summary>
+    /// Reads a specific manifest by ID, or the latest when `id` is `None`.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    Task<VersionedManifest?> ReadManifest(ulong? @id);
+}
+
+/// <summary>
+/// Administrative read/query handle for SlateDB.
+/// </summary>
+internal class Admin : IAdmin, IDisposable
+{
+    protected ulong pointer;
+    private int _wasDestroyed = 0;
+    private long _callCounter = 1;
+
+    public Admin(ulong pointer)
+    {
+        this.pointer = pointer;
+    }
+
+    ~Admin()
+    {
+        Destroy();
+    }
+
+    protected void FreeRustArcPtr()
+    {
+        _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_admin(this.pointer, ref status);
+            }
+        );
+    }
+
+    protected ulong CloneRustArcPtr()
+    {
+        return _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_admin(
+                    this.pointer,
+                    ref status
+                );
+            }
+        );
+    }
+
+    public void Destroy()
+    {
+        // Only allow a single call to this method.
+        if (Interlocked.CompareExchange(ref _wasDestroyed, 1, 0) == 0)
+        {
+            // This decrement always matches the initial count of 1 given at creation time.
+            if (Interlocked.Decrement(ref _callCounter) == 0)
+            {
+                FreeRustArcPtr();
+            }
+        }
+    }
+
+    public void Dispose()
+    {
+        Destroy();
+        GC.SuppressFinalize(this); // Suppress finalization to avoid unnecessary GC overhead.
+    }
+
+    private void IncrementCallCounter()
+    {
+        // Check and increment the call counter, to keep the object alive.
+        // This needs a compare-and-set retry loop in case of concurrent updates.
+        long count;
+        do
+        {
+            count = Interlocked.Read(ref _callCounter);
+            if (count == 0L)
+                throw new System.ObjectDisposedException(
+                    String.Format("'{0}' object has already been destroyed", this.GetType().Name)
+                );
+            if (count == long.MaxValue)
+                throw new System.OverflowException(
+                    String.Format("'{0}' call counter would overflow", this.GetType().Name)
+                );
+        } while (Interlocked.CompareExchange(ref _callCounter, count + 1, count) != count);
+    }
+
+    private void DecrementCallCounter()
+    {
+        // This decrement always matches the increment we performed above.
+        if (Interlocked.Decrement(ref _callCounter) == 0)
+        {
+            FreeRustArcPtr();
+        }
+    }
+
+    internal void CallWithPointer(Action<ulong> action)
+    {
+        IncrementCallCounter();
+        try
+        {
+            action(CloneRustArcPtr());
+        }
+        finally
+        {
+            DecrementCallCounter();
+        }
+    }
+
+    internal T CallWithPointer<T>(Func<ulong, T> func)
+    {
+        IncrementCallCounter();
+        try
+        {
+            return func(CloneRustArcPtr());
+        }
+        finally
+        {
+            DecrementCallCounter();
+        }
+    }
+
+    /// <summary>
+    /// Looks up a sequence number for the provided Unix UTC timestamp seconds.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    public async Task<ulong?> GetSequenceForTimestamp(long @timestampSecs, bool @roundUp)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_admin_get_sequence_for_timestamp(
+                    thisPtr,
+                    FfiConverterInt64.INSTANCE.Lower(@timestampSecs),
+                    FfiConverterBoolean.INSTANCE.Lower(@roundUp)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(
+                    future,
+                    continuation,
+                    data
+                ),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
+            // Lift
+            (result) => FfiConverterOptionalUInt64.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
+    }
+
+    /// <summary>
+    /// Looks up a timestamp for the provided sequence number.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    public async Task<long?> GetTimestampForSequence(ulong @seq, bool @roundUp)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_admin_get_timestamp_for_sequence(
+                    thisPtr,
+                    FfiConverterUInt64.INSTANCE.Lower(@seq),
+                    FfiConverterBoolean.INSTANCE.Lower(@roundUp)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(
+                    future,
+                    continuation,
+                    data
+                ),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
+            // Lift
+            (result) => FfiConverterOptionalInt64.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
+    }
+
+    /// <summary>
+    /// Lists checkpoints, optionally filtering by exact name.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    public async Task<Checkpoint[]> ListCheckpoints(string? @nameFilter)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_admin_list_checkpoints(
+                    thisPtr,
+                    FfiConverterOptionalString.INSTANCE.Lower(@nameFilter)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(
+                    future,
+                    continuation,
+                    data
+                ),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
+            // Lift
+            (result) => FfiConverterSequenceTypeCheckpoint.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
+    }
+
+    /// <summary>
+    /// Lists compactions files inside the half-open ID range `[from, to)`.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    public async Task<VersionedCompactions[]> ListCompactions(ulong? @from, ulong? @to)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_admin_list_compactions(
+                    thisPtr,
+                    FfiConverterOptionalUInt64.INSTANCE.Lower(@from),
+                    FfiConverterOptionalUInt64.INSTANCE.Lower(@to)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(
+                    future,
+                    continuation,
+                    data
+                ),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
+            // Lift
+            (result) => FfiConverterSequenceTypeVersionedCompactions.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
+    }
+
+    /// <summary>
+    /// Lists manifests inside the half-open ID range `[from, to)`.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    public async Task<VersionedManifest[]> ListManifests(ulong? @from, ulong? @to)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_admin_list_manifests(
+                    thisPtr,
+                    FfiConverterOptionalUInt64.INSTANCE.Lower(@from),
+                    FfiConverterOptionalUInt64.INSTANCE.Lower(@to)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(
+                    future,
+                    continuation,
+                    data
+                ),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
+            // Lift
+            (result) => FfiConverterSequenceTypeVersionedManifest.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
+    }
+
+    /// <summary>
+    /// Reads a compaction by ULID string from a specific or latest compactions file.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    public async Task<Compaction?> ReadCompaction(string @compactionId, ulong? @compactionsId)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_admin_read_compaction(
+                    thisPtr,
+                    FfiConverterString.INSTANCE.Lower(@compactionId),
+                    FfiConverterOptionalUInt64.INSTANCE.Lower(@compactionsId)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(
+                    future,
+                    continuation,
+                    data
+                ),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
+            // Lift
+            (result) => FfiConverterOptionalTypeCompaction.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
+    }
+
+    /// <summary>
+    /// Reads a specific compactions file by ID, or the latest when `id` is `None`.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    public async Task<VersionedCompactions?> ReadCompactions(ulong? @id)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_admin_read_compactions(
+                    thisPtr,
+                    FfiConverterOptionalUInt64.INSTANCE.Lower(@id)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(
+                    future,
+                    continuation,
+                    data
+                ),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
+            // Lift
+            (result) => FfiConverterOptionalTypeVersionedCompactions.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
+    }
+
+    /// <summary>
+    /// Reads the latest compactor state view.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    public async Task<CompactorStateView> ReadCompactorStateView()
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_admin_read_compactor_state_view(
+                    thisPtr
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(
+                    future,
+                    continuation,
+                    data
+                ),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
+            // Lift
+            (result) => FfiConverterTypeCompactorStateView.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
+    }
+
+    /// <summary>
+    /// Reads a specific manifest by ID, or the latest when `id` is `None`.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    public async Task<VersionedManifest?> ReadManifest(ulong? @id)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_admin_read_manifest(
+                    thisPtr,
+                    FfiConverterOptionalUInt64.INSTANCE.Lower(@id)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(
+                    future,
+                    continuation,
+                    data
+                ),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
+            // Lift
+            (result) => FfiConverterOptionalTypeVersionedManifest.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
+    }
+}
+
+class FfiConverterTypeAdmin : FfiConverter<Admin, ulong>
+{
+    public static FfiConverterTypeAdmin INSTANCE = new FfiConverterTypeAdmin();
+
+    public override ulong Lower(Admin value)
+    {
+        return value.CallWithPointer(thisPtr => thisPtr);
+    }
+
+    public override Admin Lift(ulong value)
+    {
+        return new Admin(value);
+    }
+
+    public override Admin Read(BigEndianStream stream)
+    {
+        return Lift(stream.ReadULong());
+    }
+
+    public override int AllocationSize(Admin value)
+    {
+        return 8;
+    }
+
+    public override void Write(Admin value, BigEndianStream stream)
+    {
+        stream.WriteULong(Lower(value));
+    }
+}
+
+/// <summary>
+/// Builder for opening an administrative [`crate::Admin`] handle.
+///
+/// Builders are single-use: calling [`AdminBuilder::build`] consumes the builder.
+/// </summary>
+internal interface IAdminBuilder
+{
+    /// <summary>
+    /// Builds the admin handle and consumes this builder.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    Admin Build();
+
+    /// <summary>
+    /// Sets the seed used for SlateDB's internal random number generation.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    void WithSeed(ulong @seed);
+
+    /// <summary>
+    /// Uses a separate object store for WAL-backed administrative operations.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    void WithWalObjectStore(ObjectStore @walObjectStore);
+}
+
+/// <summary>
+/// Builder for opening an administrative [`crate::Admin`] handle.
+///
+/// Builders are single-use: calling [`AdminBuilder::build`] consumes the builder.
+/// </summary>
+internal class AdminBuilder : IAdminBuilder, IDisposable
+{
+    protected ulong pointer;
+    private int _wasDestroyed = 0;
+    private long _callCounter = 1;
+
+    public AdminBuilder(ulong pointer)
+    {
+        this.pointer = pointer;
+    }
+
+    ~AdminBuilder()
+    {
+        Destroy();
+    }
+
+    /// <summary>
+    /// Creates a new admin builder for `path` in `object_store`.
+    /// </summary>
+    public AdminBuilder(string @path, ObjectStore @objectStore)
+        : this(
+            _UniffiHelpers.RustCall(
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_constructor_adminbuilder_new(
+                        FfiConverterString.INSTANCE.Lower(@path),
+                        FfiConverterTypeObjectStore.INSTANCE.Lower(@objectStore),
+                        ref _status
+                    )
+            )
+        ) { }
+
+    protected void FreeRustArcPtr()
+    {
+        _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_adminbuilder(this.pointer, ref status);
+            }
+        );
+    }
+
+    protected ulong CloneRustArcPtr()
+    {
+        return _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_adminbuilder(
+                    this.pointer,
+                    ref status
+                );
+            }
+        );
+    }
+
+    public void Destroy()
+    {
+        // Only allow a single call to this method.
+        if (Interlocked.CompareExchange(ref _wasDestroyed, 1, 0) == 0)
+        {
+            // This decrement always matches the initial count of 1 given at creation time.
+            if (Interlocked.Decrement(ref _callCounter) == 0)
+            {
+                FreeRustArcPtr();
+            }
+        }
+    }
+
+    public void Dispose()
+    {
+        Destroy();
+        GC.SuppressFinalize(this); // Suppress finalization to avoid unnecessary GC overhead.
+    }
+
+    private void IncrementCallCounter()
+    {
+        // Check and increment the call counter, to keep the object alive.
+        // This needs a compare-and-set retry loop in case of concurrent updates.
+        long count;
+        do
+        {
+            count = Interlocked.Read(ref _callCounter);
+            if (count == 0L)
+                throw new System.ObjectDisposedException(
+                    String.Format("'{0}' object has already been destroyed", this.GetType().Name)
+                );
+            if (count == long.MaxValue)
+                throw new System.OverflowException(
+                    String.Format("'{0}' call counter would overflow", this.GetType().Name)
+                );
+        } while (Interlocked.CompareExchange(ref _callCounter, count + 1, count) != count);
+    }
+
+    private void DecrementCallCounter()
+    {
+        // This decrement always matches the increment we performed above.
+        if (Interlocked.Decrement(ref _callCounter) == 0)
+        {
+            FreeRustArcPtr();
+        }
+    }
+
+    internal void CallWithPointer(Action<ulong> action)
+    {
+        IncrementCallCounter();
+        try
+        {
+            action(CloneRustArcPtr());
+        }
+        finally
+        {
+            DecrementCallCounter();
+        }
+    }
+
+    internal T CallWithPointer<T>(Func<ulong, T> func)
+    {
+        IncrementCallCounter();
+        try
+        {
+            return func(CloneRustArcPtr());
+        }
+        finally
+        {
+            DecrementCallCounter();
+        }
+    }
+
+    /// <summary>
+    /// Builds the admin handle and consumes this builder.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    public Admin Build()
+    {
+        return CallWithPointer(thisPtr =>
+            FfiConverterTypeAdmin.INSTANCE.Lift(
+                _UniffiHelpers.RustCallWithError(
+                    FfiConverterTypeError.INSTANCE,
+                    (ref UniffiRustCallStatus _status) =>
+                        _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_adminbuilder_build(
+                            thisPtr,
+                            ref _status
+                        )
+                )
+            )
+        );
+    }
+
+    /// <summary>
+    /// Sets the seed used for SlateDB's internal random number generation.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    public void WithSeed(ulong @seed)
+    {
+        CallWithPointer(thisPtr =>
+            _UniffiHelpers.RustCallWithError(
+                FfiConverterTypeError.INSTANCE,
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_adminbuilder_with_seed(
+                        thisPtr,
+                        FfiConverterUInt64.INSTANCE.Lower(@seed),
+                        ref _status
+                    )
+            )
+        );
+    }
+
+    /// <summary>
+    /// Uses a separate object store for WAL-backed administrative operations.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    public void WithWalObjectStore(ObjectStore @walObjectStore)
+    {
+        CallWithPointer(thisPtr =>
+            _UniffiHelpers.RustCallWithError(
+                FfiConverterTypeError.INSTANCE,
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_adminbuilder_with_wal_object_store(
+                        thisPtr,
+                        FfiConverterTypeObjectStore.INSTANCE.Lower(@walObjectStore),
+                        ref _status
+                    )
+            )
+        );
+    }
+}
+
+class FfiConverterTypeAdminBuilder : FfiConverter<AdminBuilder, ulong>
+{
+    public static FfiConverterTypeAdminBuilder INSTANCE = new FfiConverterTypeAdminBuilder();
+
+    public override ulong Lower(AdminBuilder value)
+    {
+        return value.CallWithPointer(thisPtr => thisPtr);
+    }
+
+    public override AdminBuilder Lift(ulong value)
+    {
+        return new AdminBuilder(value);
+    }
+
+    public override AdminBuilder Read(BigEndianStream stream)
+    {
+        return Lift(stream.ReadULong());
+    }
+
+    public override int AllocationSize(AdminBuilder value)
+    {
+        return 8;
+    }
+
+    public override void Write(AdminBuilder value, BigEndianStream stream)
+    {
+        stream.WriteULong(Lower(value));
     }
 }
 
@@ -6938,6 +8588,14 @@ internal interface IDb
     Task<WriteHandle> DeleteWithOptions(byte[] @key, WriteOptions @options);
 
     /// <summary>
+    /// Best-effort eviction of block-cache entries for one SST.
+    ///
+    /// If no block cache is configured, returns `Ok(())`.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    Task EvictCachedSst(SsTableId @sstId);
+
+    /// <summary>
     /// Flushes the default storage layer.
     /// </summary>
     /// <exception cref="Exception"></exception>
@@ -7050,6 +8708,16 @@ internal interface IDb
     /// Returns the latest database status snapshot.
     /// </summary>
     DbStatus Status();
+
+    /// <summary>
+    /// Warms selected cache content for one SST.
+    ///
+    /// Returns `Err` on the first failing target. If no block cache is
+    /// configured, or if the SST is not reachable from the current manifest,
+    /// the call is a no-op that returns `Ok(())`.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    Task WarmSst(SsTableId @sstId, CacheTarget[] @targets);
 
     /// <summary>
     /// Applies all operations in `batch` atomically.
@@ -7291,6 +8959,38 @@ internal class Db : IDb, IDisposable
                 _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
             // Lift
             (result) => FfiConverterTypeWriteHandle.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
+    }
+
+    /// <summary>
+    /// Best-effort eviction of block-cache entries for one SST.
+    ///
+    /// If no block cache is configured, returns `Ok(())`.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    public async Task EvictCachedSst(SsTableId @sstId)
+    {
+        await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_db_evict_cached_sst(
+                    thisPtr,
+                    FfiConverterTypeSsTableId.INSTANCE.Lower(@sstId)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_void(future, continuation, data),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_void(future, ref status);
+            },
+            // Free
+            (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_void(future),
             // Error
             FfiConverterTypeError.INSTANCE
         );
@@ -7916,6 +9616,41 @@ internal class Db : IDb, IDisposable
     }
 
     /// <summary>
+    /// Warms selected cache content for one SST.
+    ///
+    /// Returns `Err` on the first failing target. If no block cache is
+    /// configured, or if the SST is not reachable from the current manifest,
+    /// the call is a no-op that returns `Ok(())`.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    public async Task WarmSst(SsTableId @sstId, CacheTarget[] @targets)
+    {
+        await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_db_warm_sst(
+                    thisPtr,
+                    FfiConverterTypeSsTableId.INSTANCE.Lower(@sstId),
+                    FfiConverterSequenceTypeCacheTarget.INSTANCE.Lower(@targets)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_void(future, continuation, data),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_void(future, ref status);
+            },
+            // Free
+            (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_void(future),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
+    }
+
+    /// <summary>
     /// Applies all operations in `batch` atomically.
     ///
     /// The provided batch is consumed and cannot be reused afterwards.
@@ -8043,6 +9778,12 @@ internal interface IDbBuilder
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task<Db> Build();
+
+    /// <summary>
+    /// Sets DB cache.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    void WithDbCache(DbCache @dbCache);
 
     /// <summary>
     /// Disables the SST block and metadata cache.
@@ -8252,6 +9993,25 @@ internal class DbBuilder : IDbBuilder, IDisposable
     }
 
     /// <summary>
+    /// Sets DB cache.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    public void WithDbCache(DbCache @dbCache)
+    {
+        CallWithPointer(thisPtr =>
+            _UniffiHelpers.RustCallWithError(
+                FfiConverterTypeError.INSTANCE,
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbbuilder_with_db_cache(
+                        thisPtr,
+                        FfiConverterTypeDbCache.INSTANCE.Lower(@dbCache),
+                        ref _status
+                    )
+            )
+        );
+    }
+
+    /// <summary>
     /// Disables the SST block and metadata cache.
     /// </summary>
     /// <exception cref="Exception"></exception>
@@ -8409,6 +10169,212 @@ class FfiConverterTypeDbBuilder : FfiConverter<DbBuilder, ulong>
     }
 
     public override void Write(DbBuilder value, BigEndianStream stream)
+    {
+        stream.WriteULong(Lower(value));
+    }
+}
+
+/// <summary>
+/// Database cache used to store blocks in memory.
+/// </summary>
+internal interface IDbCache { }
+
+/// <summary>
+/// Database cache used to store blocks in memory.
+/// </summary>
+internal class DbCache : IDbCache, IDisposable
+{
+    protected ulong pointer;
+    private int _wasDestroyed = 0;
+    private long _callCounter = 1;
+
+    public DbCache(ulong pointer)
+    {
+        this.pointer = pointer;
+    }
+
+    ~DbCache()
+    {
+        Destroy();
+    }
+
+    protected void FreeRustArcPtr()
+    {
+        _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_dbcache(this.pointer, ref status);
+            }
+        );
+    }
+
+    protected ulong CloneRustArcPtr()
+    {
+        return _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_dbcache(
+                    this.pointer,
+                    ref status
+                );
+            }
+        );
+    }
+
+    public void Destroy()
+    {
+        // Only allow a single call to this method.
+        if (Interlocked.CompareExchange(ref _wasDestroyed, 1, 0) == 0)
+        {
+            // This decrement always matches the initial count of 1 given at creation time.
+            if (Interlocked.Decrement(ref _callCounter) == 0)
+            {
+                FreeRustArcPtr();
+            }
+        }
+    }
+
+    public void Dispose()
+    {
+        Destroy();
+        GC.SuppressFinalize(this); // Suppress finalization to avoid unnecessary GC overhead.
+    }
+
+    private void IncrementCallCounter()
+    {
+        // Check and increment the call counter, to keep the object alive.
+        // This needs a compare-and-set retry loop in case of concurrent updates.
+        long count;
+        do
+        {
+            count = Interlocked.Read(ref _callCounter);
+            if (count == 0L)
+                throw new System.ObjectDisposedException(
+                    String.Format("'{0}' object has already been destroyed", this.GetType().Name)
+                );
+            if (count == long.MaxValue)
+                throw new System.OverflowException(
+                    String.Format("'{0}' call counter would overflow", this.GetType().Name)
+                );
+        } while (Interlocked.CompareExchange(ref _callCounter, count + 1, count) != count);
+    }
+
+    private void DecrementCallCounter()
+    {
+        // This decrement always matches the increment we performed above.
+        if (Interlocked.Decrement(ref _callCounter) == 0)
+        {
+            FreeRustArcPtr();
+        }
+    }
+
+    internal void CallWithPointer(Action<ulong> action)
+    {
+        IncrementCallCounter();
+        try
+        {
+            action(CloneRustArcPtr());
+        }
+        finally
+        {
+            DecrementCallCounter();
+        }
+    }
+
+    internal T CallWithPointer<T>(Func<ulong, T> func)
+    {
+        IncrementCallCounter();
+        try
+        {
+            return func(CloneRustArcPtr());
+        }
+        finally
+        {
+            DecrementCallCounter();
+        }
+    }
+
+    /// <summary>
+    /// Creates a new Foyer based DB cache.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    public static DbCache NewFoyerCache(FoyerCacheOptions @options)
+    {
+        return new DbCache(
+            _UniffiHelpers.RustCallWithError(
+                FfiConverterTypeError.INSTANCE,
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_constructor_dbcache_new_foyer_cache(
+                        FfiConverterTypeFoyerCacheOptions.INSTANCE.Lower(@options),
+                        ref _status
+                    )
+            )
+        );
+    }
+
+    /// <summary>
+    /// Creates a new Moka based DB cache.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    public static DbCache NewMokaCache(MokaCacheOptions @options)
+    {
+        return new DbCache(
+            _UniffiHelpers.RustCallWithError(
+                FfiConverterTypeError.INSTANCE,
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_constructor_dbcache_new_moka_cache(
+                        FfiConverterTypeMokaCacheOptions.INSTANCE.Lower(@options),
+                        ref _status
+                    )
+            )
+        );
+    }
+
+    /// <summary>
+    /// Creates a new split cache with separate block and metadata capacities.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    public static DbCache NewSplitCache(DbCache @blockCache, DbCache @metaCache)
+    {
+        return new DbCache(
+            _UniffiHelpers.RustCallWithError(
+                FfiConverterTypeError.INSTANCE,
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_constructor_dbcache_new_split_cache(
+                        FfiConverterTypeDbCache.INSTANCE.Lower(@blockCache),
+                        FfiConverterTypeDbCache.INSTANCE.Lower(@metaCache),
+                        ref _status
+                    )
+            )
+        );
+    }
+}
+
+class FfiConverterTypeDbCache : FfiConverter<DbCache, ulong>
+{
+    public static FfiConverterTypeDbCache INSTANCE = new FfiConverterTypeDbCache();
+
+    public override ulong Lower(DbCache value)
+    {
+        return value.CallWithPointer(thisPtr => thisPtr);
+    }
+
+    public override DbCache Lift(ulong value)
+    {
+        return new DbCache(value);
+    }
+
+    public override DbCache Read(BigEndianStream stream)
+    {
+        return Lift(stream.ReadULong());
+    }
+
+    public override int AllocationSize(DbCache value)
+    {
+        return 8;
+    }
+
+    public override void Write(DbCache value, BigEndianStream stream)
     {
         stream.WriteULong(Lower(value));
     }
@@ -8686,10 +10652,30 @@ class FfiConverterTypeDbIterator : FfiConverter<DbIterator, ulong>
 internal interface IDbReader
 {
     /// <summary>
+    /// Best-effort eviction of block-cache entries for one SST.
+    ///
+    /// If no block cache is configured, returns `Ok(())`.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    Task EvictCachedSst(SsTableId @sstId);
+
+    /// <summary>
     /// Reads the current value for `key`.
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task<byte[]?> Get(byte[] @key);
+
+    /// <summary>
+    /// Reads the current row version for `key`, including metadata.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    Task<KeyValue?> GetKeyValue(byte[] @key);
+
+    /// <summary>
+    /// Reads the current row version for `key` using custom read options.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    Task<KeyValue?> GetKeyValueWithOptions(byte[] @key, ReadOptions @options);
 
     /// <summary>
     /// Reads the current value for `key` using custom read options.
@@ -8731,6 +10717,16 @@ internal interface IDbReader
     /// Returns the latest reader status snapshot.
     /// </summary>
     DbStatus Status();
+
+    /// <summary>
+    /// Warms selected cache content for one SST.
+    ///
+    /// Returns `Err` on the first failing target. If no block cache is
+    /// configured, or if the SST is not reachable from the current manifest,
+    /// the call is a no-op that returns `Ok(())`.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    Task WarmSst(SsTableId @sstId, CacheTarget[] @targets);
 }
 
 /// <summary>
@@ -8849,6 +10845,38 @@ internal class DbReader : IDbReader, IDisposable
     }
 
     /// <summary>
+    /// Best-effort eviction of block-cache entries for one SST.
+    ///
+    /// If no block cache is configured, returns `Ok(())`.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    public async Task EvictCachedSst(SsTableId @sstId)
+    {
+        await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbreader_evict_cached_sst(
+                    thisPtr,
+                    FfiConverterTypeSsTableId.INSTANCE.Lower(@sstId)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_void(future, continuation, data),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_void(future, ref status);
+            },
+            // Free
+            (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_void(future),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
+    }
+
+    /// <summary>
     /// Reads the current value for `key`.
     /// </summary>
     /// <exception cref="Exception"></exception>
@@ -8883,6 +10911,87 @@ internal class DbReader : IDbReader, IDisposable
                 _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
             // Lift
             (result) => FfiConverterOptionalByteArray.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
+    }
+
+    /// <summary>
+    /// Reads the current row version for `key`, including metadata.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    public async Task<KeyValue?> GetKeyValue(byte[] @key)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbreader_get_key_value(
+                    thisPtr,
+                    FfiConverterByteArray.INSTANCE.Lower(@key)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(
+                    future,
+                    continuation,
+                    data
+                ),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
+            // Lift
+            (result) => FfiConverterOptionalTypeKeyValue.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
+    }
+
+    /// <summary>
+    /// Reads the current row version for `key` using custom read options.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    public async Task<KeyValue?> GetKeyValueWithOptions(byte[] @key, ReadOptions @options)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbreader_get_key_value_with_options(
+                    thisPtr,
+                    FfiConverterByteArray.INSTANCE.Lower(@key),
+                    FfiConverterTypeReadOptions.INSTANCE.Lower(@options)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(
+                    future,
+                    continuation,
+                    data
+                ),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
+            // Lift
+            (result) => FfiConverterOptionalTypeKeyValue.INSTANCE.Lift(result),
             // Error
             FfiConverterTypeError.INSTANCE
         );
@@ -9113,6 +11222,41 @@ internal class DbReader : IDbReader, IDisposable
                         )
                 )
             )
+        );
+    }
+
+    /// <summary>
+    /// Warms selected cache content for one SST.
+    ///
+    /// Returns `Err` on the first failing target. If no block cache is
+    /// configured, or if the SST is not reachable from the current manifest,
+    /// the call is a no-op that returns `Ok(())`.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    public async Task WarmSst(SsTableId @sstId, CacheTarget[] @targets)
+    {
+        await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbreader_warm_sst(
+                    thisPtr,
+                    FfiConverterTypeSsTableId.INSTANCE.Lower(@sstId),
+                    FfiConverterSequenceTypeCacheTarget.INSTANCE.Lower(@targets)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_void(future, continuation, data),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_void(future, ref status);
+            },
+            // Free
+            (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_void(future),
+            // Error
+            FfiConverterTypeError.INSTANCE
         );
     }
 }
@@ -15110,6 +17254,285 @@ class FfiConverterTypeWriteBatch : FfiConverter<WriteBatch, ulong>
 }
 
 /// <summary>
+/// Checkpoint metadata stored in a manifest.
+/// </summary>
+/// <param name="Id">
+/// Checkpoint UUID string.
+/// </param>
+/// <param name="ManifestId">
+/// Referenced manifest ID.
+/// </param>
+/// <param name="ExpireTimeSecs">
+/// Expiration time as Unix UTC seconds, if present.
+/// </param>
+/// <param name="CreateTimeSecs">
+/// Creation time as Unix UTC seconds.
+/// </param>
+/// <param name="Name">
+/// Optional checkpoint name.
+/// </param>
+internal record Checkpoint(
+    /// <summary>
+    /// Checkpoint UUID string.
+    /// </summary>
+    string Id,
+    /// <summary>
+    /// Referenced manifest ID.
+    /// </summary>
+    ulong ManifestId,
+    /// <summary>
+    /// Expiration time as Unix UTC seconds, if present.
+    /// </summary>
+    long? ExpireTimeSecs,
+    /// <summary>
+    /// Creation time as Unix UTC seconds.
+    /// </summary>
+    long CreateTimeSecs,
+    /// <summary>
+    /// Optional checkpoint name.
+    /// </summary>
+    string? Name
+) { }
+
+class FfiConverterTypeCheckpoint : FfiConverterRustBuffer<Checkpoint>
+{
+    public static FfiConverterTypeCheckpoint INSTANCE = new FfiConverterTypeCheckpoint();
+
+    public override Checkpoint Read(BigEndianStream stream)
+    {
+        return new Checkpoint(
+            Id: FfiConverterString.INSTANCE.Read(stream),
+            ManifestId: FfiConverterUInt64.INSTANCE.Read(stream),
+            ExpireTimeSecs: FfiConverterOptionalInt64.INSTANCE.Read(stream),
+            CreateTimeSecs: FfiConverterInt64.INSTANCE.Read(stream),
+            Name: FfiConverterOptionalString.INSTANCE.Read(stream)
+        );
+    }
+
+    public override int AllocationSize(Checkpoint value)
+    {
+        return 0
+            + FfiConverterString.INSTANCE.AllocationSize(value.Id)
+            + FfiConverterUInt64.INSTANCE.AllocationSize(value.ManifestId)
+            + FfiConverterOptionalInt64.INSTANCE.AllocationSize(value.ExpireTimeSecs)
+            + FfiConverterInt64.INSTANCE.AllocationSize(value.CreateTimeSecs)
+            + FfiConverterOptionalString.INSTANCE.AllocationSize(value.Name);
+    }
+
+    public override void Write(Checkpoint value, BigEndianStream stream)
+    {
+        FfiConverterString.INSTANCE.Write(value.Id, stream);
+        FfiConverterUInt64.INSTANCE.Write(value.ManifestId, stream);
+        FfiConverterOptionalInt64.INSTANCE.Write(value.ExpireTimeSecs, stream);
+        FfiConverterInt64.INSTANCE.Write(value.CreateTimeSecs, stream);
+        FfiConverterOptionalString.INSTANCE.Write(value.Name, stream);
+    }
+}
+
+/// <summary>
+/// Canonical compaction record.
+/// </summary>
+/// <param name="Id">
+/// Compaction ULID string.
+/// </param>
+/// <param name="Spec">
+/// Compaction spec.
+/// </param>
+/// <param name="BytesProcessed">
+/// Bytes processed so far.
+/// </param>
+/// <param name="Status">
+/// Current compaction status.
+/// </param>
+/// <param name="OutputSsts">
+/// Output SSTs produced so far.
+/// </param>
+/// <param name="Active">
+/// Whether the compaction is active.
+/// </param>
+internal record Compaction(
+    /// <summary>
+    /// Compaction ULID string.
+    /// </summary>
+    string Id,
+    /// <summary>
+    /// Compaction spec.
+    /// </summary>
+    CompactionSpec Spec,
+    /// <summary>
+    /// Bytes processed so far.
+    /// </summary>
+    ulong BytesProcessed,
+    /// <summary>
+    /// Current compaction status.
+    /// </summary>
+    CompactionStatus Status,
+    /// <summary>
+    /// Output SSTs produced so far.
+    /// </summary>
+    SsTableHandle[] OutputSsts,
+    /// <summary>
+    /// Whether the compaction is active.
+    /// </summary>
+    bool Active
+) { }
+
+class FfiConverterTypeCompaction : FfiConverterRustBuffer<Compaction>
+{
+    public static FfiConverterTypeCompaction INSTANCE = new FfiConverterTypeCompaction();
+
+    public override Compaction Read(BigEndianStream stream)
+    {
+        return new Compaction(
+            Id: FfiConverterString.INSTANCE.Read(stream),
+            Spec: FfiConverterTypeCompactionSpec.INSTANCE.Read(stream),
+            BytesProcessed: FfiConverterUInt64.INSTANCE.Read(stream),
+            Status: FfiConverterTypeCompactionStatus.INSTANCE.Read(stream),
+            OutputSsts: FfiConverterSequenceTypeSsTableHandle.INSTANCE.Read(stream),
+            Active: FfiConverterBoolean.INSTANCE.Read(stream)
+        );
+    }
+
+    public override int AllocationSize(Compaction value)
+    {
+        return 0
+            + FfiConverterString.INSTANCE.AllocationSize(value.Id)
+            + FfiConverterTypeCompactionSpec.INSTANCE.AllocationSize(value.Spec)
+            + FfiConverterUInt64.INSTANCE.AllocationSize(value.BytesProcessed)
+            + FfiConverterTypeCompactionStatus.INSTANCE.AllocationSize(value.Status)
+            + FfiConverterSequenceTypeSsTableHandle.INSTANCE.AllocationSize(value.OutputSsts)
+            + FfiConverterBoolean.INSTANCE.AllocationSize(value.Active);
+    }
+
+    public override void Write(Compaction value, BigEndianStream stream)
+    {
+        FfiConverterString.INSTANCE.Write(value.Id, stream);
+        FfiConverterTypeCompactionSpec.INSTANCE.Write(value.Spec, stream);
+        FfiConverterUInt64.INSTANCE.Write(value.BytesProcessed, stream);
+        FfiConverterTypeCompactionStatus.INSTANCE.Write(value.Status, stream);
+        FfiConverterSequenceTypeSsTableHandle.INSTANCE.Write(value.OutputSsts, stream);
+        FfiConverterBoolean.INSTANCE.Write(value.Active, stream);
+    }
+}
+
+/// <summary>
+/// Immutable compaction specification.
+/// </summary>
+/// <param name="Sources">
+/// Ordered compaction sources.
+/// </param>
+/// <param name="Destination">
+/// Destination sorted run ID. `None` for drain-segment specs, which
+/// produce no new sorted run.
+/// </param>
+/// <param name="HasL0Sources">
+/// Whether any input source is an L0 SST view.
+/// </param>
+/// <param name="HasSrSources">
+/// Whether any input source is a sorted run.
+/// </param>
+internal record CompactionSpec(
+    /// <summary>
+    /// Ordered compaction sources.
+    /// </summary>
+    SourceId[] Sources,
+    /// <summary>
+    /// Destination sorted run ID. `None` for drain-segment specs, which
+    /// produce no new sorted run.
+    /// </summary>
+    uint? Destination,
+    /// <summary>
+    /// Whether any input source is an L0 SST view.
+    /// </summary>
+    bool HasL0Sources,
+    /// <summary>
+    /// Whether any input source is a sorted run.
+    /// </summary>
+    bool HasSrSources
+) { }
+
+class FfiConverterTypeCompactionSpec : FfiConverterRustBuffer<CompactionSpec>
+{
+    public static FfiConverterTypeCompactionSpec INSTANCE = new FfiConverterTypeCompactionSpec();
+
+    public override CompactionSpec Read(BigEndianStream stream)
+    {
+        return new CompactionSpec(
+            Sources: FfiConverterSequenceTypeSourceId.INSTANCE.Read(stream),
+            Destination: FfiConverterOptionalUInt32.INSTANCE.Read(stream),
+            HasL0Sources: FfiConverterBoolean.INSTANCE.Read(stream),
+            HasSrSources: FfiConverterBoolean.INSTANCE.Read(stream)
+        );
+    }
+
+    public override int AllocationSize(CompactionSpec value)
+    {
+        return 0
+            + FfiConverterSequenceTypeSourceId.INSTANCE.AllocationSize(value.Sources)
+            + FfiConverterOptionalUInt32.INSTANCE.AllocationSize(value.Destination)
+            + FfiConverterBoolean.INSTANCE.AllocationSize(value.HasL0Sources)
+            + FfiConverterBoolean.INSTANCE.AllocationSize(value.HasSrSources);
+    }
+
+    public override void Write(CompactionSpec value, BigEndianStream stream)
+    {
+        FfiConverterSequenceTypeSourceId.INSTANCE.Write(value.Sources, stream);
+        FfiConverterOptionalUInt32.INSTANCE.Write(value.Destination, stream);
+        FfiConverterBoolean.INSTANCE.Write(value.HasL0Sources, stream);
+        FfiConverterBoolean.INSTANCE.Write(value.HasSrSources, stream);
+    }
+}
+
+/// <summary>
+/// Read-only compactor state view.
+/// </summary>
+/// <param name="Compactions">
+/// Latest compactions file, if present.
+/// </param>
+/// <param name="Manifest">
+/// Latest manifest file.
+/// </param>
+internal record CompactorStateView(
+    /// <summary>
+    /// Latest compactions file, if present.
+    /// </summary>
+    VersionedCompactions? Compactions,
+    /// <summary>
+    /// Latest manifest file.
+    /// </summary>
+    VersionedManifest Manifest
+) { }
+
+class FfiConverterTypeCompactorStateView : FfiConverterRustBuffer<CompactorStateView>
+{
+    public static FfiConverterTypeCompactorStateView INSTANCE =
+        new FfiConverterTypeCompactorStateView();
+
+    public override CompactorStateView Read(BigEndianStream stream)
+    {
+        return new CompactorStateView(
+            Compactions: FfiConverterOptionalTypeVersionedCompactions.INSTANCE.Read(stream),
+            Manifest: FfiConverterTypeVersionedManifest.INSTANCE.Read(stream)
+        );
+    }
+
+    public override int AllocationSize(CompactorStateView value)
+    {
+        return 0
+            + FfiConverterOptionalTypeVersionedCompactions.INSTANCE.AllocationSize(
+                value.Compactions
+            )
+            + FfiConverterTypeVersionedManifest.INSTANCE.AllocationSize(value.Manifest);
+    }
+
+    public override void Write(CompactorStateView value, BigEndianStream stream)
+    {
+        FfiConverterOptionalTypeVersionedCompactions.INSTANCE.Write(value.Compactions, stream);
+        FfiConverterTypeVersionedManifest.INSTANCE.Write(value.Manifest, stream);
+    }
+}
+
+/// <summary>
 /// Snapshot of the current database lifecycle and durability state.
 /// </summary>
 /// <param name="DurableSeq">
@@ -15156,6 +17579,72 @@ class FfiConverterTypeDbStatus : FfiConverterRustBuffer<DbStatus>
 }
 
 /// <summary>
+/// External DB reference recorded in a manifest.
+/// </summary>
+/// <param name="Path">
+/// External database path.
+/// </param>
+/// <param name="SourceCheckpointId">
+/// Source checkpoint UUID string.
+/// </param>
+/// <param name="FinalCheckpointId">
+/// Final checkpoint UUID string, if present.
+/// </param>
+/// <param name="SstIds">
+/// SST IDs referenced from the external DB.
+/// </param>
+internal record ExternalDb(
+    /// <summary>
+    /// External database path.
+    /// </summary>
+    string Path,
+    /// <summary>
+    /// Source checkpoint UUID string.
+    /// </summary>
+    string SourceCheckpointId,
+    /// <summary>
+    /// Final checkpoint UUID string, if present.
+    /// </summary>
+    string? FinalCheckpointId,
+    /// <summary>
+    /// SST IDs referenced from the external DB.
+    /// </summary>
+    SsTableId[] SstIds
+) { }
+
+class FfiConverterTypeExternalDb : FfiConverterRustBuffer<ExternalDb>
+{
+    public static FfiConverterTypeExternalDb INSTANCE = new FfiConverterTypeExternalDb();
+
+    public override ExternalDb Read(BigEndianStream stream)
+    {
+        return new ExternalDb(
+            Path: FfiConverterString.INSTANCE.Read(stream),
+            SourceCheckpointId: FfiConverterString.INSTANCE.Read(stream),
+            FinalCheckpointId: FfiConverterOptionalString.INSTANCE.Read(stream),
+            SstIds: FfiConverterSequenceTypeSsTableId.INSTANCE.Read(stream)
+        );
+    }
+
+    public override int AllocationSize(ExternalDb value)
+    {
+        return 0
+            + FfiConverterString.INSTANCE.AllocationSize(value.Path)
+            + FfiConverterString.INSTANCE.AllocationSize(value.SourceCheckpointId)
+            + FfiConverterOptionalString.INSTANCE.AllocationSize(value.FinalCheckpointId)
+            + FfiConverterSequenceTypeSsTableId.INSTANCE.AllocationSize(value.SstIds);
+    }
+
+    public override void Write(ExternalDb value, BigEndianStream stream)
+    {
+        FfiConverterString.INSTANCE.Write(value.Path, stream);
+        FfiConverterString.INSTANCE.Write(value.SourceCheckpointId, stream);
+        FfiConverterOptionalString.INSTANCE.Write(value.FinalCheckpointId, stream);
+        FfiConverterSequenceTypeSsTableId.INSTANCE.Write(value.SstIds, stream);
+    }
+}
+
+/// <summary>
 /// Options for an explicit flush request.
 /// </summary>
 /// <param name="FlushType">
@@ -15185,6 +17674,38 @@ class FfiConverterTypeFlushOptions : FfiConverterRustBuffer<FlushOptions>
     public override void Write(FlushOptions value, BigEndianStream stream)
     {
         FfiConverterTypeFlushType.INSTANCE.Write(value.FlushType, stream);
+    }
+}
+
+/// <summary>
+/// Options for configuring Foyer DB cache.
+/// </summary>
+internal record FoyerCacheOptions(ulong MaxCapacity, ulong Shards) { }
+
+class FfiConverterTypeFoyerCacheOptions : FfiConverterRustBuffer<FoyerCacheOptions>
+{
+    public static FfiConverterTypeFoyerCacheOptions INSTANCE =
+        new FfiConverterTypeFoyerCacheOptions();
+
+    public override FoyerCacheOptions Read(BigEndianStream stream)
+    {
+        return new FoyerCacheOptions(
+            MaxCapacity: FfiConverterUInt64.INSTANCE.Read(stream),
+            Shards: FfiConverterUInt64.INSTANCE.Read(stream)
+        );
+    }
+
+    public override int AllocationSize(FoyerCacheOptions value)
+    {
+        return 0
+            + FfiConverterUInt64.INSTANCE.AllocationSize(value.MaxCapacity)
+            + FfiConverterUInt64.INSTANCE.AllocationSize(value.Shards);
+    }
+
+    public override void Write(FoyerCacheOptions value, BigEndianStream stream)
+    {
+        FfiConverterUInt64.INSTANCE.Write(value.MaxCapacity, stream);
+        FfiConverterUInt64.INSTANCE.Write(value.Shards, stream);
     }
 }
 
@@ -15649,6 +18170,41 @@ class FfiConverterTypeMetricLabel : FfiConverterRustBuffer<MetricLabel>
 }
 
 /// <summary>
+/// Options for configuring Moka DB cache.
+/// </summary>
+internal record MokaCacheOptions(ulong MaxCapacity, ulong? TimeToLive, ulong? TimeToIdle) { }
+
+class FfiConverterTypeMokaCacheOptions : FfiConverterRustBuffer<MokaCacheOptions>
+{
+    public static FfiConverterTypeMokaCacheOptions INSTANCE =
+        new FfiConverterTypeMokaCacheOptions();
+
+    public override MokaCacheOptions Read(BigEndianStream stream)
+    {
+        return new MokaCacheOptions(
+            MaxCapacity: FfiConverterUInt64.INSTANCE.Read(stream),
+            TimeToLive: FfiConverterOptionalUInt64.INSTANCE.Read(stream),
+            TimeToIdle: FfiConverterOptionalUInt64.INSTANCE.Read(stream)
+        );
+    }
+
+    public override int AllocationSize(MokaCacheOptions value)
+    {
+        return 0
+            + FfiConverterUInt64.INSTANCE.AllocationSize(value.MaxCapacity)
+            + FfiConverterOptionalUInt64.INSTANCE.AllocationSize(value.TimeToLive)
+            + FfiConverterOptionalUInt64.INSTANCE.AllocationSize(value.TimeToIdle);
+    }
+
+    public override void Write(MokaCacheOptions value, BigEndianStream stream)
+    {
+        FfiConverterUInt64.INSTANCE.Write(value.MaxCapacity, stream);
+        FfiConverterOptionalUInt64.INSTANCE.Write(value.TimeToLive, stream);
+        FfiConverterOptionalUInt64.INSTANCE.Write(value.TimeToIdle, stream);
+    }
+}
+
+/// <summary>
 /// Options applied to a put operation.
 /// </summary>
 /// <param name="Ttl">
@@ -15976,6 +18532,566 @@ class FfiConverterTypeScanOptions : FfiConverterRustBuffer<ScanOptions>
 }
 
 /// <summary>
+/// A sorted run made up of one or more SST views.
+/// </summary>
+/// <param name="Id">
+/// Sorted run ID.
+/// </param>
+/// <param name="SstViews">
+/// SST views in this run.
+/// </param>
+/// <param name="EstimatedSizeBytes">
+/// Estimated total size in bytes.
+/// </param>
+internal record SortedRun(
+    /// <summary>
+    /// Sorted run ID.
+    /// </summary>
+    uint Id,
+    /// <summary>
+    /// SST views in this run.
+    /// </summary>
+    SsTableView[] SstViews,
+    /// <summary>
+    /// Estimated total size in bytes.
+    /// </summary>
+    ulong EstimatedSizeBytes
+) { }
+
+class FfiConverterTypeSortedRun : FfiConverterRustBuffer<SortedRun>
+{
+    public static FfiConverterTypeSortedRun INSTANCE = new FfiConverterTypeSortedRun();
+
+    public override SortedRun Read(BigEndianStream stream)
+    {
+        return new SortedRun(
+            Id: FfiConverterUInt32.INSTANCE.Read(stream),
+            SstViews: FfiConverterSequenceTypeSsTableView.INSTANCE.Read(stream),
+            EstimatedSizeBytes: FfiConverterUInt64.INSTANCE.Read(stream)
+        );
+    }
+
+    public override int AllocationSize(SortedRun value)
+    {
+        return 0
+            + FfiConverterUInt32.INSTANCE.AllocationSize(value.Id)
+            + FfiConverterSequenceTypeSsTableView.INSTANCE.AllocationSize(value.SstViews)
+            + FfiConverterUInt64.INSTANCE.AllocationSize(value.EstimatedSizeBytes);
+    }
+
+    public override void Write(SortedRun value, BigEndianStream stream)
+    {
+        FfiConverterUInt32.INSTANCE.Write(value.Id, stream);
+        FfiConverterSequenceTypeSsTableView.INSTANCE.Write(value.SstViews, stream);
+        FfiConverterUInt64.INSTANCE.Write(value.EstimatedSizeBytes, stream);
+    }
+}
+
+/// <summary>
+/// A handle to a physical SSTable.
+/// </summary>
+/// <param name="Id">
+/// SST ID.
+/// </param>
+/// <param name="Info">
+/// SST metadata.
+/// </param>
+/// <param name="EstimatedSizeBytes">
+/// Estimated on-disk size in bytes.
+/// </param>
+internal record SsTableHandle(
+    /// <summary>
+    /// SST ID.
+    /// </summary>
+    SsTableId Id,
+    /// <summary>
+    /// SST metadata.
+    /// </summary>
+    SsTableInfo Info,
+    /// <summary>
+    /// Estimated on-disk size in bytes.
+    /// </summary>
+    ulong EstimatedSizeBytes
+) { }
+
+class FfiConverterTypeSsTableHandle : FfiConverterRustBuffer<SsTableHandle>
+{
+    public static FfiConverterTypeSsTableHandle INSTANCE = new FfiConverterTypeSsTableHandle();
+
+    public override SsTableHandle Read(BigEndianStream stream)
+    {
+        return new SsTableHandle(
+            Id: FfiConverterTypeSsTableId.INSTANCE.Read(stream),
+            Info: FfiConverterTypeSsTableInfo.INSTANCE.Read(stream),
+            EstimatedSizeBytes: FfiConverterUInt64.INSTANCE.Read(stream)
+        );
+    }
+
+    public override int AllocationSize(SsTableHandle value)
+    {
+        return 0
+            + FfiConverterTypeSsTableId.INSTANCE.AllocationSize(value.Id)
+            + FfiConverterTypeSsTableInfo.INSTANCE.AllocationSize(value.Info)
+            + FfiConverterUInt64.INSTANCE.AllocationSize(value.EstimatedSizeBytes);
+    }
+
+    public override void Write(SsTableHandle value, BigEndianStream stream)
+    {
+        FfiConverterTypeSsTableId.INSTANCE.Write(value.Id, stream);
+        FfiConverterTypeSsTableInfo.INSTANCE.Write(value.Info, stream);
+        FfiConverterUInt64.INSTANCE.Write(value.EstimatedSizeBytes, stream);
+    }
+}
+
+/// <summary>
+/// SSTable metadata.
+/// </summary>
+/// <param name="FirstEntry">
+/// First entry in the SSTable, if any.
+/// </param>
+/// <param name="LastEntry">
+/// Last entry in the SSTable, if any.
+/// </param>
+/// <param name="IndexOffset">
+/// Index block offset in bytes.
+/// </param>
+/// <param name="IndexLen">
+/// Index block length in bytes.
+/// </param>
+/// <param name="FilterOffset">
+/// Filter block offset in bytes.
+/// </param>
+/// <param name="FilterLen">
+/// Filter block length in bytes.
+/// </param>
+/// <param name="CompressionCodec">
+/// Compression codec, if any.
+/// </param>
+/// <param name="SstType">
+/// Physical SSTable type.
+/// </param>
+/// <param name="StatsOffset">
+/// Stats block offset in bytes.
+/// </param>
+/// <param name="StatsLen">
+/// Stats block length in bytes.
+/// </param>
+/// <param name="FilterFormat">
+/// Filter block format.
+/// </param>
+internal record SsTableInfo(
+    /// <summary>
+    /// First entry in the SSTable, if any.
+    /// </summary>
+    byte[]? FirstEntry,
+    /// <summary>
+    /// Last entry in the SSTable, if any.
+    /// </summary>
+    byte[]? LastEntry,
+    /// <summary>
+    /// Index block offset in bytes.
+    /// </summary>
+    ulong IndexOffset,
+    /// <summary>
+    /// Index block length in bytes.
+    /// </summary>
+    ulong IndexLen,
+    /// <summary>
+    /// Filter block offset in bytes.
+    /// </summary>
+    ulong FilterOffset,
+    /// <summary>
+    /// Filter block length in bytes.
+    /// </summary>
+    ulong FilterLen,
+    /// <summary>
+    /// Compression codec, if any.
+    /// </summary>
+    CompressionCodec? CompressionCodec,
+    /// <summary>
+    /// Physical SSTable type.
+    /// </summary>
+    SstType SstType,
+    /// <summary>
+    /// Stats block offset in bytes.
+    /// </summary>
+    ulong StatsOffset,
+    /// <summary>
+    /// Stats block length in bytes.
+    /// </summary>
+    ulong StatsLen,
+    /// <summary>
+    /// Filter block format.
+    /// </summary>
+    FilterFormat FilterFormat
+) { }
+
+class FfiConverterTypeSsTableInfo : FfiConverterRustBuffer<SsTableInfo>
+{
+    public static FfiConverterTypeSsTableInfo INSTANCE = new FfiConverterTypeSsTableInfo();
+
+    public override SsTableInfo Read(BigEndianStream stream)
+    {
+        return new SsTableInfo(
+            FirstEntry: FfiConverterOptionalByteArray.INSTANCE.Read(stream),
+            LastEntry: FfiConverterOptionalByteArray.INSTANCE.Read(stream),
+            IndexOffset: FfiConverterUInt64.INSTANCE.Read(stream),
+            IndexLen: FfiConverterUInt64.INSTANCE.Read(stream),
+            FilterOffset: FfiConverterUInt64.INSTANCE.Read(stream),
+            FilterLen: FfiConverterUInt64.INSTANCE.Read(stream),
+            CompressionCodec: FfiConverterOptionalTypeCompressionCodec.INSTANCE.Read(stream),
+            SstType: FfiConverterTypeSstType.INSTANCE.Read(stream),
+            StatsOffset: FfiConverterUInt64.INSTANCE.Read(stream),
+            StatsLen: FfiConverterUInt64.INSTANCE.Read(stream),
+            FilterFormat: FfiConverterTypeFilterFormat.INSTANCE.Read(stream)
+        );
+    }
+
+    public override int AllocationSize(SsTableInfo value)
+    {
+        return 0
+            + FfiConverterOptionalByteArray.INSTANCE.AllocationSize(value.FirstEntry)
+            + FfiConverterOptionalByteArray.INSTANCE.AllocationSize(value.LastEntry)
+            + FfiConverterUInt64.INSTANCE.AllocationSize(value.IndexOffset)
+            + FfiConverterUInt64.INSTANCE.AllocationSize(value.IndexLen)
+            + FfiConverterUInt64.INSTANCE.AllocationSize(value.FilterOffset)
+            + FfiConverterUInt64.INSTANCE.AllocationSize(value.FilterLen)
+            + FfiConverterOptionalTypeCompressionCodec.INSTANCE.AllocationSize(
+                value.CompressionCodec
+            )
+            + FfiConverterTypeSstType.INSTANCE.AllocationSize(value.SstType)
+            + FfiConverterUInt64.INSTANCE.AllocationSize(value.StatsOffset)
+            + FfiConverterUInt64.INSTANCE.AllocationSize(value.StatsLen)
+            + FfiConverterTypeFilterFormat.INSTANCE.AllocationSize(value.FilterFormat);
+    }
+
+    public override void Write(SsTableInfo value, BigEndianStream stream)
+    {
+        FfiConverterOptionalByteArray.INSTANCE.Write(value.FirstEntry, stream);
+        FfiConverterOptionalByteArray.INSTANCE.Write(value.LastEntry, stream);
+        FfiConverterUInt64.INSTANCE.Write(value.IndexOffset, stream);
+        FfiConverterUInt64.INSTANCE.Write(value.IndexLen, stream);
+        FfiConverterUInt64.INSTANCE.Write(value.FilterOffset, stream);
+        FfiConverterUInt64.INSTANCE.Write(value.FilterLen, stream);
+        FfiConverterOptionalTypeCompressionCodec.INSTANCE.Write(value.CompressionCodec, stream);
+        FfiConverterTypeSstType.INSTANCE.Write(value.SstType, stream);
+        FfiConverterUInt64.INSTANCE.Write(value.StatsOffset, stream);
+        FfiConverterUInt64.INSTANCE.Write(value.StatsLen, stream);
+        FfiConverterTypeFilterFormat.INSTANCE.Write(value.FilterFormat, stream);
+    }
+}
+
+/// <summary>
+/// Projected SST view used by manifests and sorted runs.
+/// </summary>
+/// <param name="Id">
+/// View ULID string.
+/// </param>
+/// <param name="Sst">
+/// Underlying SST handle.
+/// </param>
+/// <param name="VisibleRange">
+/// Optional projected visible key range.
+/// </param>
+/// <param name="EstimatedSizeBytes">
+/// Estimated on-disk size in bytes.
+/// </param>
+internal record SsTableView(
+    /// <summary>
+    /// View ULID string.
+    /// </summary>
+    string Id,
+    /// <summary>
+    /// Underlying SST handle.
+    /// </summary>
+    SsTableHandle Sst,
+    /// <summary>
+    /// Optional projected visible key range.
+    /// </summary>
+    KeyRange? VisibleRange,
+    /// <summary>
+    /// Estimated on-disk size in bytes.
+    /// </summary>
+    ulong EstimatedSizeBytes
+) { }
+
+class FfiConverterTypeSsTableView : FfiConverterRustBuffer<SsTableView>
+{
+    public static FfiConverterTypeSsTableView INSTANCE = new FfiConverterTypeSsTableView();
+
+    public override SsTableView Read(BigEndianStream stream)
+    {
+        return new SsTableView(
+            Id: FfiConverterString.INSTANCE.Read(stream),
+            Sst: FfiConverterTypeSsTableHandle.INSTANCE.Read(stream),
+            VisibleRange: FfiConverterOptionalTypeKeyRange.INSTANCE.Read(stream),
+            EstimatedSizeBytes: FfiConverterUInt64.INSTANCE.Read(stream)
+        );
+    }
+
+    public override int AllocationSize(SsTableView value)
+    {
+        return 0
+            + FfiConverterString.INSTANCE.AllocationSize(value.Id)
+            + FfiConverterTypeSsTableHandle.INSTANCE.AllocationSize(value.Sst)
+            + FfiConverterOptionalTypeKeyRange.INSTANCE.AllocationSize(value.VisibleRange)
+            + FfiConverterUInt64.INSTANCE.AllocationSize(value.EstimatedSizeBytes);
+    }
+
+    public override void Write(SsTableView value, BigEndianStream stream)
+    {
+        FfiConverterString.INSTANCE.Write(value.Id, stream);
+        FfiConverterTypeSsTableHandle.INSTANCE.Write(value.Sst, stream);
+        FfiConverterOptionalTypeKeyRange.INSTANCE.Write(value.VisibleRange, stream);
+        FfiConverterUInt64.INSTANCE.Write(value.EstimatedSizeBytes, stream);
+    }
+}
+
+/// <summary>
+/// A compactions snapshot paired with its version ID.
+/// </summary>
+/// <param name="Id">
+/// Compactions file version ID.
+/// </param>
+/// <param name="CompactorEpoch">
+/// Compactor epoch recorded in this file.
+/// </param>
+/// <param name="RecentCompactions">
+/// Recent compactions tracked in this file.
+/// </param>
+internal record VersionedCompactions(
+    /// <summary>
+    /// Compactions file version ID.
+    /// </summary>
+    ulong Id,
+    /// <summary>
+    /// Compactor epoch recorded in this file.
+    /// </summary>
+    ulong CompactorEpoch,
+    /// <summary>
+    /// Recent compactions tracked in this file.
+    /// </summary>
+    Compaction[] RecentCompactions
+) { }
+
+class FfiConverterTypeVersionedCompactions : FfiConverterRustBuffer<VersionedCompactions>
+{
+    public static FfiConverterTypeVersionedCompactions INSTANCE =
+        new FfiConverterTypeVersionedCompactions();
+
+    public override VersionedCompactions Read(BigEndianStream stream)
+    {
+        return new VersionedCompactions(
+            Id: FfiConverterUInt64.INSTANCE.Read(stream),
+            CompactorEpoch: FfiConverterUInt64.INSTANCE.Read(stream),
+            RecentCompactions: FfiConverterSequenceTypeCompaction.INSTANCE.Read(stream)
+        );
+    }
+
+    public override int AllocationSize(VersionedCompactions value)
+    {
+        return 0
+            + FfiConverterUInt64.INSTANCE.AllocationSize(value.Id)
+            + FfiConverterUInt64.INSTANCE.AllocationSize(value.CompactorEpoch)
+            + FfiConverterSequenceTypeCompaction.INSTANCE.AllocationSize(value.RecentCompactions);
+    }
+
+    public override void Write(VersionedCompactions value, BigEndianStream stream)
+    {
+        FfiConverterUInt64.INSTANCE.Write(value.Id, stream);
+        FfiConverterUInt64.INSTANCE.Write(value.CompactorEpoch, stream);
+        FfiConverterSequenceTypeCompaction.INSTANCE.Write(value.RecentCompactions, stream);
+    }
+}
+
+/// <summary>
+/// A manifest snapshot paired with its version ID.
+/// </summary>
+/// <param name="Id">
+/// Manifest version ID.
+/// </param>
+/// <param name="WriterEpoch">
+/// Writer epoch stored in the manifest.
+/// </param>
+/// <param name="CompactorEpoch">
+/// Compactor epoch stored in the manifest.
+/// </param>
+/// <param name="ExternalDbs">
+/// Referenced external databases.
+/// </param>
+/// <param name="Initialized">
+/// Whether initialization has completed.
+/// </param>
+/// <param name="LastCompactedL0SstViewId">
+/// Last compacted L0 SST view ID, if any.
+/// </param>
+/// <param name="LastCompactedL0SstId">
+/// Last compacted L0 SST ID, if any.
+/// </param>
+/// <param name="L0">
+/// Current L0 SST views.
+/// </param>
+/// <param name="Compacted">
+/// Current compacted sorted runs.
+/// </param>
+/// <param name="NextWalSstId">
+/// Next WAL SST ID to assign.
+/// </param>
+/// <param name="ReplayAfterWalId">
+/// WAL replay watermark.
+/// </param>
+/// <param name="LastL0ClockTick">
+/// Last persisted L0 clock tick.
+/// </param>
+/// <param name="LastL0Seq">
+/// Last persisted L0 sequence number.
+/// </param>
+/// <param name="RecentSnapshotMinSeq">
+/// Minimum sequence number still visible to recent snapshots.
+/// </param>
+/// <param name="Checkpoints">
+/// Tracked checkpoints.
+/// </param>
+/// <param name="WalObjectStoreUri">
+/// Dedicated WAL object store URI, if any.
+/// </param>
+internal record VersionedManifest(
+    /// <summary>
+    /// Manifest version ID.
+    /// </summary>
+    ulong Id,
+    /// <summary>
+    /// Writer epoch stored in the manifest.
+    /// </summary>
+    ulong WriterEpoch,
+    /// <summary>
+    /// Compactor epoch stored in the manifest.
+    /// </summary>
+    ulong CompactorEpoch,
+    /// <summary>
+    /// Referenced external databases.
+    /// </summary>
+    ExternalDb[] ExternalDbs,
+    /// <summary>
+    /// Whether initialization has completed.
+    /// </summary>
+    bool Initialized,
+    /// <summary>
+    /// Last compacted L0 SST view ID, if any.
+    /// </summary>
+    string? LastCompactedL0SstViewId,
+    /// <summary>
+    /// Last compacted L0 SST ID, if any.
+    /// </summary>
+    string? LastCompactedL0SstId,
+    /// <summary>
+    /// Current L0 SST views.
+    /// </summary>
+    SsTableView[] L0,
+    /// <summary>
+    /// Current compacted sorted runs.
+    /// </summary>
+    SortedRun[] Compacted,
+    /// <summary>
+    /// Next WAL SST ID to assign.
+    /// </summary>
+    ulong NextWalSstId,
+    /// <summary>
+    /// WAL replay watermark.
+    /// </summary>
+    ulong ReplayAfterWalId,
+    /// <summary>
+    /// Last persisted L0 clock tick.
+    /// </summary>
+    long LastL0ClockTick,
+    /// <summary>
+    /// Last persisted L0 sequence number.
+    /// </summary>
+    ulong LastL0Seq,
+    /// <summary>
+    /// Minimum sequence number still visible to recent snapshots.
+    /// </summary>
+    ulong RecentSnapshotMinSeq,
+    /// <summary>
+    /// Tracked checkpoints.
+    /// </summary>
+    Checkpoint[] Checkpoints,
+    /// <summary>
+    /// Dedicated WAL object store URI, if any.
+    /// </summary>
+    string? WalObjectStoreUri
+) { }
+
+class FfiConverterTypeVersionedManifest : FfiConverterRustBuffer<VersionedManifest>
+{
+    public static FfiConverterTypeVersionedManifest INSTANCE =
+        new FfiConverterTypeVersionedManifest();
+
+    public override VersionedManifest Read(BigEndianStream stream)
+    {
+        return new VersionedManifest(
+            Id: FfiConverterUInt64.INSTANCE.Read(stream),
+            WriterEpoch: FfiConverterUInt64.INSTANCE.Read(stream),
+            CompactorEpoch: FfiConverterUInt64.INSTANCE.Read(stream),
+            ExternalDbs: FfiConverterSequenceTypeExternalDb.INSTANCE.Read(stream),
+            Initialized: FfiConverterBoolean.INSTANCE.Read(stream),
+            LastCompactedL0SstViewId: FfiConverterOptionalString.INSTANCE.Read(stream),
+            LastCompactedL0SstId: FfiConverterOptionalString.INSTANCE.Read(stream),
+            L0: FfiConverterSequenceTypeSsTableView.INSTANCE.Read(stream),
+            Compacted: FfiConverterSequenceTypeSortedRun.INSTANCE.Read(stream),
+            NextWalSstId: FfiConverterUInt64.INSTANCE.Read(stream),
+            ReplayAfterWalId: FfiConverterUInt64.INSTANCE.Read(stream),
+            LastL0ClockTick: FfiConverterInt64.INSTANCE.Read(stream),
+            LastL0Seq: FfiConverterUInt64.INSTANCE.Read(stream),
+            RecentSnapshotMinSeq: FfiConverterUInt64.INSTANCE.Read(stream),
+            Checkpoints: FfiConverterSequenceTypeCheckpoint.INSTANCE.Read(stream),
+            WalObjectStoreUri: FfiConverterOptionalString.INSTANCE.Read(stream)
+        );
+    }
+
+    public override int AllocationSize(VersionedManifest value)
+    {
+        return 0
+            + FfiConverterUInt64.INSTANCE.AllocationSize(value.Id)
+            + FfiConverterUInt64.INSTANCE.AllocationSize(value.WriterEpoch)
+            + FfiConverterUInt64.INSTANCE.AllocationSize(value.CompactorEpoch)
+            + FfiConverterSequenceTypeExternalDb.INSTANCE.AllocationSize(value.ExternalDbs)
+            + FfiConverterBoolean.INSTANCE.AllocationSize(value.Initialized)
+            + FfiConverterOptionalString.INSTANCE.AllocationSize(value.LastCompactedL0SstViewId)
+            + FfiConverterOptionalString.INSTANCE.AllocationSize(value.LastCompactedL0SstId)
+            + FfiConverterSequenceTypeSsTableView.INSTANCE.AllocationSize(value.L0)
+            + FfiConverterSequenceTypeSortedRun.INSTANCE.AllocationSize(value.Compacted)
+            + FfiConverterUInt64.INSTANCE.AllocationSize(value.NextWalSstId)
+            + FfiConverterUInt64.INSTANCE.AllocationSize(value.ReplayAfterWalId)
+            + FfiConverterInt64.INSTANCE.AllocationSize(value.LastL0ClockTick)
+            + FfiConverterUInt64.INSTANCE.AllocationSize(value.LastL0Seq)
+            + FfiConverterUInt64.INSTANCE.AllocationSize(value.RecentSnapshotMinSeq)
+            + FfiConverterSequenceTypeCheckpoint.INSTANCE.AllocationSize(value.Checkpoints)
+            + FfiConverterOptionalString.INSTANCE.AllocationSize(value.WalObjectStoreUri);
+    }
+
+    public override void Write(VersionedManifest value, BigEndianStream stream)
+    {
+        FfiConverterUInt64.INSTANCE.Write(value.Id, stream);
+        FfiConverterUInt64.INSTANCE.Write(value.WriterEpoch, stream);
+        FfiConverterUInt64.INSTANCE.Write(value.CompactorEpoch, stream);
+        FfiConverterSequenceTypeExternalDb.INSTANCE.Write(value.ExternalDbs, stream);
+        FfiConverterBoolean.INSTANCE.Write(value.Initialized, stream);
+        FfiConverterOptionalString.INSTANCE.Write(value.LastCompactedL0SstViewId, stream);
+        FfiConverterOptionalString.INSTANCE.Write(value.LastCompactedL0SstId, stream);
+        FfiConverterSequenceTypeSsTableView.INSTANCE.Write(value.L0, stream);
+        FfiConverterSequenceTypeSortedRun.INSTANCE.Write(value.Compacted, stream);
+        FfiConverterUInt64.INSTANCE.Write(value.NextWalSstId, stream);
+        FfiConverterUInt64.INSTANCE.Write(value.ReplayAfterWalId, stream);
+        FfiConverterInt64.INSTANCE.Write(value.LastL0ClockTick, stream);
+        FfiConverterUInt64.INSTANCE.Write(value.LastL0Seq, stream);
+        FfiConverterUInt64.INSTANCE.Write(value.RecentSnapshotMinSeq, stream);
+        FfiConverterSequenceTypeCheckpoint.INSTANCE.Write(value.Checkpoints, stream);
+        FfiConverterOptionalString.INSTANCE.Write(value.WalObjectStoreUri, stream);
+    }
+}
+
+/// <summary>
 /// Metadata describing a WAL file in object storage.
 /// </summary>
 /// <param name="LastModifiedSeconds">
@@ -16121,6 +19237,110 @@ class FfiConverterTypeWriteOptions : FfiConverterRustBuffer<WriteOptions>
 }
 
 /// <summary>
+/// Cache content that [`crate::Db::warm_sst`] should populate.
+/// </summary>
+internal record CacheTarget
+{
+    /// <summary>
+    /// Warm all filters on the SST, if any exist.
+    /// </summary>
+    public record Filters : CacheTarget { }
+
+    /// <summary>
+    /// Warm the SST index.
+    /// </summary>
+    public record Index : CacheTarget { }
+
+    /// <summary>
+    /// Warm the SST stats block, if one exists.
+    /// </summary>
+    public record Stats : CacheTarget { }
+
+    /// <summary>
+    /// Warm the SST data blocks that overlap `range`. Also warms the index,
+    /// since block planning depends on it.
+    /// </summary>
+    public record Data(KeyRange Range) : CacheTarget { }
+}
+
+class FfiConverterTypeCacheTarget : FfiConverterRustBuffer<CacheTarget>
+{
+    public static FfiConverterRustBuffer<CacheTarget> INSTANCE = new FfiConverterTypeCacheTarget();
+
+    public override CacheTarget Read(BigEndianStream stream)
+    {
+        var value = stream.ReadInt();
+        switch (value)
+        {
+            case 1:
+                return new CacheTarget.Filters();
+            case 2:
+                return new CacheTarget.Index();
+            case 3:
+                return new CacheTarget.Stats();
+            case 4:
+                return new CacheTarget.Data(FfiConverterTypeKeyRange.INSTANCE.Read(stream));
+            default:
+                throw new InternalException(
+                    String.Format(
+                        "invalid enum value '{0}' in FfiConverterTypeCacheTarget.Read()",
+                        value
+                    )
+                );
+        }
+    }
+
+    public override int AllocationSize(CacheTarget value)
+    {
+        switch (value)
+        {
+            case CacheTarget.Filters variant_value:
+                return 4;
+            case CacheTarget.Index variant_value:
+                return 4;
+            case CacheTarget.Stats variant_value:
+                return 4;
+            case CacheTarget.Data variant_value:
+                return 4 + FfiConverterTypeKeyRange.INSTANCE.AllocationSize(variant_value.Range);
+            default:
+                throw new InternalException(
+                    String.Format(
+                        "invalid enum value '{0}' in FfiConverterTypeCacheTarget.AllocationSize()",
+                        value
+                    )
+                );
+        }
+    }
+
+    public override void Write(CacheTarget value, BigEndianStream stream)
+    {
+        switch (value)
+        {
+            case CacheTarget.Filters variant_value:
+                stream.WriteInt(1);
+                break;
+            case CacheTarget.Index variant_value:
+                stream.WriteInt(2);
+                break;
+            case CacheTarget.Stats variant_value:
+                stream.WriteInt(3);
+                break;
+            case CacheTarget.Data variant_value:
+                stream.WriteInt(4);
+                FfiConverterTypeKeyRange.INSTANCE.Write(variant_value.Range, stream);
+                break;
+            default:
+                throw new InternalException(
+                    String.Format(
+                        "invalid enum value '{0}' in FfiConverterTypeCacheTarget.Write()",
+                        value
+                    )
+                );
+        }
+    }
+}
+
+/// <summary>
 /// Reason a database or reader reports itself as closed.
 /// </summary>
 internal enum CloseReason : int
@@ -16198,6 +19418,148 @@ class FfiConverterTypeCloseReason : FfiConverterRustBuffer<CloseReason>
                 throw new InternalException(
                     String.Format(
                         "invalid enum value '{0}' in FfiConverterTypeCloseReason.Write()",
+                        value
+                    )
+                );
+        }
+    }
+}
+
+/// <summary>
+/// Compaction lifecycle state.
+/// </summary>
+internal enum CompactionStatus : int
+{
+    Submitted,
+    Running,
+    Completed,
+    Failed,
+}
+
+class FfiConverterTypeCompactionStatus : FfiConverterRustBuffer<CompactionStatus>
+{
+    public static FfiConverterTypeCompactionStatus INSTANCE =
+        new FfiConverterTypeCompactionStatus();
+
+    public override CompactionStatus Read(BigEndianStream stream)
+    {
+        var value = stream.ReadInt();
+        switch (value)
+        {
+            case 1:
+                return CompactionStatus.Submitted;
+            case 2:
+                return CompactionStatus.Running;
+            case 3:
+                return CompactionStatus.Completed;
+            case 4:
+                return CompactionStatus.Failed;
+            default:
+                throw new InternalException(
+                    String.Format(
+                        "invalid enum value '{0}' in FfiConverterTypeCompactionStatus.Read()",
+                        value
+                    )
+                );
+        }
+    }
+
+    public override int AllocationSize(CompactionStatus value)
+    {
+        return 4;
+    }
+
+    public override void Write(CompactionStatus value, BigEndianStream stream)
+    {
+        switch (value)
+        {
+            case CompactionStatus.Submitted:
+                stream.WriteInt(1);
+                break;
+            case CompactionStatus.Running:
+                stream.WriteInt(2);
+                break;
+            case CompactionStatus.Completed:
+                stream.WriteInt(3);
+                break;
+            case CompactionStatus.Failed:
+                stream.WriteInt(4);
+                break;
+            default:
+                throw new InternalException(
+                    String.Format(
+                        "invalid enum value '{0}' in FfiConverterTypeCompactionStatus.Write()",
+                        value
+                    )
+                );
+        }
+    }
+}
+
+/// <summary>
+/// Compression codec used for an SSTable.
+/// </summary>
+internal enum CompressionCodec : int
+{
+    Snappy,
+    Zlib,
+    Lz4,
+    Zstd,
+}
+
+class FfiConverterTypeCompressionCodec : FfiConverterRustBuffer<CompressionCodec>
+{
+    public static FfiConverterTypeCompressionCodec INSTANCE =
+        new FfiConverterTypeCompressionCodec();
+
+    public override CompressionCodec Read(BigEndianStream stream)
+    {
+        var value = stream.ReadInt();
+        switch (value)
+        {
+            case 1:
+                return CompressionCodec.Snappy;
+            case 2:
+                return CompressionCodec.Zlib;
+            case 3:
+                return CompressionCodec.Lz4;
+            case 4:
+                return CompressionCodec.Zstd;
+            default:
+                throw new InternalException(
+                    String.Format(
+                        "invalid enum value '{0}' in FfiConverterTypeCompressionCodec.Read()",
+                        value
+                    )
+                );
+        }
+    }
+
+    public override int AllocationSize(CompressionCodec value)
+    {
+        return 4;
+    }
+
+    public override void Write(CompressionCodec value, BigEndianStream stream)
+    {
+        switch (value)
+        {
+            case CompressionCodec.Snappy:
+                stream.WriteInt(1);
+                break;
+            case CompressionCodec.Zlib:
+                stream.WriteInt(2);
+                break;
+            case CompressionCodec.Lz4:
+                stream.WriteInt(3);
+                break;
+            case CompressionCodec.Zstd:
+                stream.WriteInt(4);
+                break;
+            default:
+                throw new InternalException(
+                    String.Format(
+                        "invalid enum value '{0}' in FfiConverterTypeCompressionCodec.Write()",
                         value
                     )
                 );
@@ -16483,6 +19845,64 @@ class FfiConverterTypeError : FfiConverterRustBuffer<Exception>, CallStatusError
                 throw new InternalException(
                     String.Format(
                         "invalid error value '{0}' in FfiConverterTypeError.Write()",
+                        value
+                    )
+                );
+        }
+    }
+}
+
+/// <summary>
+/// Filter block format stored in SST metadata.
+/// </summary>
+internal enum FilterFormat : int
+{
+    Legacy,
+    Composite,
+}
+
+class FfiConverterTypeFilterFormat : FfiConverterRustBuffer<FilterFormat>
+{
+    public static FfiConverterTypeFilterFormat INSTANCE = new FfiConverterTypeFilterFormat();
+
+    public override FilterFormat Read(BigEndianStream stream)
+    {
+        var value = stream.ReadInt();
+        switch (value)
+        {
+            case 1:
+                return FilterFormat.Legacy;
+            case 2:
+                return FilterFormat.Composite;
+            default:
+                throw new InternalException(
+                    String.Format(
+                        "invalid enum value '{0}' in FfiConverterTypeFilterFormat.Read()",
+                        value
+                    )
+                );
+        }
+    }
+
+    public override int AllocationSize(FilterFormat value)
+    {
+        return 4;
+    }
+
+    public override void Write(FilterFormat value, BigEndianStream stream)
+    {
+        switch (value)
+        {
+            case FilterFormat.Legacy:
+                stream.WriteInt(1);
+                break;
+            case FilterFormat.Composite:
+                stream.WriteInt(2);
+                break;
+            default:
+                throw new InternalException(
+                    String.Format(
+                        "invalid enum value '{0}' in FfiConverterTypeFilterFormat.Write()",
                         value
                     )
                 );
@@ -17156,6 +20576,166 @@ class FfiConverterTypeRowEntryKind : FfiConverterRustBuffer<RowEntryKind>
 }
 
 /// <summary>
+/// Compaction input source identifier.
+/// </summary>
+internal record SourceId
+{
+    /// <summary>
+    /// Existing sorted run ID.
+    /// </summary>
+    public record SortedRun(uint V1) : SourceId { }
+
+    /// <summary>
+    /// L0 SST view ULID string.
+    /// </summary>
+    public record SstView(string V1) : SourceId { }
+}
+
+class FfiConverterTypeSourceId : FfiConverterRustBuffer<SourceId>
+{
+    public static FfiConverterRustBuffer<SourceId> INSTANCE = new FfiConverterTypeSourceId();
+
+    public override SourceId Read(BigEndianStream stream)
+    {
+        var value = stream.ReadInt();
+        switch (value)
+        {
+            case 1:
+                return new SourceId.SortedRun(FfiConverterUInt32.INSTANCE.Read(stream));
+            case 2:
+                return new SourceId.SstView(FfiConverterString.INSTANCE.Read(stream));
+            default:
+                throw new InternalException(
+                    String.Format(
+                        "invalid enum value '{0}' in FfiConverterTypeSourceId.Read()",
+                        value
+                    )
+                );
+        }
+    }
+
+    public override int AllocationSize(SourceId value)
+    {
+        switch (value)
+        {
+            case SourceId.SortedRun variant_value:
+                return 4 + FfiConverterUInt32.INSTANCE.AllocationSize(variant_value.V1);
+            case SourceId.SstView variant_value:
+                return 4 + FfiConverterString.INSTANCE.AllocationSize(variant_value.V1);
+            default:
+                throw new InternalException(
+                    String.Format(
+                        "invalid enum value '{0}' in FfiConverterTypeSourceId.AllocationSize()",
+                        value
+                    )
+                );
+        }
+    }
+
+    public override void Write(SourceId value, BigEndianStream stream)
+    {
+        switch (value)
+        {
+            case SourceId.SortedRun variant_value:
+                stream.WriteInt(1);
+                FfiConverterUInt32.INSTANCE.Write(variant_value.V1, stream);
+                break;
+            case SourceId.SstView variant_value:
+                stream.WriteInt(2);
+                FfiConverterString.INSTANCE.Write(variant_value.V1, stream);
+                break;
+            default:
+                throw new InternalException(
+                    String.Format(
+                        "invalid enum value '{0}' in FfiConverterTypeSourceId.Write()",
+                        value
+                    )
+                );
+        }
+    }
+}
+
+/// <summary>
+/// SSTable identifier.
+/// </summary>
+internal record SsTableId
+{
+    /// <summary>
+    /// WAL SST identified by numeric WAL ID.
+    /// </summary>
+    public record Wal(ulong V1) : SsTableId { }
+
+    /// <summary>
+    /// Compacted SST identified by ULID string.
+    /// </summary>
+    public record Compacted(string V1) : SsTableId { }
+}
+
+class FfiConverterTypeSsTableId : FfiConverterRustBuffer<SsTableId>
+{
+    public static FfiConverterRustBuffer<SsTableId> INSTANCE = new FfiConverterTypeSsTableId();
+
+    public override SsTableId Read(BigEndianStream stream)
+    {
+        var value = stream.ReadInt();
+        switch (value)
+        {
+            case 1:
+                return new SsTableId.Wal(FfiConverterUInt64.INSTANCE.Read(stream));
+            case 2:
+                return new SsTableId.Compacted(FfiConverterString.INSTANCE.Read(stream));
+            default:
+                throw new InternalException(
+                    String.Format(
+                        "invalid enum value '{0}' in FfiConverterTypeSsTableId.Read()",
+                        value
+                    )
+                );
+        }
+    }
+
+    public override int AllocationSize(SsTableId value)
+    {
+        switch (value)
+        {
+            case SsTableId.Wal variant_value:
+                return 4 + FfiConverterUInt64.INSTANCE.AllocationSize(variant_value.V1);
+            case SsTableId.Compacted variant_value:
+                return 4 + FfiConverterString.INSTANCE.AllocationSize(variant_value.V1);
+            default:
+                throw new InternalException(
+                    String.Format(
+                        "invalid enum value '{0}' in FfiConverterTypeSsTableId.AllocationSize()",
+                        value
+                    )
+                );
+        }
+    }
+
+    public override void Write(SsTableId value, BigEndianStream stream)
+    {
+        switch (value)
+        {
+            case SsTableId.Wal variant_value:
+                stream.WriteInt(1);
+                FfiConverterUInt64.INSTANCE.Write(variant_value.V1, stream);
+                break;
+            case SsTableId.Compacted variant_value:
+                stream.WriteInt(2);
+                FfiConverterString.INSTANCE.Write(variant_value.V1, stream);
+                break;
+            default:
+                throw new InternalException(
+                    String.Format(
+                        "invalid enum value '{0}' in FfiConverterTypeSsTableId.Write()",
+                        value
+                    )
+                );
+        }
+    }
+}
+
+/// <summary>
 /// Block size used for newly written SSTable blocks.
 /// </summary>
 internal enum SstBlockSize : int
@@ -17263,6 +20843,64 @@ class FfiConverterTypeSstBlockSize : FfiConverterRustBuffer<SstBlockSize>
                 throw new InternalException(
                     String.Format(
                         "invalid enum value '{0}' in FfiConverterTypeSstBlockSize.Write()",
+                        value
+                    )
+                );
+        }
+    }
+}
+
+/// <summary>
+/// Physical SSTable type.
+/// </summary>
+internal enum SstType : int
+{
+    Compacted,
+    Wal,
+}
+
+class FfiConverterTypeSstType : FfiConverterRustBuffer<SstType>
+{
+    public static FfiConverterTypeSstType INSTANCE = new FfiConverterTypeSstType();
+
+    public override SstType Read(BigEndianStream stream)
+    {
+        var value = stream.ReadInt();
+        switch (value)
+        {
+            case 1:
+                return SstType.Compacted;
+            case 2:
+                return SstType.Wal;
+            default:
+                throw new InternalException(
+                    String.Format(
+                        "invalid enum value '{0}' in FfiConverterTypeSstType.Read()",
+                        value
+                    )
+                );
+        }
+    }
+
+    public override int AllocationSize(SstType value)
+    {
+        return 4;
+    }
+
+    public override void Write(SstType value, BigEndianStream stream)
+    {
+        switch (value)
+        {
+            case SstType.Compacted:
+                stream.WriteInt(1);
+                break;
+            case SstType.Wal:
+                stream.WriteInt(2);
+                break;
+            default:
+                throw new InternalException(
+                    String.Format(
+                        "invalid enum value '{0}' in FfiConverterTypeSstType.Write()",
                         value
                     )
                 );
@@ -17603,6 +21241,86 @@ class FfiConverterOptionalTypeLogCallback : FfiConverterRustBuffer<LogCallback?>
     }
 }
 
+class FfiConverterOptionalTypeCompaction : FfiConverterRustBuffer<Compaction?>
+{
+    public static FfiConverterOptionalTypeCompaction INSTANCE =
+        new FfiConverterOptionalTypeCompaction();
+
+    public override Compaction? Read(BigEndianStream stream)
+    {
+        if (stream.ReadByte() == 0)
+        {
+            return null;
+        }
+        return FfiConverterTypeCompaction.INSTANCE.Read(stream);
+    }
+
+    public override int AllocationSize(Compaction? value)
+    {
+        if (value == null)
+        {
+            return 1;
+        }
+        else
+        {
+            return 1 + FfiConverterTypeCompaction.INSTANCE.AllocationSize((Compaction)value);
+        }
+    }
+
+    public override void Write(Compaction? value, BigEndianStream stream)
+    {
+        if (value == null)
+        {
+            stream.WriteByte(0);
+        }
+        else
+        {
+            stream.WriteByte(1);
+            FfiConverterTypeCompaction.INSTANCE.Write((Compaction)value, stream);
+        }
+    }
+}
+
+class FfiConverterOptionalTypeKeyRange : FfiConverterRustBuffer<KeyRange?>
+{
+    public static FfiConverterOptionalTypeKeyRange INSTANCE =
+        new FfiConverterOptionalTypeKeyRange();
+
+    public override KeyRange? Read(BigEndianStream stream)
+    {
+        if (stream.ReadByte() == 0)
+        {
+            return null;
+        }
+        return FfiConverterTypeKeyRange.INSTANCE.Read(stream);
+    }
+
+    public override int AllocationSize(KeyRange? value)
+    {
+        if (value == null)
+        {
+            return 1;
+        }
+        else
+        {
+            return 1 + FfiConverterTypeKeyRange.INSTANCE.AllocationSize((KeyRange)value);
+        }
+    }
+
+    public override void Write(KeyRange? value, BigEndianStream stream)
+    {
+        if (value == null)
+        {
+            stream.WriteByte(0);
+        }
+        else
+        {
+            stream.WriteByte(1);
+            FfiConverterTypeKeyRange.INSTANCE.Write((KeyRange)value, stream);
+        }
+    }
+}
+
 class FfiConverterOptionalTypeKeyValue : FfiConverterRustBuffer<KeyValue?>
 {
     public static FfiConverterOptionalTypeKeyValue INSTANCE =
@@ -17722,6 +21440,95 @@ class FfiConverterOptionalTypeRowEntry : FfiConverterRustBuffer<RowEntry?>
     }
 }
 
+class FfiConverterOptionalTypeVersionedCompactions : FfiConverterRustBuffer<VersionedCompactions?>
+{
+    public static FfiConverterOptionalTypeVersionedCompactions INSTANCE =
+        new FfiConverterOptionalTypeVersionedCompactions();
+
+    public override VersionedCompactions? Read(BigEndianStream stream)
+    {
+        if (stream.ReadByte() == 0)
+        {
+            return null;
+        }
+        return FfiConverterTypeVersionedCompactions.INSTANCE.Read(stream);
+    }
+
+    public override int AllocationSize(VersionedCompactions? value)
+    {
+        if (value == null)
+        {
+            return 1;
+        }
+        else
+        {
+            return 1
+                + FfiConverterTypeVersionedCompactions.INSTANCE.AllocationSize(
+                    (VersionedCompactions)value
+                );
+        }
+    }
+
+    public override void Write(VersionedCompactions? value, BigEndianStream stream)
+    {
+        if (value == null)
+        {
+            stream.WriteByte(0);
+        }
+        else
+        {
+            stream.WriteByte(1);
+            FfiConverterTypeVersionedCompactions.INSTANCE.Write(
+                (VersionedCompactions)value,
+                stream
+            );
+        }
+    }
+}
+
+class FfiConverterOptionalTypeVersionedManifest : FfiConverterRustBuffer<VersionedManifest?>
+{
+    public static FfiConverterOptionalTypeVersionedManifest INSTANCE =
+        new FfiConverterOptionalTypeVersionedManifest();
+
+    public override VersionedManifest? Read(BigEndianStream stream)
+    {
+        if (stream.ReadByte() == 0)
+        {
+            return null;
+        }
+        return FfiConverterTypeVersionedManifest.INSTANCE.Read(stream);
+    }
+
+    public override int AllocationSize(VersionedManifest? value)
+    {
+        if (value == null)
+        {
+            return 1;
+        }
+        else
+        {
+            return 1
+                + FfiConverterTypeVersionedManifest.INSTANCE.AllocationSize(
+                    (VersionedManifest)value
+                );
+        }
+    }
+
+    public override void Write(VersionedManifest? value, BigEndianStream stream)
+    {
+        if (value == null)
+        {
+            stream.WriteByte(0);
+        }
+        else
+        {
+            stream.WriteByte(1);
+            FfiConverterTypeVersionedManifest.INSTANCE.Write((VersionedManifest)value, stream);
+        }
+    }
+}
+
 class FfiConverterOptionalTypeWriteHandle : FfiConverterRustBuffer<WriteHandle?>
 {
     public static FfiConverterOptionalTypeWriteHandle INSTANCE =
@@ -17798,6 +21605,47 @@ class FfiConverterOptionalTypeCloseReason : FfiConverterRustBuffer<CloseReason?>
         {
             stream.WriteByte(1);
             FfiConverterTypeCloseReason.INSTANCE.Write((CloseReason)value, stream);
+        }
+    }
+}
+
+class FfiConverterOptionalTypeCompressionCodec : FfiConverterRustBuffer<CompressionCodec?>
+{
+    public static FfiConverterOptionalTypeCompressionCodec INSTANCE =
+        new FfiConverterOptionalTypeCompressionCodec();
+
+    public override CompressionCodec? Read(BigEndianStream stream)
+    {
+        if (stream.ReadByte() == 0)
+        {
+            return null;
+        }
+        return FfiConverterTypeCompressionCodec.INSTANCE.Read(stream);
+    }
+
+    public override int AllocationSize(CompressionCodec? value)
+    {
+        if (value == null)
+        {
+            return 1;
+        }
+        else
+        {
+            return 1
+                + FfiConverterTypeCompressionCodec.INSTANCE.AllocationSize((CompressionCodec)value);
+        }
+    }
+
+    public override void Write(CompressionCodec? value, BigEndianStream stream)
+    {
+        if (value == null)
+        {
+            stream.WriteByte(0);
+        }
+        else
+        {
+            stream.WriteByte(1);
+            FfiConverterTypeCompressionCodec.INSTANCE.Write((CompressionCodec)value, stream);
         }
     }
 }
@@ -18006,6 +21854,162 @@ class FfiConverterSequenceTypeWalFile : FfiConverterRustBuffer<WalFile[]>
     }
 }
 
+class FfiConverterSequenceTypeCheckpoint : FfiConverterRustBuffer<Checkpoint[]>
+{
+    public static FfiConverterSequenceTypeCheckpoint INSTANCE =
+        new FfiConverterSequenceTypeCheckpoint();
+
+    public override Checkpoint[] Read(BigEndianStream stream)
+    {
+        var length = stream.ReadInt();
+        if (length == 0)
+        {
+            return [];
+        }
+
+        var result = new Checkpoint[length];
+        var readFn = FfiConverterTypeCheckpoint.INSTANCE.Read;
+        for (int i = 0; i < length; i++)
+        {
+            result[i] = readFn(stream);
+        }
+        return result;
+    }
+
+    public override int AllocationSize(Checkpoint[] value)
+    {
+        var sizeForLength = 4;
+
+        // details/1-empty-list-as-default-method-parameter.md
+        if (value == null)
+        {
+            return sizeForLength;
+        }
+
+        var allocationSizeFn = FfiConverterTypeCheckpoint.INSTANCE.AllocationSize;
+        var sizeForItems = value.Sum(item => allocationSizeFn(item));
+        return sizeForLength + sizeForItems;
+    }
+
+    public override void Write(Checkpoint[] value, BigEndianStream stream)
+    {
+        // details/1-empty-list-as-default-method-parameter.md
+        if (value == null)
+        {
+            stream.WriteInt(0);
+            return;
+        }
+
+        stream.WriteInt(value.Length);
+        var writerFn = FfiConverterTypeCheckpoint.INSTANCE.Write;
+        value.ForEach(item => writerFn(item, stream));
+    }
+}
+
+class FfiConverterSequenceTypeCompaction : FfiConverterRustBuffer<Compaction[]>
+{
+    public static FfiConverterSequenceTypeCompaction INSTANCE =
+        new FfiConverterSequenceTypeCompaction();
+
+    public override Compaction[] Read(BigEndianStream stream)
+    {
+        var length = stream.ReadInt();
+        if (length == 0)
+        {
+            return [];
+        }
+
+        var result = new Compaction[length];
+        var readFn = FfiConverterTypeCompaction.INSTANCE.Read;
+        for (int i = 0; i < length; i++)
+        {
+            result[i] = readFn(stream);
+        }
+        return result;
+    }
+
+    public override int AllocationSize(Compaction[] value)
+    {
+        var sizeForLength = 4;
+
+        // details/1-empty-list-as-default-method-parameter.md
+        if (value == null)
+        {
+            return sizeForLength;
+        }
+
+        var allocationSizeFn = FfiConverterTypeCompaction.INSTANCE.AllocationSize;
+        var sizeForItems = value.Sum(item => allocationSizeFn(item));
+        return sizeForLength + sizeForItems;
+    }
+
+    public override void Write(Compaction[] value, BigEndianStream stream)
+    {
+        // details/1-empty-list-as-default-method-parameter.md
+        if (value == null)
+        {
+            stream.WriteInt(0);
+            return;
+        }
+
+        stream.WriteInt(value.Length);
+        var writerFn = FfiConverterTypeCompaction.INSTANCE.Write;
+        value.ForEach(item => writerFn(item, stream));
+    }
+}
+
+class FfiConverterSequenceTypeExternalDb : FfiConverterRustBuffer<ExternalDb[]>
+{
+    public static FfiConverterSequenceTypeExternalDb INSTANCE =
+        new FfiConverterSequenceTypeExternalDb();
+
+    public override ExternalDb[] Read(BigEndianStream stream)
+    {
+        var length = stream.ReadInt();
+        if (length == 0)
+        {
+            return [];
+        }
+
+        var result = new ExternalDb[length];
+        var readFn = FfiConverterTypeExternalDb.INSTANCE.Read;
+        for (int i = 0; i < length; i++)
+        {
+            result[i] = readFn(stream);
+        }
+        return result;
+    }
+
+    public override int AllocationSize(ExternalDb[] value)
+    {
+        var sizeForLength = 4;
+
+        // details/1-empty-list-as-default-method-parameter.md
+        if (value == null)
+        {
+            return sizeForLength;
+        }
+
+        var allocationSizeFn = FfiConverterTypeExternalDb.INSTANCE.AllocationSize;
+        var sizeForItems = value.Sum(item => allocationSizeFn(item));
+        return sizeForLength + sizeForItems;
+    }
+
+    public override void Write(ExternalDb[] value, BigEndianStream stream)
+    {
+        // details/1-empty-list-as-default-method-parameter.md
+        if (value == null)
+        {
+            stream.WriteInt(0);
+            return;
+        }
+
+        stream.WriteInt(value.Length);
+        var writerFn = FfiConverterTypeExternalDb.INSTANCE.Write;
+        value.ForEach(item => writerFn(item, stream));
+    }
+}
+
 class FfiConverterSequenceTypeMetric : FfiConverterRustBuffer<Metric[]>
 {
     public static FfiConverterSequenceTypeMetric INSTANCE = new FfiConverterSequenceTypeMetric();
@@ -18105,6 +22109,422 @@ class FfiConverterSequenceTypeMetricLabel : FfiConverterRustBuffer<MetricLabel[]
 
         stream.WriteInt(value.Length);
         var writerFn = FfiConverterTypeMetricLabel.INSTANCE.Write;
+        value.ForEach(item => writerFn(item, stream));
+    }
+}
+
+class FfiConverterSequenceTypeSortedRun : FfiConverterRustBuffer<SortedRun[]>
+{
+    public static FfiConverterSequenceTypeSortedRun INSTANCE =
+        new FfiConverterSequenceTypeSortedRun();
+
+    public override SortedRun[] Read(BigEndianStream stream)
+    {
+        var length = stream.ReadInt();
+        if (length == 0)
+        {
+            return [];
+        }
+
+        var result = new SortedRun[length];
+        var readFn = FfiConverterTypeSortedRun.INSTANCE.Read;
+        for (int i = 0; i < length; i++)
+        {
+            result[i] = readFn(stream);
+        }
+        return result;
+    }
+
+    public override int AllocationSize(SortedRun[] value)
+    {
+        var sizeForLength = 4;
+
+        // details/1-empty-list-as-default-method-parameter.md
+        if (value == null)
+        {
+            return sizeForLength;
+        }
+
+        var allocationSizeFn = FfiConverterTypeSortedRun.INSTANCE.AllocationSize;
+        var sizeForItems = value.Sum(item => allocationSizeFn(item));
+        return sizeForLength + sizeForItems;
+    }
+
+    public override void Write(SortedRun[] value, BigEndianStream stream)
+    {
+        // details/1-empty-list-as-default-method-parameter.md
+        if (value == null)
+        {
+            stream.WriteInt(0);
+            return;
+        }
+
+        stream.WriteInt(value.Length);
+        var writerFn = FfiConverterTypeSortedRun.INSTANCE.Write;
+        value.ForEach(item => writerFn(item, stream));
+    }
+}
+
+class FfiConverterSequenceTypeSsTableHandle : FfiConverterRustBuffer<SsTableHandle[]>
+{
+    public static FfiConverterSequenceTypeSsTableHandle INSTANCE =
+        new FfiConverterSequenceTypeSsTableHandle();
+
+    public override SsTableHandle[] Read(BigEndianStream stream)
+    {
+        var length = stream.ReadInt();
+        if (length == 0)
+        {
+            return [];
+        }
+
+        var result = new SsTableHandle[length];
+        var readFn = FfiConverterTypeSsTableHandle.INSTANCE.Read;
+        for (int i = 0; i < length; i++)
+        {
+            result[i] = readFn(stream);
+        }
+        return result;
+    }
+
+    public override int AllocationSize(SsTableHandle[] value)
+    {
+        var sizeForLength = 4;
+
+        // details/1-empty-list-as-default-method-parameter.md
+        if (value == null)
+        {
+            return sizeForLength;
+        }
+
+        var allocationSizeFn = FfiConverterTypeSsTableHandle.INSTANCE.AllocationSize;
+        var sizeForItems = value.Sum(item => allocationSizeFn(item));
+        return sizeForLength + sizeForItems;
+    }
+
+    public override void Write(SsTableHandle[] value, BigEndianStream stream)
+    {
+        // details/1-empty-list-as-default-method-parameter.md
+        if (value == null)
+        {
+            stream.WriteInt(0);
+            return;
+        }
+
+        stream.WriteInt(value.Length);
+        var writerFn = FfiConverterTypeSsTableHandle.INSTANCE.Write;
+        value.ForEach(item => writerFn(item, stream));
+    }
+}
+
+class FfiConverterSequenceTypeSsTableView : FfiConverterRustBuffer<SsTableView[]>
+{
+    public static FfiConverterSequenceTypeSsTableView INSTANCE =
+        new FfiConverterSequenceTypeSsTableView();
+
+    public override SsTableView[] Read(BigEndianStream stream)
+    {
+        var length = stream.ReadInt();
+        if (length == 0)
+        {
+            return [];
+        }
+
+        var result = new SsTableView[length];
+        var readFn = FfiConverterTypeSsTableView.INSTANCE.Read;
+        for (int i = 0; i < length; i++)
+        {
+            result[i] = readFn(stream);
+        }
+        return result;
+    }
+
+    public override int AllocationSize(SsTableView[] value)
+    {
+        var sizeForLength = 4;
+
+        // details/1-empty-list-as-default-method-parameter.md
+        if (value == null)
+        {
+            return sizeForLength;
+        }
+
+        var allocationSizeFn = FfiConverterTypeSsTableView.INSTANCE.AllocationSize;
+        var sizeForItems = value.Sum(item => allocationSizeFn(item));
+        return sizeForLength + sizeForItems;
+    }
+
+    public override void Write(SsTableView[] value, BigEndianStream stream)
+    {
+        // details/1-empty-list-as-default-method-parameter.md
+        if (value == null)
+        {
+            stream.WriteInt(0);
+            return;
+        }
+
+        stream.WriteInt(value.Length);
+        var writerFn = FfiConverterTypeSsTableView.INSTANCE.Write;
+        value.ForEach(item => writerFn(item, stream));
+    }
+}
+
+class FfiConverterSequenceTypeVersionedCompactions : FfiConverterRustBuffer<VersionedCompactions[]>
+{
+    public static FfiConverterSequenceTypeVersionedCompactions INSTANCE =
+        new FfiConverterSequenceTypeVersionedCompactions();
+
+    public override VersionedCompactions[] Read(BigEndianStream stream)
+    {
+        var length = stream.ReadInt();
+        if (length == 0)
+        {
+            return [];
+        }
+
+        var result = new VersionedCompactions[length];
+        var readFn = FfiConverterTypeVersionedCompactions.INSTANCE.Read;
+        for (int i = 0; i < length; i++)
+        {
+            result[i] = readFn(stream);
+        }
+        return result;
+    }
+
+    public override int AllocationSize(VersionedCompactions[] value)
+    {
+        var sizeForLength = 4;
+
+        // details/1-empty-list-as-default-method-parameter.md
+        if (value == null)
+        {
+            return sizeForLength;
+        }
+
+        var allocationSizeFn = FfiConverterTypeVersionedCompactions.INSTANCE.AllocationSize;
+        var sizeForItems = value.Sum(item => allocationSizeFn(item));
+        return sizeForLength + sizeForItems;
+    }
+
+    public override void Write(VersionedCompactions[] value, BigEndianStream stream)
+    {
+        // details/1-empty-list-as-default-method-parameter.md
+        if (value == null)
+        {
+            stream.WriteInt(0);
+            return;
+        }
+
+        stream.WriteInt(value.Length);
+        var writerFn = FfiConverterTypeVersionedCompactions.INSTANCE.Write;
+        value.ForEach(item => writerFn(item, stream));
+    }
+}
+
+class FfiConverterSequenceTypeVersionedManifest : FfiConverterRustBuffer<VersionedManifest[]>
+{
+    public static FfiConverterSequenceTypeVersionedManifest INSTANCE =
+        new FfiConverterSequenceTypeVersionedManifest();
+
+    public override VersionedManifest[] Read(BigEndianStream stream)
+    {
+        var length = stream.ReadInt();
+        if (length == 0)
+        {
+            return [];
+        }
+
+        var result = new VersionedManifest[length];
+        var readFn = FfiConverterTypeVersionedManifest.INSTANCE.Read;
+        for (int i = 0; i < length; i++)
+        {
+            result[i] = readFn(stream);
+        }
+        return result;
+    }
+
+    public override int AllocationSize(VersionedManifest[] value)
+    {
+        var sizeForLength = 4;
+
+        // details/1-empty-list-as-default-method-parameter.md
+        if (value == null)
+        {
+            return sizeForLength;
+        }
+
+        var allocationSizeFn = FfiConverterTypeVersionedManifest.INSTANCE.AllocationSize;
+        var sizeForItems = value.Sum(item => allocationSizeFn(item));
+        return sizeForLength + sizeForItems;
+    }
+
+    public override void Write(VersionedManifest[] value, BigEndianStream stream)
+    {
+        // details/1-empty-list-as-default-method-parameter.md
+        if (value == null)
+        {
+            stream.WriteInt(0);
+            return;
+        }
+
+        stream.WriteInt(value.Length);
+        var writerFn = FfiConverterTypeVersionedManifest.INSTANCE.Write;
+        value.ForEach(item => writerFn(item, stream));
+    }
+}
+
+class FfiConverterSequenceTypeCacheTarget : FfiConverterRustBuffer<CacheTarget[]>
+{
+    public static FfiConverterSequenceTypeCacheTarget INSTANCE =
+        new FfiConverterSequenceTypeCacheTarget();
+
+    public override CacheTarget[] Read(BigEndianStream stream)
+    {
+        var length = stream.ReadInt();
+        if (length == 0)
+        {
+            return [];
+        }
+
+        var result = new CacheTarget[length];
+        var readFn = FfiConverterTypeCacheTarget.INSTANCE.Read;
+        for (int i = 0; i < length; i++)
+        {
+            result[i] = readFn(stream);
+        }
+        return result;
+    }
+
+    public override int AllocationSize(CacheTarget[] value)
+    {
+        var sizeForLength = 4;
+
+        // details/1-empty-list-as-default-method-parameter.md
+        if (value == null)
+        {
+            return sizeForLength;
+        }
+
+        var allocationSizeFn = FfiConverterTypeCacheTarget.INSTANCE.AllocationSize;
+        var sizeForItems = value.Sum(item => allocationSizeFn(item));
+        return sizeForLength + sizeForItems;
+    }
+
+    public override void Write(CacheTarget[] value, BigEndianStream stream)
+    {
+        // details/1-empty-list-as-default-method-parameter.md
+        if (value == null)
+        {
+            stream.WriteInt(0);
+            return;
+        }
+
+        stream.WriteInt(value.Length);
+        var writerFn = FfiConverterTypeCacheTarget.INSTANCE.Write;
+        value.ForEach(item => writerFn(item, stream));
+    }
+}
+
+class FfiConverterSequenceTypeSourceId : FfiConverterRustBuffer<SourceId[]>
+{
+    public static FfiConverterSequenceTypeSourceId INSTANCE =
+        new FfiConverterSequenceTypeSourceId();
+
+    public override SourceId[] Read(BigEndianStream stream)
+    {
+        var length = stream.ReadInt();
+        if (length == 0)
+        {
+            return [];
+        }
+
+        var result = new SourceId[length];
+        var readFn = FfiConverterTypeSourceId.INSTANCE.Read;
+        for (int i = 0; i < length; i++)
+        {
+            result[i] = readFn(stream);
+        }
+        return result;
+    }
+
+    public override int AllocationSize(SourceId[] value)
+    {
+        var sizeForLength = 4;
+
+        // details/1-empty-list-as-default-method-parameter.md
+        if (value == null)
+        {
+            return sizeForLength;
+        }
+
+        var allocationSizeFn = FfiConverterTypeSourceId.INSTANCE.AllocationSize;
+        var sizeForItems = value.Sum(item => allocationSizeFn(item));
+        return sizeForLength + sizeForItems;
+    }
+
+    public override void Write(SourceId[] value, BigEndianStream stream)
+    {
+        // details/1-empty-list-as-default-method-parameter.md
+        if (value == null)
+        {
+            stream.WriteInt(0);
+            return;
+        }
+
+        stream.WriteInt(value.Length);
+        var writerFn = FfiConverterTypeSourceId.INSTANCE.Write;
+        value.ForEach(item => writerFn(item, stream));
+    }
+}
+
+class FfiConverterSequenceTypeSsTableId : FfiConverterRustBuffer<SsTableId[]>
+{
+    public static FfiConverterSequenceTypeSsTableId INSTANCE =
+        new FfiConverterSequenceTypeSsTableId();
+
+    public override SsTableId[] Read(BigEndianStream stream)
+    {
+        var length = stream.ReadInt();
+        if (length == 0)
+        {
+            return [];
+        }
+
+        var result = new SsTableId[length];
+        var readFn = FfiConverterTypeSsTableId.INSTANCE.Read;
+        for (int i = 0; i < length; i++)
+        {
+            result[i] = readFn(stream);
+        }
+        return result;
+    }
+
+    public override int AllocationSize(SsTableId[] value)
+    {
+        var sizeForLength = 4;
+
+        // details/1-empty-list-as-default-method-parameter.md
+        if (value == null)
+        {
+            return sizeForLength;
+        }
+
+        var allocationSizeFn = FfiConverterTypeSsTableId.INSTANCE.AllocationSize;
+        var sizeForItems = value.Sum(item => allocationSizeFn(item));
+        return sizeForLength + sizeForItems;
+    }
+
+    public override void Write(SsTableId[] value, BigEndianStream stream)
+    {
+        // details/1-empty-list-as-default-method-parameter.md
+        if (value == null)
+        {
+            stream.WriteInt(0);
+            return;
+        }
+
+        stream.WriteInt(value.Length);
+        var writerFn = FfiConverterTypeSsTableId.INSTANCE.Write;
         value.ForEach(item => writerFn(item, stream));
     }
 }

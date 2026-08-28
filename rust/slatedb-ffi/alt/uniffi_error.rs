@@ -13,6 +13,12 @@
 // reused as-is by uniffi_object_store.rs for provider build failures, so no
 // variant for that case is added here.
 
+    #[error("object store creation failed: {source}")]
+    ObjectStoreCreationError {
+        #[from]
+        source: Box<dyn StdError>,
+    },
+
     #[error("invalid {provider} object store config key: {key}")]
     InvalidObjectStoreConfigKey { provider: &'static str, key: String },
 

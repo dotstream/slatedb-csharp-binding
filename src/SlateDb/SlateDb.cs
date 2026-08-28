@@ -216,6 +216,11 @@ public sealed partial class SlateDb<K,V> : IDisposable, IAsyncDisposable
         if (options.SstBlockSize != null)
             builder.WithSstBlockSize(Interop.OptionsConverters.ToInterop(options.SstBlockSize.Value));
 
+        if (options.DisableDbCache)
+            builder.WithDbCacheDisabled();
+        else if (options.DbCache != null)
+            builder.WithDbCache(options.DbCache.Inner);
+
         mergeOperatorAdapter = null;
         if (options.MergeOperator != null)
         {
