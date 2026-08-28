@@ -31,6 +31,8 @@ public class SlateDbBuilder<K, V>
     private SstBlockSize? _sstBlockSize;
     private SlatedbMergeOperatorFn? _mergeOperator;
     private SlateDbFreeMergeResultFn? _freeMergeResultFn;
+    private SlateDbCache? _dbCache;
+    private bool _disableDbCache;
 
     internal SlateDbBuilder(string path)
     {
@@ -88,6 +90,22 @@ public class SlateDbBuilder<K, V>
         return this;
     }
 
+    /// <summary>Sets the DB cache used to store SST blocks and metadata blocks in memory.</summary>
+    public SlateDbBuilder<K, V> WithDbCache(SlateDbCache dbCache)
+    {
+        _dbCache = dbCache;
+        _disableDbCache = false;
+        return this;
+    }
+
+    /// <summary>Disables the SST block and metadata cache.</summary>
+    public SlateDbBuilder<K, V> WithDbCacheDisabled()
+    {
+        _dbCache = null;
+        _disableDbCache = true;
+        return this;
+    }
+
     /// <summary>Sets the converter used to serialize/deserialize keys.</summary>
     public SlateDbBuilder<K, V> WithKeyConverter(
         ISlateDbConverter<K> converter)
@@ -128,7 +146,7 @@ public class SlateDbBuilder<K, V>
         return new SlateDb<K, V>(
             Path,
             Configuration,
-            new SlateDbOptions<K, V>(_slateDbSettings,  _sstBlockSize, _mergeOperator, _freeMergeResultFn),
+            new SlateDbOptions<K, V>(_slateDbSettings,  _sstBlockSize, _mergeOperator, _freeMergeResultFn, _dbCache, _disableDbCache),
             KeyConverter,
             ValueConverter);
     }
@@ -145,7 +163,7 @@ public class SlateDbBuilder<K, V>
         return SlateDb<K, V>.CreateAsync(
             Path,
             Configuration,
-            new SlateDbOptions<K, V>(_slateDbSettings,  _sstBlockSize, _mergeOperator, _freeMergeResultFn),
+            new SlateDbOptions<K, V>(_slateDbSettings,  _sstBlockSize, _mergeOperator, _freeMergeResultFn, _dbCache, _disableDbCache),
             KeyConverter,
             ValueConverter);
     }

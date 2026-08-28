@@ -2,6 +2,10 @@
 
 CONFIG_TARGET_FILE="rust/slatedb-ffi/src/config.rs"
 CONFIG_TEMP_FILE="rust/slatedb-ffi/src/config.rs.tmp"
+OBJECT_TARGET_FILE="rust/slatedb-ffi/src/object_store.rs"
+OBJECT_TEMP_FILE="rust/slatedb-ffi/src/object_store.rs.tmp"
+ERROR_TARGET_FILE="rust/slatedb-ffi/src/error.rs"
+ERROR_TEMP_FILE="rust/slatedb-ffi/src/error.rs.tmp"
 LIBRARY_FILE="rust/slatedb-ffi/src/lib.rs"
 LIBRARY_TEMP_FILE="rust/slatedb-ffi/src/lib.rs.tmp"
 
@@ -133,3 +137,19 @@ if [[ -f "$ERROR_FRAGMENT_FILE" ]]; then
 else
     echo "⚠️ No file matching for $ERROR_FRAGMENT_FILE"
 fi
+
+# Safety check
+if [ ! -f "$OBJECT_TARGET_FILE" ]; then
+    echo "Error: $OBJECT_TARGET_FILE not found."
+    exit 1
+fi
+
+echo "use crate::error::SlateDbError;" | cat - "$OBJECT_TARGET_FILE" > "$OBJECT_TEMP_FILE" && mv "$OBJECT_TEMP_FILE" "$OBJECT_TARGET_FILE"
+
+# Safety check
+if [ ! -f "$ERROR_TARGET_FILE" ]; then
+    echo "Error: $ERROR_TARGET_FILE not found."
+    exit 1
+fi
+
+echo "use std::error::Error as StdError;" | cat - "$ERROR_TARGET_FILE" > "$ERROR_TEMP_FILE" && mv "$ERROR_TEMP_FILE" "$ERROR_TARGET_FILE"

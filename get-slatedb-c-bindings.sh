@@ -1,6 +1,6 @@
 #!/bin/bash
 
-version="0.12.1"
+version="0.13.0"
 
 rm -rf rust/slatedb-ffi/src/*.rs
 mkdir -p slatedb-bindings
