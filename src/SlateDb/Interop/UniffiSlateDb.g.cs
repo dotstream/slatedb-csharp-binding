@@ -843,6 +843,23 @@ static class _UniFFILib
     );
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void UniffiCallbackInterfacePrefixExtractorMethod0(
+        ulong @uniffiHandle,
+        IntPtr /*RustBuffer*/
+        @uniffiOutReturn,
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    public delegate void UniffiCallbackInterfacePrefixExtractorMethod1(
+        ulong @uniffiHandle,
+        RustBuffer @target,
+        IntPtr /*RustBuffer*/
+        @uniffiOutReturn,
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void UniffiCallbackInterfaceLogCallbackMethod0(
         ulong @uniffiHandle,
         RustBuffer @record,
@@ -939,6 +956,15 @@ static class _UniFFILib
     );
 
     [StructLayout(LayoutKind.Sequential)]
+    public struct UniffiVTableCallbackInterfacePrefixExtractor
+    {
+        public IntPtr @uniffiFree;
+        public IntPtr @uniffiClone;
+        public IntPtr @name;
+        public IntPtr @prefixLen;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
     public struct UniffiVTableCallbackInterfaceLogCallback
     {
         public IntPtr @uniffiFree;
@@ -1008,6 +1034,7 @@ static class _UniFFILib
         UniffiCallbackInterfaceLogCallback.Register();
         UniffiCallbackInterfaceMergeOperator.Register();
         UniffiCallbackInterfaceMetricsRecorder.Register();
+        UniffiCallbackInterfacePrefixExtractor.Register();
         UniffiCallbackInterfaceUpDownCounter.Register();
     }
 
@@ -1316,6 +1343,20 @@ static class _UniFFILib
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
+    void uniffi_slatedb_csharp_ffi_fn_method_dbbuilder_with_filter_policies(
+        ulong @ptr,
+        RustBuffer @policies,
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
     void uniffi_slatedb_csharp_ffi_fn_method_dbbuilder_with_merge_operator(
         ulong @ptr,
         ulong @mergeOperator,
@@ -1453,6 +1494,20 @@ static class _UniFFILib
     void uniffi_slatedb_csharp_ffi_fn_method_dbreaderbuilder_with_checkpoint_id(
         ulong @ptr,
         RustBuffer @checkpointId,
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    void uniffi_slatedb_csharp_ffi_fn_method_dbreaderbuilder_with_filter_policies(
+        ulong @ptr,
+        RustBuffer @policies,
         ref UniffiRustCallStatus _uniffi_out_err
     );
 
@@ -2471,6 +2526,138 @@ static class _UniFFILib
     ulong uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_unmark_write(
         ulong @ptr,
         RustBuffer @keys
+    );
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ulong uniffi_slatedb_csharp_ffi_fn_clone_filterpolicy(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    void uniffi_slatedb_csharp_ffi_fn_free_filterpolicy(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ulong uniffi_slatedb_csharp_ffi_fn_constructor_filterpolicy_bloom(
+        uint @bitsPerKey,
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ulong uniffi_slatedb_csharp_ffi_fn_constructor_filterpolicy_bloom_with_options(
+        RustBuffer @options,
+        RustBuffer @prefixExtractor,
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    RustBuffer uniffi_slatedb_csharp_ffi_fn_method_filterpolicy_name(
+        ulong @ptr,
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ulong uniffi_slatedb_csharp_ffi_fn_clone_prefixextractor(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    void uniffi_slatedb_csharp_ffi_fn_free_prefixextractor(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    void uniffi_slatedb_csharp_ffi_fn_init_callback_vtable_prefixextractor(
+        IntPtr /*_UniFFILib.UniffiVTableCallbackInterfacePrefixExtractor*/
+        @vtable
+    );
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    RustBuffer uniffi_slatedb_csharp_ffi_fn_method_prefixextractor_name(
+        ulong @ptr,
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    RustBuffer uniffi_slatedb_csharp_ffi_fn_method_prefixextractor_prefix_len(
+        ulong @ptr,
+        RustBuffer @target,
+        ref UniffiRustCallStatus _uniffi_out_err
     );
 
 #if NET8_0_OR_GREATER
@@ -4436,6 +4623,16 @@ static class _UniFFILib
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_filter_policies();
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_merge_operator();
 
 #if NET8_0_OR_GREATER
@@ -4507,6 +4704,16 @@ static class _UniFFILib
     public static extern
 #endif
     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbreaderbuilder_with_checkpoint_id();
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbreaderbuilder_with_filter_policies();
 
 #if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
@@ -5196,6 +5403,36 @@ static class _UniFFILib
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_filterpolicy_name();
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_prefixextractor_name();
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_prefixextractor_prefix_len();
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbiterator_next();
 
 #if NET8_0_OR_GREATER
@@ -5616,6 +5853,26 @@ static class _UniFFILib
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
+    ushort uniffi_slatedb_csharp_ffi_checksum_constructor_filterpolicy_bloom();
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ushort uniffi_slatedb_csharp_ffi_checksum_constructor_filterpolicy_bloom_with_options();
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
     ushort uniffi_slatedb_csharp_ffi_checksum_constructor_defaultmetricsrecorder_new();
 
 #if NET8_0_OR_GREATER
@@ -5912,6 +6169,16 @@ static class _UniFFILib
         }
         {
             var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_filter_policies();
+            if (checksum != 4318)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_filter_policies` checksum `4318`, library returned `{checksum}`"
+                );
+            }
+        }
+        {
+            var checksum =
                 _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_merge_operator();
             if (checksum != 43163)
             {
@@ -5987,6 +6254,16 @@ static class _UniFFILib
             {
                 throw new UniffiContractChecksumException(
                     $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbreaderbuilder_with_checkpoint_id` checksum `50632`, library returned `{checksum}`"
+                );
+            }
+        }
+        {
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbreaderbuilder_with_filter_policies();
+            if (checksum != 14738)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbreaderbuilder_with_filter_policies` checksum `14738`, library returned `{checksum}`"
                 );
             }
         }
@@ -6647,6 +6924,35 @@ static class _UniFFILib
             }
         }
         {
+            var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_filterpolicy_name();
+            if (checksum != 4694)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_filterpolicy_name` checksum `4694`, library returned `{checksum}`"
+                );
+            }
+        }
+        {
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_prefixextractor_name();
+            if (checksum != 30229)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_prefixextractor_name` checksum `30229`, library returned `{checksum}`"
+                );
+            }
+        }
+        {
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_prefixextractor_prefix_len();
+            if (checksum != 14277)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_prefixextractor_prefix_len` checksum `14277`, library returned `{checksum}`"
+                );
+            }
+        }
+        {
             var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbiterator_next();
             if (checksum != 16172)
             {
@@ -6725,40 +7031,40 @@ static class _UniFFILib
         {
             var checksum =
                 _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_register_counter();
-            if (checksum != 21940)
+            if (checksum != 44335)
             {
                 throw new UniffiContractChecksumException(
-                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_register_counter` checksum `21940`, library returned `{checksum}`"
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_register_counter` checksum `44335`, library returned `{checksum}`"
                 );
             }
         }
         {
             var checksum =
                 _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_register_gauge();
-            if (checksum != 4823)
+            if (checksum != 60767)
             {
                 throw new UniffiContractChecksumException(
-                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_register_gauge` checksum `4823`, library returned `{checksum}`"
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_register_gauge` checksum `60767`, library returned `{checksum}`"
                 );
             }
         }
         {
             var checksum =
                 _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_register_histogram();
-            if (checksum != 10344)
+            if (checksum != 65416)
             {
                 throw new UniffiContractChecksumException(
-                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_register_histogram` checksum `10344`, library returned `{checksum}`"
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_register_histogram` checksum `65416`, library returned `{checksum}`"
                 );
             }
         }
         {
             var checksum =
                 _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_register_up_down_counter();
-            if (checksum != 47083)
+            if (checksum != 21437)
             {
                 throw new UniffiContractChecksumException(
-                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_register_up_down_counter` checksum `47083`, library returned `{checksum}`"
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_defaultmetricsrecorder_register_up_down_counter` checksum `21437`, library returned `{checksum}`"
                 );
             }
         }
@@ -6793,40 +7099,40 @@ static class _UniFFILib
         {
             var checksum =
                 _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_metricsrecorder_register_counter();
-            if (checksum != 125)
+            if (checksum != 3741)
             {
                 throw new UniffiContractChecksumException(
-                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_metricsrecorder_register_counter` checksum `125`, library returned `{checksum}`"
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_metricsrecorder_register_counter` checksum `3741`, library returned `{checksum}`"
                 );
             }
         }
         {
             var checksum =
                 _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_metricsrecorder_register_gauge();
-            if (checksum != 21688)
+            if (checksum != 24958)
             {
                 throw new UniffiContractChecksumException(
-                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_metricsrecorder_register_gauge` checksum `21688`, library returned `{checksum}`"
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_metricsrecorder_register_gauge` checksum `24958`, library returned `{checksum}`"
                 );
             }
         }
         {
             var checksum =
                 _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_metricsrecorder_register_up_down_counter();
-            if (checksum != 62296)
+            if (checksum != 64822)
             {
                 throw new UniffiContractChecksumException(
-                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_metricsrecorder_register_up_down_counter` checksum `62296`, library returned `{checksum}`"
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_metricsrecorder_register_up_down_counter` checksum `64822`, library returned `{checksum}`"
                 );
             }
         }
         {
             var checksum =
                 _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_metricsrecorder_register_histogram();
-            if (checksum != 13591)
+            if (checksum != 65512)
             {
                 throw new UniffiContractChecksumException(
-                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_metricsrecorder_register_histogram` checksum `13591`, library returned `{checksum}`"
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_metricsrecorder_register_histogram` checksum `65512`, library returned `{checksum}`"
                 );
             }
         }
@@ -7046,6 +7352,26 @@ static class _UniFFILib
             {
                 throw new UniffiContractChecksumException(
                     $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_constructor_dbcache_new_split_cache` checksum `43896`, library returned `{checksum}`"
+                );
+            }
+        }
+        {
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_constructor_filterpolicy_bloom();
+            if (checksum != 38284)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_constructor_filterpolicy_bloom` checksum `38284`, library returned `{checksum}`"
+                );
+            }
+        }
+        {
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_constructor_filterpolicy_bloom_with_options();
+            if (checksum != 11207)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_constructor_filterpolicy_bloom_with_options` checksum `11207`, library returned `{checksum}`"
                 );
             }
         }
@@ -9792,6 +10118,15 @@ internal interface IDbBuilder
     void WithDbCacheDisabled();
 
     /// <summary>
+    /// Sets the filter policies used for SST filter construction and evaluation.
+    ///
+    /// Pass an empty vec to disable filters entirely. When unset, the default
+    /// is a single bloom filter with 10 bits per key.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    void WithFilterPolicies(FilterPolicy[] @policies);
+
+    /// <summary>
     /// Installs an application-defined merge operator.
     /// </summary>
     /// <exception cref="Exception"></exception>
@@ -10023,6 +10358,28 @@ internal class DbBuilder : IDbBuilder, IDisposable
                 (ref UniffiRustCallStatus _status) =>
                     _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbbuilder_with_db_cache_disabled(
                         thisPtr,
+                        ref _status
+                    )
+            )
+        );
+    }
+
+    /// <summary>
+    /// Sets the filter policies used for SST filter construction and evaluation.
+    ///
+    /// Pass an empty vec to disable filters entirely. When unset, the default
+    /// is a single bloom filter with 10 bits per key.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    public void WithFilterPolicies(FilterPolicy[] @policies)
+    {
+        CallWithPointer(thisPtr =>
+            _UniffiHelpers.RustCallWithError(
+                FfiConverterTypeError.INSTANCE,
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbbuilder_with_filter_policies(
+                        thisPtr,
+                        FfiConverterSequenceTypeFilterPolicy.INSTANCE.Lower(@policies),
                         ref _status
                     )
             )
@@ -11311,6 +11668,16 @@ internal interface IDbReaderBuilder
     void WithCheckpointId(string @checkpointId);
 
     /// <summary>
+    /// Sets the filter policies used when decoding SST filter blocks.
+    ///
+    /// Must match (or be a superset of) the writer's policies so SST filter
+    /// sub-blocks can be decoded; unrecognized policy names are silently
+    /// skipped. Defaults to a single bloom filter with 10 bits per key.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    void WithFilterPolicies(FilterPolicy[] @policies);
+
+    /// <summary>
     /// Installs an application-defined merge operator used while reading merge rows.
     /// </summary>
     /// <exception cref="Exception"></exception>
@@ -11517,6 +11884,29 @@ internal class DbReaderBuilder : IDbReaderBuilder, IDisposable
                     _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbreaderbuilder_with_checkpoint_id(
                         thisPtr,
                         FfiConverterString.INSTANCE.Lower(@checkpointId),
+                        ref _status
+                    )
+            )
+        );
+    }
+
+    /// <summary>
+    /// Sets the filter policies used when decoding SST filter blocks.
+    ///
+    /// Must match (or be a superset of) the writer's policies so SST filter
+    /// sub-blocks can be decoded; unrecognized policy names are silently
+    /// skipped. Defaults to a single bloom filter with 10 bits per key.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    public void WithFilterPolicies(FilterPolicy[] @policies)
+    {
+        CallWithPointer(thisPtr =>
+            _UniffiHelpers.RustCallWithError(
+                FfiConverterTypeError.INSTANCE,
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbreaderbuilder_with_filter_policies(
+                        thisPtr,
+                        FfiConverterSequenceTypeFilterPolicy.INSTANCE.Lower(@policies),
                         ref _status
                     )
             )
@@ -13097,15 +13487,15 @@ internal interface IDefaultMetricsRecorder
     /// Returns every metric with the requested name.
     /// </summary>
     Metric[] MetricsByName(string @name);
-    Counter RegisterCounter(string @name, string @description, MetricLabel[] @labels);
-    Gauge RegisterGauge(string @name, string @description, MetricLabel[] @labels);
+    Counter RegisterCounter(string @name, string? @description, MetricLabel[] @labels);
+    Gauge RegisterGauge(string @name, string? @description, MetricLabel[] @labels);
     Histogram RegisterHistogram(
         string @name,
-        string @description,
+        string? @description,
         MetricLabel[] @labels,
         double[] @boundaries
     );
-    UpDownCounter RegisterUpDownCounter(string @name, string @description, MetricLabel[] @labels);
+    UpDownCounter RegisterUpDownCounter(string @name, string? @description, MetricLabel[] @labels);
 
     /// <summary>
     /// Returns a point-in-time snapshot of every registered metric.
@@ -13283,7 +13673,7 @@ internal class DefaultMetricsRecorder : IDefaultMetricsRecorder, IDisposable
         );
     }
 
-    public Counter RegisterCounter(string @name, string @description, MetricLabel[] @labels)
+    public Counter RegisterCounter(string @name, string? @description, MetricLabel[] @labels)
     {
         return CallWithPointer(thisPtr =>
             FfiConverterTypeCounter.INSTANCE.Lift(
@@ -13292,7 +13682,7 @@ internal class DefaultMetricsRecorder : IDefaultMetricsRecorder, IDisposable
                         _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_defaultmetricsrecorder_register_counter(
                             thisPtr,
                             FfiConverterString.INSTANCE.Lower(@name),
-                            FfiConverterString.INSTANCE.Lower(@description),
+                            FfiConverterOptionalString.INSTANCE.Lower(@description),
                             FfiConverterSequenceTypeMetricLabel.INSTANCE.Lower(@labels),
                             ref _status
                         )
@@ -13301,7 +13691,7 @@ internal class DefaultMetricsRecorder : IDefaultMetricsRecorder, IDisposable
         );
     }
 
-    public Gauge RegisterGauge(string @name, string @description, MetricLabel[] @labels)
+    public Gauge RegisterGauge(string @name, string? @description, MetricLabel[] @labels)
     {
         return CallWithPointer(thisPtr =>
             FfiConverterTypeGauge.INSTANCE.Lift(
@@ -13310,7 +13700,7 @@ internal class DefaultMetricsRecorder : IDefaultMetricsRecorder, IDisposable
                         _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_defaultmetricsrecorder_register_gauge(
                             thisPtr,
                             FfiConverterString.INSTANCE.Lower(@name),
-                            FfiConverterString.INSTANCE.Lower(@description),
+                            FfiConverterOptionalString.INSTANCE.Lower(@description),
                             FfiConverterSequenceTypeMetricLabel.INSTANCE.Lower(@labels),
                             ref _status
                         )
@@ -13321,7 +13711,7 @@ internal class DefaultMetricsRecorder : IDefaultMetricsRecorder, IDisposable
 
     public Histogram RegisterHistogram(
         string @name,
-        string @description,
+        string? @description,
         MetricLabel[] @labels,
         double[] @boundaries
     )
@@ -13333,7 +13723,7 @@ internal class DefaultMetricsRecorder : IDefaultMetricsRecorder, IDisposable
                         _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_defaultmetricsrecorder_register_histogram(
                             thisPtr,
                             FfiConverterString.INSTANCE.Lower(@name),
-                            FfiConverterString.INSTANCE.Lower(@description),
+                            FfiConverterOptionalString.INSTANCE.Lower(@description),
                             FfiConverterSequenceTypeMetricLabel.INSTANCE.Lower(@labels),
                             FfiConverterSequenceDouble.INSTANCE.Lower(@boundaries),
                             ref _status
@@ -13345,7 +13735,7 @@ internal class DefaultMetricsRecorder : IDefaultMetricsRecorder, IDisposable
 
     public UpDownCounter RegisterUpDownCounter(
         string @name,
-        string @description,
+        string? @description,
         MetricLabel[] @labels
     )
     {
@@ -13356,7 +13746,7 @@ internal class DefaultMetricsRecorder : IDefaultMetricsRecorder, IDisposable
                         _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_defaultmetricsrecorder_register_up_down_counter(
                             thisPtr,
                             FfiConverterString.INSTANCE.Lower(@name),
-                            FfiConverterString.INSTANCE.Lower(@description),
+                            FfiConverterOptionalString.INSTANCE.Lower(@description),
                             FfiConverterSequenceTypeMetricLabel.INSTANCE.Lower(@labels),
                             ref _status
                         )
@@ -13410,6 +13800,225 @@ class FfiConverterTypeDefaultMetricsRecorder : FfiConverter<DefaultMetricsRecord
     }
 
     public override void Write(DefaultMetricsRecorder value, BigEndianStream stream)
+    {
+        stream.WriteULong(Lower(value));
+    }
+}
+
+/// <summary>
+/// A filter policy used to build and read SST filters.
+///
+/// Construct one with [`FilterPolicy::bloom`] or
+/// [`FilterPolicy::bloom_with_options`] for the built-in bloom filter.
+/// </summary>
+internal interface IFilterPolicy
+{
+    /// <summary>
+    /// Returns the policy name encoded into SSTs that use this policy.
+    /// </summary>
+    string Name();
+}
+
+/// <summary>
+/// A filter policy used to build and read SST filters.
+///
+/// Construct one with [`FilterPolicy::bloom`] or
+/// [`FilterPolicy::bloom_with_options`] for the built-in bloom filter.
+/// </summary>
+internal class FilterPolicy : IFilterPolicy, IDisposable
+{
+    protected ulong pointer;
+    private int _wasDestroyed = 0;
+    private long _callCounter = 1;
+
+    public FilterPolicy(ulong pointer)
+    {
+        this.pointer = pointer;
+    }
+
+    ~FilterPolicy()
+    {
+        Destroy();
+    }
+
+    protected void FreeRustArcPtr()
+    {
+        _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_filterpolicy(this.pointer, ref status);
+            }
+        );
+    }
+
+    protected ulong CloneRustArcPtr()
+    {
+        return _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_filterpolicy(
+                    this.pointer,
+                    ref status
+                );
+            }
+        );
+    }
+
+    public void Destroy()
+    {
+        // Only allow a single call to this method.
+        if (Interlocked.CompareExchange(ref _wasDestroyed, 1, 0) == 0)
+        {
+            // This decrement always matches the initial count of 1 given at creation time.
+            if (Interlocked.Decrement(ref _callCounter) == 0)
+            {
+                FreeRustArcPtr();
+            }
+        }
+    }
+
+    public void Dispose()
+    {
+        Destroy();
+        GC.SuppressFinalize(this); // Suppress finalization to avoid unnecessary GC overhead.
+    }
+
+    private void IncrementCallCounter()
+    {
+        // Check and increment the call counter, to keep the object alive.
+        // This needs a compare-and-set retry loop in case of concurrent updates.
+        long count;
+        do
+        {
+            count = Interlocked.Read(ref _callCounter);
+            if (count == 0L)
+                throw new System.ObjectDisposedException(
+                    String.Format("'{0}' object has already been destroyed", this.GetType().Name)
+                );
+            if (count == long.MaxValue)
+                throw new System.OverflowException(
+                    String.Format("'{0}' call counter would overflow", this.GetType().Name)
+                );
+        } while (Interlocked.CompareExchange(ref _callCounter, count + 1, count) != count);
+    }
+
+    private void DecrementCallCounter()
+    {
+        // This decrement always matches the increment we performed above.
+        if (Interlocked.Decrement(ref _callCounter) == 0)
+        {
+            FreeRustArcPtr();
+        }
+    }
+
+    internal void CallWithPointer(Action<ulong> action)
+    {
+        IncrementCallCounter();
+        try
+        {
+            action(CloneRustArcPtr());
+        }
+        finally
+        {
+            DecrementCallCounter();
+        }
+    }
+
+    internal T CallWithPointer<T>(Func<ulong, T> func)
+    {
+        IncrementCallCounter();
+        try
+        {
+            return func(CloneRustArcPtr());
+        }
+        finally
+        {
+            DecrementCallCounter();
+        }
+    }
+
+    /// <summary>
+    /// Returns the policy name encoded into SSTs that use this policy.
+    /// </summary>
+    public string Name()
+    {
+        return CallWithPointer(thisPtr =>
+            FfiConverterString.INSTANCE.Lift(
+                _UniffiHelpers.RustCall(
+                    (ref UniffiRustCallStatus _status) =>
+                        _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_filterpolicy_name(
+                            thisPtr,
+                            ref _status
+                        )
+                )
+            )
+        );
+    }
+
+    /// <summary>
+    /// Constructs a bloom filter policy with the given bits per key,
+    /// whole-key filtering enabled, and no prefix extractor.
+    /// </summary>
+    public static FilterPolicy Bloom(uint @bitsPerKey)
+    {
+        return new FilterPolicy(
+            _UniffiHelpers.RustCall(
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_constructor_filterpolicy_bloom(
+                        FfiConverterUInt32.INSTANCE.Lower(@bitsPerKey),
+                        ref _status
+                    )
+            )
+        );
+    }
+
+    /// <summary>
+    /// Constructs a bloom filter policy from the supplied options, with an
+    /// optional prefix extractor enabling prefix-based bloom filtering.
+    /// </summary>
+    public static FilterPolicy BloomWithOptions(
+        BloomFilterOptions @options,
+        PrefixExtractor? @prefixExtractor
+    )
+    {
+        return new FilterPolicy(
+            _UniffiHelpers.RustCall(
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_constructor_filterpolicy_bloom_with_options(
+                        FfiConverterTypeBloomFilterOptions.INSTANCE.Lower(@options),
+                        FfiConverterOptionalTypePrefixExtractor.INSTANCE.Lower(@prefixExtractor),
+                        ref _status
+                    )
+            )
+        );
+    }
+}
+
+class FfiConverterTypeFilterPolicy : FfiConverter<FilterPolicy, ulong>
+{
+    public static FfiConverterTypeFilterPolicy INSTANCE = new FfiConverterTypeFilterPolicy();
+
+    public override ulong Lower(FilterPolicy value)
+    {
+        return value.CallWithPointer(thisPtr => thisPtr);
+    }
+
+    public override FilterPolicy Lift(ulong value)
+    {
+        return new FilterPolicy(value);
+    }
+
+    public override FilterPolicy Read(BigEndianStream stream)
+    {
+        return Lift(stream.ReadULong());
+    }
+
+    public override int AllocationSize(FilterPolicy value)
+    {
+        return 8;
+    }
+
+    public override void Write(FilterPolicy value, BigEndianStream stream)
     {
         stream.WriteULong(Lower(value));
     }
@@ -14620,24 +15229,24 @@ internal interface MetricsRecorder
     /// <summary>
     /// Registers a monotonically increasing counter.
     /// </summary>
-    Counter RegisterCounter(string @name, string @description, MetricLabel[] @labels);
+    Counter RegisterCounter(string @name, string? @description, MetricLabel[] @labels);
 
     /// <summary>
     /// Registers a gauge.
     /// </summary>
-    Gauge RegisterGauge(string @name, string @description, MetricLabel[] @labels);
+    Gauge RegisterGauge(string @name, string? @description, MetricLabel[] @labels);
 
     /// <summary>
     /// Registers an up/down counter.
     /// </summary>
-    UpDownCounter RegisterUpDownCounter(string @name, string @description, MetricLabel[] @labels);
+    UpDownCounter RegisterUpDownCounter(string @name, string? @description, MetricLabel[] @labels);
 
     /// <summary>
     /// Registers a histogram with explicit bucket boundaries.
     /// </summary>
     Histogram RegisterHistogram(
         string @name,
-        string @description,
+        string? @description,
         MetricLabel[] @labels,
         double[] @boundaries
     );
@@ -14764,7 +15373,7 @@ internal class MetricsRecorderImpl : MetricsRecorder, IDisposable
     /// <summary>
     /// Registers a monotonically increasing counter.
     /// </summary>
-    public Counter RegisterCounter(string @name, string @description, MetricLabel[] @labels)
+    public Counter RegisterCounter(string @name, string? @description, MetricLabel[] @labels)
     {
         return CallWithPointer(thisPtr =>
             FfiConverterTypeCounter.INSTANCE.Lift(
@@ -14773,7 +15382,7 @@ internal class MetricsRecorderImpl : MetricsRecorder, IDisposable
                         _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_metricsrecorder_register_counter(
                             thisPtr,
                             FfiConverterString.INSTANCE.Lower(@name),
-                            FfiConverterString.INSTANCE.Lower(@description),
+                            FfiConverterOptionalString.INSTANCE.Lower(@description),
                             FfiConverterSequenceTypeMetricLabel.INSTANCE.Lower(@labels),
                             ref _status
                         )
@@ -14785,7 +15394,7 @@ internal class MetricsRecorderImpl : MetricsRecorder, IDisposable
     /// <summary>
     /// Registers a gauge.
     /// </summary>
-    public Gauge RegisterGauge(string @name, string @description, MetricLabel[] @labels)
+    public Gauge RegisterGauge(string @name, string? @description, MetricLabel[] @labels)
     {
         return CallWithPointer(thisPtr =>
             FfiConverterTypeGauge.INSTANCE.Lift(
@@ -14794,7 +15403,7 @@ internal class MetricsRecorderImpl : MetricsRecorder, IDisposable
                         _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_metricsrecorder_register_gauge(
                             thisPtr,
                             FfiConverterString.INSTANCE.Lower(@name),
-                            FfiConverterString.INSTANCE.Lower(@description),
+                            FfiConverterOptionalString.INSTANCE.Lower(@description),
                             FfiConverterSequenceTypeMetricLabel.INSTANCE.Lower(@labels),
                             ref _status
                         )
@@ -14808,7 +15417,7 @@ internal class MetricsRecorderImpl : MetricsRecorder, IDisposable
     /// </summary>
     public UpDownCounter RegisterUpDownCounter(
         string @name,
-        string @description,
+        string? @description,
         MetricLabel[] @labels
     )
     {
@@ -14819,7 +15428,7 @@ internal class MetricsRecorderImpl : MetricsRecorder, IDisposable
                         _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_metricsrecorder_register_up_down_counter(
                             thisPtr,
                             FfiConverterString.INSTANCE.Lower(@name),
-                            FfiConverterString.INSTANCE.Lower(@description),
+                            FfiConverterOptionalString.INSTANCE.Lower(@description),
                             FfiConverterSequenceTypeMetricLabel.INSTANCE.Lower(@labels),
                             ref _status
                         )
@@ -14833,7 +15442,7 @@ internal class MetricsRecorderImpl : MetricsRecorder, IDisposable
     /// </summary>
     public Histogram RegisterHistogram(
         string @name,
-        string @description,
+        string? @description,
         MetricLabel[] @labels,
         double[] @boundaries
     )
@@ -14845,7 +15454,7 @@ internal class MetricsRecorderImpl : MetricsRecorder, IDisposable
                         _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_metricsrecorder_register_histogram(
                             thisPtr,
                             FfiConverterString.INSTANCE.Lower(@name),
-                            FfiConverterString.INSTANCE.Lower(@description),
+                            FfiConverterOptionalString.INSTANCE.Lower(@description),
                             FfiConverterSequenceTypeMetricLabel.INSTANCE.Lower(@labels),
                             FfiConverterSequenceDouble.INSTANCE.Lower(@boundaries),
                             ref _status
@@ -14882,7 +15491,7 @@ class UniffiCallbackInterfaceMetricsRecorder
             }
             var result = uniffiObject.RegisterCounter(
                 FfiConverterString.INSTANCE.Lift(@name),
-                FfiConverterString.INSTANCE.Lift(@description),
+                FfiConverterOptionalString.INSTANCE.Lift(@description),
                 FfiConverterSequenceTypeMetricLabel.INSTANCE.Lift(@labels)
             );
             unsafe
@@ -14927,7 +15536,7 @@ class UniffiCallbackInterfaceMetricsRecorder
             }
             var result = uniffiObject.RegisterGauge(
                 FfiConverterString.INSTANCE.Lift(@name),
-                FfiConverterString.INSTANCE.Lift(@description),
+                FfiConverterOptionalString.INSTANCE.Lift(@description),
                 FfiConverterSequenceTypeMetricLabel.INSTANCE.Lift(@labels)
             );
             unsafe
@@ -14972,7 +15581,7 @@ class UniffiCallbackInterfaceMetricsRecorder
             }
             var result = uniffiObject.RegisterUpDownCounter(
                 FfiConverterString.INSTANCE.Lift(@name),
-                FfiConverterString.INSTANCE.Lift(@description),
+                FfiConverterOptionalString.INSTANCE.Lift(@description),
                 FfiConverterSequenceTypeMetricLabel.INSTANCE.Lift(@labels)
             );
             unsafe
@@ -15018,7 +15627,7 @@ class UniffiCallbackInterfaceMetricsRecorder
             }
             var result = uniffiObject.RegisterHistogram(
                 FfiConverterString.INSTANCE.Lift(@name),
-                FfiConverterString.INSTANCE.Lift(@description),
+                FfiConverterOptionalString.INSTANCE.Lift(@description),
                 FfiConverterSequenceTypeMetricLabel.INSTANCE.Lift(@labels),
                 FfiConverterSequenceDouble.INSTANCE.Lift(@boundaries)
             );
@@ -15561,6 +16170,384 @@ class FfiConverterTypeObjectStoreBuilder : FfiConverter<ObjectStoreBuilder, ulon
     }
 
     public override void Write(ObjectStoreBuilder value, BigEndianStream stream)
+    {
+        stream.WriteULong(Lower(value));
+    }
+}
+
+/// <summary>
+/// Application-provided prefix extractor used to configure prefix-based
+/// bloom filters.
+/// </summary>
+internal interface PrefixExtractor
+{
+    /// <summary>
+    /// Stable identifier for this extractor's configuration. Included in the
+    /// bloom filter policy name so filters built with different extractors
+    /// are never mismatched.
+    /// </summary>
+    string Name();
+
+    /// <summary>
+    /// Returns the prefix length to use for `target`, or `None` when no
+    /// prefix is extractable.
+    /// </summary>
+    ulong? PrefixLen(PrefixTarget @target);
+}
+
+/// <summary>
+/// Application-provided prefix extractor used to configure prefix-based
+/// bloom filters.
+/// </summary>
+internal class PrefixExtractorImpl : PrefixExtractor, IDisposable
+{
+    protected ulong pointer;
+    private int _wasDestroyed = 0;
+    private long _callCounter = 1;
+
+    public PrefixExtractorImpl(ulong pointer)
+    {
+        this.pointer = pointer;
+    }
+
+    ~PrefixExtractorImpl()
+    {
+        Destroy();
+    }
+
+    protected void FreeRustArcPtr()
+    {
+        _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_prefixextractor(
+                    this.pointer,
+                    ref status
+                );
+            }
+        );
+    }
+
+    protected ulong CloneRustArcPtr()
+    {
+        return _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_prefixextractor(
+                    this.pointer,
+                    ref status
+                );
+            }
+        );
+    }
+
+    public void Destroy()
+    {
+        // Only allow a single call to this method.
+        if (Interlocked.CompareExchange(ref _wasDestroyed, 1, 0) == 0)
+        {
+            // This decrement always matches the initial count of 1 given at creation time.
+            if (Interlocked.Decrement(ref _callCounter) == 0)
+            {
+                FreeRustArcPtr();
+            }
+        }
+    }
+
+    public void Dispose()
+    {
+        Destroy();
+        GC.SuppressFinalize(this); // Suppress finalization to avoid unnecessary GC overhead.
+    }
+
+    private void IncrementCallCounter()
+    {
+        // Check and increment the call counter, to keep the object alive.
+        // This needs a compare-and-set retry loop in case of concurrent updates.
+        long count;
+        do
+        {
+            count = Interlocked.Read(ref _callCounter);
+            if (count == 0L)
+                throw new System.ObjectDisposedException(
+                    String.Format("'{0}' object has already been destroyed", this.GetType().Name)
+                );
+            if (count == long.MaxValue)
+                throw new System.OverflowException(
+                    String.Format("'{0}' call counter would overflow", this.GetType().Name)
+                );
+        } while (Interlocked.CompareExchange(ref _callCounter, count + 1, count) != count);
+    }
+
+    private void DecrementCallCounter()
+    {
+        // This decrement always matches the increment we performed above.
+        if (Interlocked.Decrement(ref _callCounter) == 0)
+        {
+            FreeRustArcPtr();
+        }
+    }
+
+    internal void CallWithPointer(Action<ulong> action)
+    {
+        IncrementCallCounter();
+        try
+        {
+            action(CloneRustArcPtr());
+        }
+        finally
+        {
+            DecrementCallCounter();
+        }
+    }
+
+    internal T CallWithPointer<T>(Func<ulong, T> func)
+    {
+        IncrementCallCounter();
+        try
+        {
+            return func(CloneRustArcPtr());
+        }
+        finally
+        {
+            DecrementCallCounter();
+        }
+    }
+
+    /// <summary>
+    /// Stable identifier for this extractor's configuration. Included in the
+    /// bloom filter policy name so filters built with different extractors
+    /// are never mismatched.
+    /// </summary>
+    public string Name()
+    {
+        return CallWithPointer(thisPtr =>
+            FfiConverterString.INSTANCE.Lift(
+                _UniffiHelpers.RustCall(
+                    (ref UniffiRustCallStatus _status) =>
+                        _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_prefixextractor_name(
+                            thisPtr,
+                            ref _status
+                        )
+                )
+            )
+        );
+    }
+
+    /// <summary>
+    /// Returns the prefix length to use for `target`, or `None` when no
+    /// prefix is extractable.
+    /// </summary>
+    public ulong? PrefixLen(PrefixTarget @target)
+    {
+        return CallWithPointer(thisPtr =>
+            FfiConverterOptionalUInt64.INSTANCE.Lift(
+                _UniffiHelpers.RustCall(
+                    (ref UniffiRustCallStatus _status) =>
+                        _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_prefixextractor_prefix_len(
+                            thisPtr,
+                            FfiConverterTypePrefixTarget.INSTANCE.Lower(@target),
+                            ref _status
+                        )
+                )
+            )
+        );
+    }
+}
+
+class UniffiCallbackInterfacePrefixExtractor
+{
+    static void Name(
+        ulong @uniffiHandle,
+        IntPtr /*RustBuffer*/
+        @uniffiOutReturn,
+        ref UniffiRustCallStatus _uniffi_out_err
+    )
+    {
+        var handle = @uniffiHandle;
+        try
+        {
+            if (
+                !FfiConverterTypePrefixExtractor.INSTANCE.handleMap.TryGet(
+                    handle,
+                    out var uniffiObject
+                )
+            )
+            {
+                throw new InternalException($"No callback in handlemap '{handle}'");
+            }
+            var result = uniffiObject.Name();
+            unsafe
+            {
+                *(RustBuffer*)uniffiOutReturn = FfiConverterString.INSTANCE.Lower(result);
+            }
+
+            _uniffi_out_err.code = UniffiCallbackResponseStatus.SUCCESS;
+        }
+        catch (System.Exception e)
+        {
+            _uniffi_out_err.code = UniffiCallbackResponseStatus.UNEXPECTED_ERROR;
+            try
+            {
+                _uniffi_out_err.error_buf = FfiConverterString.INSTANCE.Lower(e.Message);
+            }
+            catch { }
+        }
+    }
+
+    static void PrefixLen(
+        ulong @uniffiHandle,
+        RustBuffer @target,
+        IntPtr /*RustBuffer*/
+        @uniffiOutReturn,
+        ref UniffiRustCallStatus _uniffi_out_err
+    )
+    {
+        var handle = @uniffiHandle;
+        try
+        {
+            if (
+                !FfiConverterTypePrefixExtractor.INSTANCE.handleMap.TryGet(
+                    handle,
+                    out var uniffiObject
+                )
+            )
+            {
+                throw new InternalException($"No callback in handlemap '{handle}'");
+            }
+            var result = uniffiObject.PrefixLen(
+                FfiConverterTypePrefixTarget.INSTANCE.Lift(@target)
+            );
+            unsafe
+            {
+                *(RustBuffer*)uniffiOutReturn = FfiConverterOptionalUInt64.INSTANCE.Lower(result);
+            }
+
+            _uniffi_out_err.code = UniffiCallbackResponseStatus.SUCCESS;
+        }
+        catch (System.Exception e)
+        {
+            _uniffi_out_err.code = UniffiCallbackResponseStatus.UNEXPECTED_ERROR;
+            try
+            {
+                _uniffi_out_err.error_buf = FfiConverterString.INSTANCE.Lower(e.Message);
+            }
+            catch { }
+        }
+    }
+
+    static void UniffiFree(ulong @handle)
+    {
+        FfiConverterTypePrefixExtractor.INSTANCE.handleMap.Remove(@handle);
+    }
+
+    static ulong UniffiClone(ulong @handle)
+    {
+        try
+        {
+            if (!FfiConverterTypePrefixExtractor.INSTANCE.handleMap.TryGet(@handle, out var obj))
+            {
+                throw new InternalException($"No callback in handlemap '{@handle}'");
+            }
+            return FfiConverterTypePrefixExtractor.INSTANCE.handleMap.Insert(obj);
+        }
+        catch (System.Exception)
+        {
+            return 0; // 0 is never a valid handle; ConcurrentHandleMap starts at 1
+        }
+    }
+
+    static _UniFFILib.UniffiCallbackInterfacePrefixExtractorMethod0 _m0 =
+        new _UniFFILib.UniffiCallbackInterfacePrefixExtractorMethod0(Name);
+    static _UniFFILib.UniffiCallbackInterfacePrefixExtractorMethod1 _m1 =
+        new _UniFFILib.UniffiCallbackInterfacePrefixExtractorMethod1(PrefixLen);
+    static _UniFFILib.UniffiCallbackInterfaceFree _callback_interface_free =
+        new _UniFFILib.UniffiCallbackInterfaceFree(UniffiFree);
+    static _UniFFILib.UniffiCallbackInterfaceClone _callback_interface_clone =
+        new _UniFFILib.UniffiCallbackInterfaceClone(UniffiClone);
+
+    private static GCHandle? _vtablePin;
+
+    public static void Register()
+    {
+        if (_vtablePin.HasValue)
+            return;
+        _UniFFILib.UniffiVTableCallbackInterfacePrefixExtractor _vtable =
+            new _UniFFILib.UniffiVTableCallbackInterfacePrefixExtractor
+            {
+                @name = Marshal.GetFunctionPointerForDelegate(_m0),
+                @prefixLen = Marshal.GetFunctionPointerForDelegate(_m1),
+                @uniffiFree = Marshal.GetFunctionPointerForDelegate(_callback_interface_free),
+                @uniffiClone = Marshal.GetFunctionPointerForDelegate(_callback_interface_clone),
+            };
+
+        // Pin the vtable so the GC never moves it. The GCHandle is intentionally never freed —
+        // this pin must remain valid for the process lifetime.
+        _vtablePin = GCHandle.Alloc(_vtable, GCHandleType.Pinned);
+        _UniFFILib.uniffi_slatedb_csharp_ffi_fn_init_callback_vtable_prefixextractor(
+            _vtablePin.Value.AddrOfPinnedObject()
+        );
+    }
+}
+
+class FfiConverterTypePrefixExtractor : FfiConverter<PrefixExtractor, ulong>
+{
+    public ConcurrentHandleMap<PrefixExtractor> handleMap =
+        new ConcurrentHandleMap<PrefixExtractor>();
+
+    public static FfiConverterTypePrefixExtractor INSTANCE = new FfiConverterTypePrefixExtractor();
+
+    static FfiConverterTypePrefixExtractor()
+    {
+        UniffiCallbackInterfacePrefixExtractor.Register();
+    }
+
+    public override ulong Lower(PrefixExtractor value)
+    {
+        if (value is PrefixExtractorImpl rustObj)
+        {
+            // Rust-implemented object. Clone the handle and return it.
+            return rustObj.CallWithPointer(thisPtr => thisPtr);
+        }
+        else
+        {
+            // C# object, generate a new handle map entry and return it.
+            return handleMap.Insert(value);
+        }
+    }
+
+    public override PrefixExtractor Lift(ulong value)
+    {
+        if ((value & 1UL) == 0UL)
+        {
+            // Rust-generated handle, construct a new wrapper.
+            return new PrefixExtractorImpl(value);
+        }
+        else
+        {
+            // C#-generated handle, retrieve and remove from the handle map.
+            if (handleMap.Remove(value, out var obj))
+            {
+                return obj;
+            }
+            else
+            {
+                throw new InternalException($"No callback in handlemap '{value}'");
+            }
+        }
+    }
+
+    public override PrefixExtractor Read(BigEndianStream stream)
+    {
+        return Lift(stream.ReadULong());
+    }
+
+    public override int AllocationSize(PrefixExtractor value)
+    {
+        return 8;
+    }
+
+    public override void Write(PrefixExtractor value, BigEndianStream stream)
     {
         stream.WriteULong(Lower(value));
     }
@@ -17254,6 +18241,61 @@ class FfiConverterTypeWriteBatch : FfiConverter<WriteBatch, ulong>
 }
 
 /// <summary>
+/// Options controlling how a bloom filter policy is constructed.
+///
+/// Pass an optional prefix extractor as a separate constructor parameter; it
+/// is kept out of this record because uniffi cannot marshal a trait object
+/// inside a record across every target language.
+/// </summary>
+/// <param name="BitsPerKey">
+/// Average bits stored per inserted key. Higher values lower the false
+/// positive rate at the cost of filter size.
+/// </param>
+/// <param name="WholeKeyFiltering">
+/// When `true`, hashes the full key into the filter so point lookups can
+/// probe it. Defaults to `true`.
+/// </param>
+internal record BloomFilterOptions(
+    /// <summary>
+    /// Average bits stored per inserted key. Higher values lower the false
+    /// positive rate at the cost of filter size.
+    /// </summary>
+    uint BitsPerKey,
+    /// <summary>
+    /// When `true`, hashes the full key into the filter so point lookups can
+    /// probe it. Defaults to `true`.
+    /// </summary>
+    bool WholeKeyFiltering = true
+) { }
+
+class FfiConverterTypeBloomFilterOptions : FfiConverterRustBuffer<BloomFilterOptions>
+{
+    public static FfiConverterTypeBloomFilterOptions INSTANCE =
+        new FfiConverterTypeBloomFilterOptions();
+
+    public override BloomFilterOptions Read(BigEndianStream stream)
+    {
+        return new BloomFilterOptions(
+            BitsPerKey: FfiConverterUInt32.INSTANCE.Read(stream),
+            WholeKeyFiltering: FfiConverterBoolean.INSTANCE.Read(stream)
+        );
+    }
+
+    public override int AllocationSize(BloomFilterOptions value)
+    {
+        return 0
+            + FfiConverterUInt32.INSTANCE.AllocationSize(value.BitsPerKey)
+            + FfiConverterBoolean.INSTANCE.AllocationSize(value.WholeKeyFiltering);
+    }
+
+    public override void Write(BloomFilterOptions value, BigEndianStream stream)
+    {
+        FfiConverterUInt32.INSTANCE.Write(value.BitsPerKey, stream);
+        FfiConverterBoolean.INSTANCE.Write(value.WholeKeyFiltering, stream);
+    }
+}
+
+/// <summary>
 /// Checkpoint metadata stored in a manifest.
 /// </summary>
 /// <param name="Id">
@@ -18249,6 +19291,10 @@ class FfiConverterTypePutOptions : FfiConverterRustBuffer<PutOptions>
 /// <param name="CacheBlocks">
 /// Whether fetched blocks should be inserted into the block cache.
 /// </param>
+/// <param name="FilterContext">
+/// Optional context forwarded to custom filter policies; ignored by
+/// built-in filters.
+/// </param>
 internal record ReadOptions(
     /// <summary>
     /// Minimum durability level a returned row must satisfy.
@@ -18261,7 +19307,12 @@ internal record ReadOptions(
     /// <summary>
     /// Whether fetched blocks should be inserted into the block cache.
     /// </summary>
-    bool CacheBlocks
+    bool CacheBlocks,
+    /// <summary>
+    /// Optional context forwarded to custom filter policies; ignored by
+    /// built-in filters.
+    /// </summary>
+    FilterContext? FilterContext = null
 ) { }
 
 class FfiConverterTypeReadOptions : FfiConverterRustBuffer<ReadOptions>
@@ -18273,7 +19324,8 @@ class FfiConverterTypeReadOptions : FfiConverterRustBuffer<ReadOptions>
         return new ReadOptions(
             DurabilityFilter: FfiConverterTypeDurabilityLevel.INSTANCE.Read(stream),
             Dirty: FfiConverterBoolean.INSTANCE.Read(stream),
-            CacheBlocks: FfiConverterBoolean.INSTANCE.Read(stream)
+            CacheBlocks: FfiConverterBoolean.INSTANCE.Read(stream),
+            FilterContext: FfiConverterOptionalTypeFilterContext.INSTANCE.Read(stream)
         );
     }
 
@@ -18282,7 +19334,8 @@ class FfiConverterTypeReadOptions : FfiConverterRustBuffer<ReadOptions>
         return 0
             + FfiConverterTypeDurabilityLevel.INSTANCE.AllocationSize(value.DurabilityFilter)
             + FfiConverterBoolean.INSTANCE.AllocationSize(value.Dirty)
-            + FfiConverterBoolean.INSTANCE.AllocationSize(value.CacheBlocks);
+            + FfiConverterBoolean.INSTANCE.AllocationSize(value.CacheBlocks)
+            + FfiConverterOptionalTypeFilterContext.INSTANCE.AllocationSize(value.FilterContext);
     }
 
     public override void Write(ReadOptions value, BigEndianStream stream)
@@ -18290,6 +19343,7 @@ class FfiConverterTypeReadOptions : FfiConverterRustBuffer<ReadOptions>
         FfiConverterTypeDurabilityLevel.INSTANCE.Write(value.DurabilityFilter, stream);
         FfiConverterBoolean.INSTANCE.Write(value.Dirty, stream);
         FfiConverterBoolean.INSTANCE.Write(value.CacheBlocks, stream);
+        FfiConverterOptionalTypeFilterContext.INSTANCE.Write(value.FilterContext, stream);
     }
 }
 
@@ -18466,6 +19520,10 @@ class FfiConverterTypeRowEntry : FfiConverterRustBuffer<RowEntry>
 /// <param name="Order">
 /// The iteration order for the scan. Defaults to ascending when not set.
 /// </param>
+/// <param name="FilterContext">
+/// Optional context forwarded to custom filter policies; ignored by
+/// built-in filters. Only consulted for prefix scans.
+/// </param>
 internal record ScanOptions(
     /// <summary>
     /// Minimum durability level a returned row must satisfy.
@@ -18490,7 +19548,12 @@ internal record ScanOptions(
     /// <summary>
     /// The iteration order for the scan. Defaults to ascending when not set.
     /// </summary>
-    IterationOrder Order
+    IterationOrder? Order = null,
+    /// <summary>
+    /// Optional context forwarded to custom filter policies; ignored by
+    /// built-in filters. Only consulted for prefix scans.
+    /// </summary>
+    FilterContext? FilterContext = null
 ) { }
 
 class FfiConverterTypeScanOptions : FfiConverterRustBuffer<ScanOptions>
@@ -18505,7 +19568,8 @@ class FfiConverterTypeScanOptions : FfiConverterRustBuffer<ScanOptions>
             ReadAheadBytes: FfiConverterUInt64.INSTANCE.Read(stream),
             CacheBlocks: FfiConverterBoolean.INSTANCE.Read(stream),
             MaxFetchTasks: FfiConverterUInt64.INSTANCE.Read(stream),
-            Order: FfiConverterTypeIterationOrder.INSTANCE.Read(stream)
+            Order: FfiConverterOptionalTypeIterationOrder.INSTANCE.Read(stream),
+            FilterContext: FfiConverterOptionalTypeFilterContext.INSTANCE.Read(stream)
         );
     }
 
@@ -18517,7 +19581,8 @@ class FfiConverterTypeScanOptions : FfiConverterRustBuffer<ScanOptions>
             + FfiConverterUInt64.INSTANCE.AllocationSize(value.ReadAheadBytes)
             + FfiConverterBoolean.INSTANCE.AllocationSize(value.CacheBlocks)
             + FfiConverterUInt64.INSTANCE.AllocationSize(value.MaxFetchTasks)
-            + FfiConverterTypeIterationOrder.INSTANCE.AllocationSize(value.Order);
+            + FfiConverterOptionalTypeIterationOrder.INSTANCE.AllocationSize(value.Order)
+            + FfiConverterOptionalTypeFilterContext.INSTANCE.AllocationSize(value.FilterContext);
     }
 
     public override void Write(ScanOptions value, BigEndianStream stream)
@@ -18527,7 +19592,8 @@ class FfiConverterTypeScanOptions : FfiConverterRustBuffer<ScanOptions>
         FfiConverterUInt64.INSTANCE.Write(value.ReadAheadBytes, stream);
         FfiConverterBoolean.INSTANCE.Write(value.CacheBlocks, stream);
         FfiConverterUInt64.INSTANCE.Write(value.MaxFetchTasks, stream);
-        FfiConverterTypeIterationOrder.INSTANCE.Write(value.Order, stream);
+        FfiConverterOptionalTypeIterationOrder.INSTANCE.Write(value.Order, stream);
+        FfiConverterOptionalTypeFilterContext.INSTANCE.Write(value.FilterContext, stream);
     }
 }
 
@@ -19434,6 +20500,7 @@ internal enum CompactionStatus : int
     Running,
     Completed,
     Failed,
+    Compacted,
 }
 
 class FfiConverterTypeCompactionStatus : FfiConverterRustBuffer<CompactionStatus>
@@ -19454,6 +20521,8 @@ class FfiConverterTypeCompactionStatus : FfiConverterRustBuffer<CompactionStatus
                 return CompactionStatus.Completed;
             case 4:
                 return CompactionStatus.Failed;
+            case 5:
+                return CompactionStatus.Compacted;
             default:
                 throw new InternalException(
                     String.Format(
@@ -19484,6 +20553,9 @@ class FfiConverterTypeCompactionStatus : FfiConverterRustBuffer<CompactionStatus
                 break;
             case CompactionStatus.Failed:
                 stream.WriteInt(4);
+                break;
+            case CompactionStatus.Compacted:
+                stream.WriteInt(5);
                 break;
             default:
                 throw new InternalException(
@@ -19845,6 +20917,80 @@ class FfiConverterTypeError : FfiConverterRustBuffer<Exception>, CallStatusError
                 throw new InternalException(
                     String.Format(
                         "invalid error value '{0}' in FfiConverterTypeError.Write()",
+                        value
+                    )
+                );
+        }
+    }
+}
+
+/// <summary>
+/// Opaque caller-supplied context forwarded to custom filter policies at
+/// query time.
+///
+/// Custom filter policies read this to parametrize their evaluation; built-in
+/// policies (including the bloom filter) ignore it. The payload is opaque to
+/// SlateDB; the receiving policy is responsible for any decoding.
+/// </summary>
+internal record FilterContext
+{
+    /// <summary>
+    /// Fixed 64-byte inline payload. Maps to [`slatedb::FilterContext::Inline`];
+    /// the payload must be exactly 64 bytes.
+    /// </summary>
+    public record Bytes(byte[] Payload) : FilterContext { }
+}
+
+class FfiConverterTypeFilterContext : FfiConverterRustBuffer<FilterContext>
+{
+    public static FfiConverterRustBuffer<FilterContext> INSTANCE =
+        new FfiConverterTypeFilterContext();
+
+    public override FilterContext Read(BigEndianStream stream)
+    {
+        var value = stream.ReadInt();
+        switch (value)
+        {
+            case 1:
+                return new FilterContext.Bytes(FfiConverterByteArray.INSTANCE.Read(stream));
+            default:
+                throw new InternalException(
+                    String.Format(
+                        "invalid enum value '{0}' in FfiConverterTypeFilterContext.Read()",
+                        value
+                    )
+                );
+        }
+    }
+
+    public override int AllocationSize(FilterContext value)
+    {
+        switch (value)
+        {
+            case FilterContext.Bytes variant_value:
+                return 4 + FfiConverterByteArray.INSTANCE.AllocationSize(variant_value.Payload);
+            default:
+                throw new InternalException(
+                    String.Format(
+                        "invalid enum value '{0}' in FfiConverterTypeFilterContext.AllocationSize()",
+                        value
+                    )
+                );
+        }
+    }
+
+    public override void Write(FilterContext value, BigEndianStream stream)
+    {
+        switch (value)
+        {
+            case FilterContext.Bytes variant_value:
+                stream.WriteInt(1);
+                FfiConverterByteArray.INSTANCE.Write(variant_value.Payload, stream);
+                break;
+            default:
+                throw new InternalException(
+                    String.Format(
+                        "invalid enum value '{0}' in FfiConverterTypeFilterContext.Write()",
                         value
                     )
                 );
@@ -20493,6 +21639,87 @@ class FfiConverterTypeObjectStoreType : FfiConverterRustBuffer<ObjectStoreType>
                 throw new InternalException(
                     String.Format(
                         "invalid enum value '{0}' in FfiConverterTypeObjectStoreType.Write()",
+                        value
+                    )
+                );
+        }
+    }
+}
+
+/// <summary>
+/// Identifies the target of a [`PrefixExtractor::prefix_len`] query.
+/// </summary>
+internal record PrefixTarget
+{
+    /// <summary>
+    /// A complete key, supplied either during SST construction or a point lookup.
+    /// </summary>
+    public record Point(byte[] Key) : PrefixTarget { }
+
+    /// <summary>
+    /// A scan prefix supplied during a prefix scan.
+    /// </summary>
+    public record Prefix(byte[] PrefixValue) : PrefixTarget { }
+}
+
+class FfiConverterTypePrefixTarget : FfiConverterRustBuffer<PrefixTarget>
+{
+    public static FfiConverterRustBuffer<PrefixTarget> INSTANCE =
+        new FfiConverterTypePrefixTarget();
+
+    public override PrefixTarget Read(BigEndianStream stream)
+    {
+        var value = stream.ReadInt();
+        switch (value)
+        {
+            case 1:
+                return new PrefixTarget.Point(FfiConverterByteArray.INSTANCE.Read(stream));
+            case 2:
+                return new PrefixTarget.Prefix(FfiConverterByteArray.INSTANCE.Read(stream));
+            default:
+                throw new InternalException(
+                    String.Format(
+                        "invalid enum value '{0}' in FfiConverterTypePrefixTarget.Read()",
+                        value
+                    )
+                );
+        }
+    }
+
+    public override int AllocationSize(PrefixTarget value)
+    {
+        switch (value)
+        {
+            case PrefixTarget.Point variant_value:
+                return 4 + FfiConverterByteArray.INSTANCE.AllocationSize(variant_value.Key);
+            case PrefixTarget.Prefix variant_value:
+                return 4 + FfiConverterByteArray.INSTANCE.AllocationSize(variant_value.PrefixValue);
+            default:
+                throw new InternalException(
+                    String.Format(
+                        "invalid enum value '{0}' in FfiConverterTypePrefixTarget.AllocationSize()",
+                        value
+                    )
+                );
+        }
+    }
+
+    public override void Write(PrefixTarget value, BigEndianStream stream)
+    {
+        switch (value)
+        {
+            case PrefixTarget.Point variant_value:
+                stream.WriteInt(1);
+                FfiConverterByteArray.INSTANCE.Write(variant_value.Key, stream);
+                break;
+            case PrefixTarget.Prefix variant_value:
+                stream.WriteInt(2);
+                FfiConverterByteArray.INSTANCE.Write(variant_value.PrefixValue, stream);
+                break;
+            default:
+                throw new InternalException(
+                    String.Format(
+                        "invalid enum value '{0}' in FfiConverterTypePrefixTarget.Write()",
                         value
                     )
                 );
@@ -21241,6 +22468,47 @@ class FfiConverterOptionalTypeLogCallback : FfiConverterRustBuffer<LogCallback?>
     }
 }
 
+class FfiConverterOptionalTypePrefixExtractor : FfiConverterRustBuffer<PrefixExtractor?>
+{
+    public static FfiConverterOptionalTypePrefixExtractor INSTANCE =
+        new FfiConverterOptionalTypePrefixExtractor();
+
+    public override PrefixExtractor? Read(BigEndianStream stream)
+    {
+        if (stream.ReadByte() == 0)
+        {
+            return null;
+        }
+        return FfiConverterTypePrefixExtractor.INSTANCE.Read(stream);
+    }
+
+    public override int AllocationSize(PrefixExtractor? value)
+    {
+        if (value == null)
+        {
+            return 1;
+        }
+        else
+        {
+            return 1
+                + FfiConverterTypePrefixExtractor.INSTANCE.AllocationSize((PrefixExtractor)value);
+        }
+    }
+
+    public override void Write(PrefixExtractor? value, BigEndianStream stream)
+    {
+        if (value == null)
+        {
+            stream.WriteByte(0);
+        }
+        else
+        {
+            stream.WriteByte(1);
+            FfiConverterTypePrefixExtractor.INSTANCE.Write((PrefixExtractor)value, stream);
+        }
+    }
+}
+
 class FfiConverterOptionalTypeCompaction : FfiConverterRustBuffer<Compaction?>
 {
     public static FfiConverterOptionalTypeCompaction INSTANCE =
@@ -21650,6 +22918,87 @@ class FfiConverterOptionalTypeCompressionCodec : FfiConverterRustBuffer<Compress
     }
 }
 
+class FfiConverterOptionalTypeFilterContext : FfiConverterRustBuffer<FilterContext?>
+{
+    public static FfiConverterOptionalTypeFilterContext INSTANCE =
+        new FfiConverterOptionalTypeFilterContext();
+
+    public override FilterContext? Read(BigEndianStream stream)
+    {
+        if (stream.ReadByte() == 0)
+        {
+            return null;
+        }
+        return FfiConverterTypeFilterContext.INSTANCE.Read(stream);
+    }
+
+    public override int AllocationSize(FilterContext? value)
+    {
+        if (value == null)
+        {
+            return 1;
+        }
+        else
+        {
+            return 1 + FfiConverterTypeFilterContext.INSTANCE.AllocationSize((FilterContext)value);
+        }
+    }
+
+    public override void Write(FilterContext? value, BigEndianStream stream)
+    {
+        if (value == null)
+        {
+            stream.WriteByte(0);
+        }
+        else
+        {
+            stream.WriteByte(1);
+            FfiConverterTypeFilterContext.INSTANCE.Write((FilterContext)value, stream);
+        }
+    }
+}
+
+class FfiConverterOptionalTypeIterationOrder : FfiConverterRustBuffer<IterationOrder?>
+{
+    public static FfiConverterOptionalTypeIterationOrder INSTANCE =
+        new FfiConverterOptionalTypeIterationOrder();
+
+    public override IterationOrder? Read(BigEndianStream stream)
+    {
+        if (stream.ReadByte() == 0)
+        {
+            return null;
+        }
+        return FfiConverterTypeIterationOrder.INSTANCE.Read(stream);
+    }
+
+    public override int AllocationSize(IterationOrder? value)
+    {
+        if (value == null)
+        {
+            return 1;
+        }
+        else
+        {
+            return 1
+                + FfiConverterTypeIterationOrder.INSTANCE.AllocationSize((IterationOrder)value);
+        }
+    }
+
+    public override void Write(IterationOrder? value, BigEndianStream stream)
+    {
+        if (value == null)
+        {
+            stream.WriteByte(0);
+        }
+        else
+        {
+            stream.WriteByte(1);
+            FfiConverterTypeIterationOrder.INSTANCE.Write((IterationOrder)value, stream);
+        }
+    }
+}
+
 class FfiConverterSequenceUInt64 : FfiConverterRustBuffer<ulong[]>
 {
     public static FfiConverterSequenceUInt64 INSTANCE = new FfiConverterSequenceUInt64();
@@ -21799,6 +23148,58 @@ class FfiConverterSequenceByteArray : FfiConverterRustBuffer<byte[][]>
 
         stream.WriteInt(value.Length);
         var writerFn = FfiConverterByteArray.INSTANCE.Write;
+        value.ForEach(item => writerFn(item, stream));
+    }
+}
+
+class FfiConverterSequenceTypeFilterPolicy : FfiConverterRustBuffer<FilterPolicy[]>
+{
+    public static FfiConverterSequenceTypeFilterPolicy INSTANCE =
+        new FfiConverterSequenceTypeFilterPolicy();
+
+    public override FilterPolicy[] Read(BigEndianStream stream)
+    {
+        var length = stream.ReadInt();
+        if (length == 0)
+        {
+            return [];
+        }
+
+        var result = new FilterPolicy[length];
+        var readFn = FfiConverterTypeFilterPolicy.INSTANCE.Read;
+        for (int i = 0; i < length; i++)
+        {
+            result[i] = readFn(stream);
+        }
+        return result;
+    }
+
+    public override int AllocationSize(FilterPolicy[] value)
+    {
+        var sizeForLength = 4;
+
+        // details/1-empty-list-as-default-method-parameter.md
+        if (value == null)
+        {
+            return sizeForLength;
+        }
+
+        var allocationSizeFn = FfiConverterTypeFilterPolicy.INSTANCE.AllocationSize;
+        var sizeForItems = value.Sum(item => allocationSizeFn(item));
+        return sizeForLength + sizeForItems;
+    }
+
+    public override void Write(FilterPolicy[] value, BigEndianStream stream)
+    {
+        // details/1-empty-list-as-default-method-parameter.md
+        if (value == null)
+        {
+            stream.WriteInt(0);
+            return;
+        }
+
+        stream.WriteInt(value.Length);
+        var writerFn = FfiConverterTypeFilterPolicy.INSTANCE.Write;
         value.ForEach(item => writerFn(item, stream));
     }
 }

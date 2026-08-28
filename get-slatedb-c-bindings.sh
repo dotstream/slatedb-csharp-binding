@@ -1,6 +1,7 @@
 #!/bin/bash
 
-version="0.13.0"
+version="0.13.1"
+bindingversion="bindings/go/v${version}"
 
 rm -rf rust/slatedb-ffi/src/*.rs
 mkdir -p slatedb-bindings

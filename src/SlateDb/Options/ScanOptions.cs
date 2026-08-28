@@ -22,4 +22,10 @@ public record ScanOptions
 
     /// <summary>Maximum number of concurrent fetch tasks used by the scan.</summary>
     public ulong MaxFetchTasks { get; init; }
+
+    /// <summary>
+    /// Optional context forwarded to custom filter policies; ignored by
+    /// built-in filters. Only consulted for prefix scans.
+    /// </summary>
+    public FilterContext? FilterContext { get; init; }
 }
