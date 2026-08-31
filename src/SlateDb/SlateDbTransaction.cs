@@ -241,7 +241,8 @@ public sealed class SlateDbTransaction<K, V> : IDisposable
         try
         {
             var interopOptions = Interop.OptionsConverters.ToInterop(options);
-            var iterator = _handle.ScanPrefixWithOptions(prefix, interopOptions).GetAwaiter().GetResult();
+            var subrange = new Interop.KeyRange(null, true, null, true);
+            var iterator = _handle.ScanPrefixWithOptions(prefix, subrange, interopOptions).GetAwaiter().GetResult();
 
             return new SlateDbEnumerable<K, V>(iterator, _keyConverter, _valueConverter);
         }
@@ -275,7 +276,8 @@ public sealed class SlateDbTransaction<K, V> : IDisposable
         try
         {
             var interopOptions = Interop.OptionsConverters.ToInterop(options);
-            iterator = await _handle.ScanPrefixWithOptions(prefix, interopOptions);
+            var subrange = new Interop.KeyRange(null, true, null, true);
+            iterator = await _handle.ScanPrefixWithOptions(prefix, subrange, interopOptions);
         }
         catch (Exception ex) when (ex is not SlateDbException)
         {

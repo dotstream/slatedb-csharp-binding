@@ -1072,6 +1072,43 @@ static class _UniFFILib
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
+    ulong uniffi_slatedb_csharp_ffi_fn_method_admin_create_clone_builder_from_source(
+        ulong @ptr,
+        RustBuffer @source,
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ulong uniffi_slatedb_csharp_ffi_fn_method_admin_create_detached_checkpoint(
+        ulong @ptr,
+        RustBuffer @options
+    );
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ulong uniffi_slatedb_csharp_ffi_fn_method_admin_delete_checkpoint(ulong @ptr, RustBuffer @id);
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
     ulong uniffi_slatedb_csharp_ffi_fn_method_admin_get_sequence_for_timestamp(
         ulong @ptr,
         long @timestampSecs,
@@ -1185,6 +1222,20 @@ static class _UniFFILib
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
+    ulong uniffi_slatedb_csharp_ffi_fn_method_admin_refresh_checkpoint(
+        ulong @ptr,
+        RustBuffer @id,
+        RustBuffer @lifetimeMs
+    );
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
     ulong uniffi_slatedb_csharp_ffi_fn_clone_adminbuilder(
         ulong @handle,
         ref UniffiRustCallStatus _uniffi_out_err
@@ -1253,6 +1304,126 @@ static class _UniFFILib
     public static extern
 #endif
     void uniffi_slatedb_csharp_ffi_fn_method_adminbuilder_with_wal_object_store(
+        ulong @ptr,
+        ulong @walObjectStore,
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ulong uniffi_slatedb_csharp_ffi_fn_clone_clonebuilder(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    void uniffi_slatedb_csharp_ffi_fn_free_clonebuilder(
+        ulong @handle,
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ulong uniffi_slatedb_csharp_ffi_fn_method_clonebuilder_build(ulong @ptr);
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    void uniffi_slatedb_csharp_ffi_fn_method_clonebuilder_with_clone_path(
+        ulong @ptr,
+        RustBuffer @clonePath,
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    void uniffi_slatedb_csharp_ffi_fn_method_clonebuilder_with_object_store(
+        ulong @ptr,
+        ulong @objectStore,
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    void uniffi_slatedb_csharp_ffi_fn_method_clonebuilder_with_projection_range(
+        ulong @ptr,
+        RustBuffer @projectionRange,
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    void uniffi_slatedb_csharp_ffi_fn_method_clonebuilder_with_seed(
+        ulong @ptr,
+        ulong @seed,
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    void uniffi_slatedb_csharp_ffi_fn_method_clonebuilder_with_source(
+        ulong @ptr,
+        RustBuffer @source,
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    void uniffi_slatedb_csharp_ffi_fn_method_clonebuilder_with_wal_object_store(
         ulong @ptr,
         ulong @walObjectStore,
         ref UniffiRustCallStatus _uniffi_out_err
@@ -1388,6 +1559,20 @@ static class _UniFFILib
     void uniffi_slatedb_csharp_ffi_fn_method_dbbuilder_with_seed(
         ulong @ptr,
         ulong @seed,
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    void uniffi_slatedb_csharp_ffi_fn_method_dbbuilder_with_segment_extractor(
+        ulong @ptr,
+        ulong @extractor,
         ref UniffiRustCallStatus _uniffi_out_err
     );
 
@@ -1550,6 +1735,20 @@ static class _UniFFILib
     void uniffi_slatedb_csharp_ffi_fn_method_dbreaderbuilder_with_options(
         ulong @ptr,
         RustBuffer @options,
+        ref UniffiRustCallStatus _uniffi_out_err
+    );
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    void uniffi_slatedb_csharp_ffi_fn_method_dbreaderbuilder_with_segment_extractor(
+        ulong @ptr,
+        ulong @extractor,
         ref UniffiRustCallStatus _uniffi_out_err
     );
 
@@ -1786,7 +1985,11 @@ static class _UniFFILib
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-    ulong uniffi_slatedb_csharp_ffi_fn_method_db_scan_prefix(ulong @ptr, RustBuffer @prefix);
+    ulong uniffi_slatedb_csharp_ffi_fn_method_db_scan_prefix(
+        ulong @ptr,
+        RustBuffer @prefix,
+        RustBuffer @subrange
+    );
 
 #if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
@@ -1799,6 +2002,7 @@ static class _UniFFILib
     ulong uniffi_slatedb_csharp_ffi_fn_method_db_scan_prefix_with_options(
         ulong @ptr,
         RustBuffer @prefix,
+        RustBuffer @subrange,
         RustBuffer @options
     );
 
@@ -2058,7 +2262,11 @@ static class _UniFFILib
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
-    ulong uniffi_slatedb_csharp_ffi_fn_method_dbreader_scan_prefix(ulong @ptr, RustBuffer @prefix);
+    ulong uniffi_slatedb_csharp_ffi_fn_method_dbreader_scan_prefix(
+        ulong @ptr,
+        RustBuffer @prefix,
+        RustBuffer @subrange
+    );
 
 #if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
@@ -2071,6 +2279,7 @@ static class _UniFFILib
     ulong uniffi_slatedb_csharp_ffi_fn_method_dbreader_scan_prefix_with_options(
         ulong @ptr,
         RustBuffer @prefix,
+        RustBuffer @subrange,
         RustBuffer @options
     );
 
@@ -2219,7 +2428,8 @@ static class _UniFFILib
 #endif
     ulong uniffi_slatedb_csharp_ffi_fn_method_dbsnapshot_scan_prefix(
         ulong @ptr,
-        RustBuffer @prefix
+        RustBuffer @prefix,
+        RustBuffer @subrange
     );
 
 #if NET8_0_OR_GREATER
@@ -2233,6 +2443,7 @@ static class _UniFFILib
     ulong uniffi_slatedb_csharp_ffi_fn_method_dbsnapshot_scan_prefix_with_options(
         ulong @ptr,
         RustBuffer @prefix,
+        RustBuffer @subrange,
         RustBuffer @options
     );
 
@@ -2471,7 +2682,8 @@ static class _UniFFILib
 #endif
     ulong uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_scan_prefix(
         ulong @ptr,
-        RustBuffer @prefix
+        RustBuffer @prefix,
+        RustBuffer @subrange
     );
 
 #if NET8_0_OR_GREATER
@@ -2485,6 +2697,7 @@ static class _UniFFILib
     ulong uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_scan_prefix_with_options(
         ulong @ptr,
         RustBuffer @prefix,
+        RustBuffer @subrange,
         RustBuffer @options
     );
 
@@ -4473,6 +4686,36 @@ static class _UniFFILib
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_admin_create_clone_builder_from_source();
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_admin_create_detached_checkpoint();
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_admin_delete_checkpoint();
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
     ushort uniffi_slatedb_csharp_ffi_checksum_method_admin_get_sequence_for_timestamp();
 
 #if NET8_0_OR_GREATER
@@ -4563,6 +4806,16 @@ static class _UniFFILib
     [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
     public static extern
 #endif
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_admin_refresh_checkpoint();
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
     ushort uniffi_slatedb_csharp_ffi_checksum_method_adminbuilder_build();
 
 #if NET8_0_OR_GREATER
@@ -4584,6 +4837,76 @@ static class _UniFFILib
     public static extern
 #endif
     ushort uniffi_slatedb_csharp_ffi_checksum_method_adminbuilder_with_wal_object_store();
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_clonebuilder_build();
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_clonebuilder_with_clone_path();
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_clonebuilder_with_object_store();
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_clonebuilder_with_projection_range();
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_clonebuilder_with_seed();
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_clonebuilder_with_source();
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_clonebuilder_with_wal_object_store();
 
 #if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
@@ -4654,6 +4977,16 @@ static class _UniFFILib
     public static extern
 #endif
     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_seed();
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_segment_extractor();
 
 #if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
@@ -4744,6 +5077,16 @@ static class _UniFFILib
     public static extern
 #endif
     ushort uniffi_slatedb_csharp_ffi_checksum_method_dbreaderbuilder_with_options();
+
+#if NET8_0_OR_GREATER
+    [LibraryImport("slatedb_csharp_ffi")]
+    [UnmanagedCallConv(CallConvs = new[] { typeof(CallConvCdecl) })]
+    public static partial
+#else
+    [DllImport("slatedb_csharp_ffi", CallingConvention = CallingConvention.Cdecl)]
+    public static extern
+#endif
+    ushort uniffi_slatedb_csharp_ffi_checksum_method_dbreaderbuilder_with_segment_extractor();
 
 #if NET8_0_OR_GREATER
     [LibraryImport("slatedb_csharp_ffi")]
@@ -6020,6 +6363,36 @@ static class _UniFFILib
         }
         {
             var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_admin_create_clone_builder_from_source();
+            if (checksum != 59865)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_admin_create_clone_builder_from_source` checksum `59865`, library returned `{checksum}`"
+                );
+            }
+        }
+        {
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_admin_create_detached_checkpoint();
+            if (checksum != 60631)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_admin_create_detached_checkpoint` checksum `60631`, library returned `{checksum}`"
+                );
+            }
+        }
+        {
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_admin_delete_checkpoint();
+            if (checksum != 10406)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_admin_delete_checkpoint` checksum `10406`, library returned `{checksum}`"
+                );
+            }
+        }
+        {
+            var checksum =
                 _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_admin_get_sequence_for_timestamp();
             if (checksum != 32572)
             {
@@ -6110,6 +6483,16 @@ static class _UniFFILib
         }
         {
             var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_admin_refresh_checkpoint();
+            if (checksum != 57685)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_admin_refresh_checkpoint` checksum `57685`, library returned `{checksum}`"
+                );
+            }
+        }
+        {
+            var checksum =
                 _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_adminbuilder_build();
             if (checksum != 60491)
             {
@@ -6135,6 +6518,76 @@ static class _UniFFILib
             {
                 throw new UniffiContractChecksumException(
                     $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_adminbuilder_with_wal_object_store` checksum `7398`, library returned `{checksum}`"
+                );
+            }
+        }
+        {
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_clonebuilder_build();
+            if (checksum != 45116)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_clonebuilder_build` checksum `45116`, library returned `{checksum}`"
+                );
+            }
+        }
+        {
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_clonebuilder_with_clone_path();
+            if (checksum != 23715)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_clonebuilder_with_clone_path` checksum `23715`, library returned `{checksum}`"
+                );
+            }
+        }
+        {
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_clonebuilder_with_object_store();
+            if (checksum != 7999)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_clonebuilder_with_object_store` checksum `7999`, library returned `{checksum}`"
+                );
+            }
+        }
+        {
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_clonebuilder_with_projection_range();
+            if (checksum != 40990)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_clonebuilder_with_projection_range` checksum `40990`, library returned `{checksum}`"
+                );
+            }
+        }
+        {
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_clonebuilder_with_seed();
+            if (checksum != 12607)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_clonebuilder_with_seed` checksum `12607`, library returned `{checksum}`"
+                );
+            }
+        }
+        {
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_clonebuilder_with_source();
+            if (checksum != 61982)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_clonebuilder_with_source` checksum `61982`, library returned `{checksum}`"
+                );
+            }
+        }
+        {
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_clonebuilder_with_wal_object_store();
+            if (checksum != 27087)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_clonebuilder_with_wal_object_store` checksum `27087`, library returned `{checksum}`"
                 );
             }
         }
@@ -6204,6 +6657,16 @@ static class _UniFFILib
             {
                 throw new UniffiContractChecksumException(
                     $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_seed` checksum `15404`, library returned `{checksum}`"
+                );
+            }
+        }
+        {
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_segment_extractor();
+            if (checksum != 42041)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbbuilder_with_segment_extractor` checksum `42041`, library returned `{checksum}`"
                 );
             }
         }
@@ -6294,6 +6757,16 @@ static class _UniFFILib
             {
                 throw new UniffiContractChecksumException(
                     $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbreaderbuilder_with_options` checksum `48457`, library returned `{checksum}`"
+                );
+            }
+        }
+        {
+            var checksum =
+                _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbreaderbuilder_with_segment_extractor();
+            if (checksum != 24885)
+            {
+                throw new UniffiContractChecksumException(
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbreaderbuilder_with_segment_extractor` checksum `24885`, library returned `{checksum}`"
                 );
             }
         }
@@ -6451,20 +6924,20 @@ static class _UniFFILib
         }
         {
             var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_db_scan_prefix();
-            if (checksum != 41436)
+            if (checksum != 11785)
             {
                 throw new UniffiContractChecksumException(
-                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_scan_prefix` checksum `41436`, library returned `{checksum}`"
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_scan_prefix` checksum `11785`, library returned `{checksum}`"
                 );
             }
         }
         {
             var checksum =
                 _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_db_scan_prefix_with_options();
-            if (checksum != 47629)
+            if (checksum != 63331)
             {
                 throw new UniffiContractChecksumException(
-                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_scan_prefix_with_options` checksum `47629`, library returned `{checksum}`"
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_scan_prefix_with_options` checksum `63331`, library returned `{checksum}`"
                 );
             }
         }
@@ -6498,10 +6971,10 @@ static class _UniFFILib
         }
         {
             var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_db_status();
-            if (checksum != 46493)
+            if (checksum != 26312)
             {
                 throw new UniffiContractChecksumException(
-                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_status` checksum `46493`, library returned `{checksum}`"
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_db_status` checksum `26312`, library returned `{checksum}`"
                 );
             }
         }
@@ -6594,20 +7067,20 @@ static class _UniFFILib
         {
             var checksum =
                 _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbreader_scan_prefix();
-            if (checksum != 37992)
+            if (checksum != 64321)
             {
                 throw new UniffiContractChecksumException(
-                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbreader_scan_prefix` checksum `37992`, library returned `{checksum}`"
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbreader_scan_prefix` checksum `64321`, library returned `{checksum}`"
                 );
             }
         }
         {
             var checksum =
                 _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbreader_scan_prefix_with_options();
-            if (checksum != 24940)
+            if (checksum != 11417)
             {
                 throw new UniffiContractChecksumException(
-                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbreader_scan_prefix_with_options` checksum `24940`, library returned `{checksum}`"
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbreader_scan_prefix_with_options` checksum `11417`, library returned `{checksum}`"
                 );
             }
         }
@@ -6699,20 +7172,20 @@ static class _UniFFILib
         {
             var checksum =
                 _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_scan_prefix();
-            if (checksum != 13037)
+            if (checksum != 49186)
             {
                 throw new UniffiContractChecksumException(
-                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_scan_prefix` checksum `13037`, library returned `{checksum}`"
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_scan_prefix` checksum `49186`, library returned `{checksum}`"
                 );
             }
         }
         {
             var checksum =
                 _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_scan_prefix_with_options();
-            if (checksum != 35868)
+            if (checksum != 10929)
             {
                 throw new UniffiContractChecksumException(
-                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_scan_prefix_with_options` checksum `35868`, library returned `{checksum}`"
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbsnapshot_scan_prefix_with_options` checksum `10929`, library returned `{checksum}`"
                 );
             }
         }
@@ -6876,20 +7349,20 @@ static class _UniFFILib
         {
             var checksum =
                 _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_scan_prefix();
-            if (checksum != 18727)
+            if (checksum != 370)
             {
                 throw new UniffiContractChecksumException(
-                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_scan_prefix` checksum `18727`, library returned `{checksum}`"
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_scan_prefix` checksum `370`, library returned `{checksum}`"
                 );
             }
         }
         {
             var checksum =
                 _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_scan_prefix_with_options();
-            if (checksum != 32240)
+            if (checksum != 4184)
             {
                 throw new UniffiContractChecksumException(
-                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_scan_prefix_with_options` checksum `32240`, library returned `{checksum}`"
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_dbtransaction_scan_prefix_with_options` checksum `4184`, library returned `{checksum}`"
                 );
             }
         }
@@ -7195,10 +7668,10 @@ static class _UniFFILib
         }
         {
             var checksum = _UniFFILib.uniffi_slatedb_csharp_ffi_checksum_method_walfile_metadata();
-            if (checksum != 43305)
+            if (checksum != 29218)
             {
                 throw new UniffiContractChecksumException(
-                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_walfile_metadata` checksum `43305`, library returned `{checksum}`"
+                    $"SlateDb.Interop: uniffi bindings expected function `uniffi_slatedb_csharp_ffi_checksum_method_walfile_metadata` checksum `29218`, library returned `{checksum}`"
                 );
             }
         }
@@ -7733,6 +8206,22 @@ class FfiConverterByteArray : FfiConverterRustBuffer<byte[]>
 /// </summary>
 internal interface IAdmin
 {
+    /// <exception cref="Exception"></exception>
+    CloneBuilder CreateCloneBuilderFromSource(CloneSourceSpec @source);
+
+    /// <summary>
+    /// Creates a checkpoint of the db stored in the object store at the specified path using the
+    /// provided options.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    Task<CheckpointCreateResult> CreateDetachedCheckpoint(CheckpointOptions @options);
+
+    /// <summary>
+    /// Deletes the checkpoint with the specified id.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    Task DeleteCheckpoint(string @id);
+
     /// <summary>
     /// Looks up a sequence number for the provided Unix UTC timestamp seconds.
     /// </summary>
@@ -7786,6 +8275,12 @@ internal interface IAdmin
     /// </summary>
     /// <exception cref="Exception"></exception>
     Task<VersionedManifest?> ReadManifest(ulong? @id);
+
+    /// <summary>
+    /// Refresh the lifetime of an existing checkpoint.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    Task RefreshCheckpoint(string @id, ulong? @lifetimeMs);
 }
 
 /// <summary>
@@ -7901,6 +8396,95 @@ internal class Admin : IAdmin, IDisposable
         {
             DecrementCallCounter();
         }
+    }
+
+    /// <exception cref="Exception"></exception>
+    public CloneBuilder CreateCloneBuilderFromSource(CloneSourceSpec @source)
+    {
+        return CallWithPointer(thisPtr =>
+            FfiConverterTypeCloneBuilder.INSTANCE.Lift(
+                _UniffiHelpers.RustCallWithError(
+                    FfiConverterTypeError.INSTANCE,
+                    (ref UniffiRustCallStatus _status) =>
+                        _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_admin_create_clone_builder_from_source(
+                            thisPtr,
+                            FfiConverterTypeCloneSourceSpec.INSTANCE.Lower(@source),
+                            ref _status
+                        )
+                )
+            )
+        );
+    }
+
+    /// <summary>
+    /// Creates a checkpoint of the db stored in the object store at the specified path using the
+    /// provided options.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    public async Task<CheckpointCreateResult> CreateDetachedCheckpoint(CheckpointOptions @options)
+    {
+        return await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_admin_create_detached_checkpoint(
+                    thisPtr,
+                    FfiConverterTypeCheckpointOptions.INSTANCE.Lower(@options)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_rust_buffer(
+                    future,
+                    continuation,
+                    data
+                ),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_rust_buffer(
+                    future,
+                    ref status
+                );
+            },
+            // Free
+            (ulong future) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
+            // Lift
+            (result) => FfiConverterTypeCheckpointCreateResult.INSTANCE.Lift(result),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
+    }
+
+    /// <summary>
+    /// Deletes the checkpoint with the specified id.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    public async Task DeleteCheckpoint(string @id)
+    {
+        await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_admin_delete_checkpoint(
+                    thisPtr,
+                    FfiConverterString.INSTANCE.Lower(@id)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_void(future, continuation, data),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_void(future, ref status);
+            },
+            // Free
+            (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_void(future),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
     }
 
     /// <summary>
@@ -8266,6 +8850,37 @@ internal class Admin : IAdmin, IDisposable
             FfiConverterTypeError.INSTANCE
         );
     }
+
+    /// <summary>
+    /// Refresh the lifetime of an existing checkpoint.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    public async Task RefreshCheckpoint(string @id, ulong? @lifetimeMs)
+    {
+        await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_admin_refresh_checkpoint(
+                    thisPtr,
+                    FfiConverterString.INSTANCE.Lower(@id),
+                    FfiConverterOptionalUInt64.INSTANCE.Lower(@lifetimeMs)
+                );
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_void(future, continuation, data),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_void(future, ref status);
+            },
+            // Free
+            (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_void(future),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
+    }
 }
 
 class FfiConverterTypeAdmin : FfiConverter<Admin, ulong>
@@ -8540,6 +9155,299 @@ class FfiConverterTypeAdminBuilder : FfiConverter<AdminBuilder, ulong>
     }
 
     public override void Write(AdminBuilder value, BigEndianStream stream)
+    {
+        stream.WriteULong(Lower(value));
+    }
+}
+
+internal interface ICloneBuilder
+{
+    /// <summary>
+    /// Runs the clone operation and consumes this builder.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    Task Build();
+
+    /// <exception cref="Exception"></exception>
+    void WithClonePath(string @clonePath);
+
+    /// <exception cref="Exception"></exception>
+    void WithObjectStore(ObjectStore @objectStore);
+
+    /// <exception cref="Exception"></exception>
+    void WithProjectionRange(KeyRange? @projectionRange);
+
+    /// <exception cref="Exception"></exception>
+    void WithSeed(ulong @seed);
+
+    /// <exception cref="Exception"></exception>
+    void WithSource(CloneSourceSpec @source);
+
+    /// <exception cref="Exception"></exception>
+    void WithWalObjectStore(ObjectStore @walObjectStore);
+}
+
+internal class CloneBuilder : ICloneBuilder, IDisposable
+{
+    protected ulong pointer;
+    private int _wasDestroyed = 0;
+    private long _callCounter = 1;
+
+    public CloneBuilder(ulong pointer)
+    {
+        this.pointer = pointer;
+    }
+
+    ~CloneBuilder()
+    {
+        Destroy();
+    }
+
+    protected void FreeRustArcPtr()
+    {
+        _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.uniffi_slatedb_csharp_ffi_fn_free_clonebuilder(this.pointer, ref status);
+            }
+        );
+    }
+
+    protected ulong CloneRustArcPtr()
+    {
+        return _UniffiHelpers.RustCall(
+            (ref UniffiRustCallStatus status) =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_clone_clonebuilder(
+                    this.pointer,
+                    ref status
+                );
+            }
+        );
+    }
+
+    public void Destroy()
+    {
+        // Only allow a single call to this method.
+        if (Interlocked.CompareExchange(ref _wasDestroyed, 1, 0) == 0)
+        {
+            // This decrement always matches the initial count of 1 given at creation time.
+            if (Interlocked.Decrement(ref _callCounter) == 0)
+            {
+                FreeRustArcPtr();
+            }
+        }
+    }
+
+    public void Dispose()
+    {
+        Destroy();
+        GC.SuppressFinalize(this); // Suppress finalization to avoid unnecessary GC overhead.
+    }
+
+    private void IncrementCallCounter()
+    {
+        // Check and increment the call counter, to keep the object alive.
+        // This needs a compare-and-set retry loop in case of concurrent updates.
+        long count;
+        do
+        {
+            count = Interlocked.Read(ref _callCounter);
+            if (count == 0L)
+                throw new System.ObjectDisposedException(
+                    String.Format("'{0}' object has already been destroyed", this.GetType().Name)
+                );
+            if (count == long.MaxValue)
+                throw new System.OverflowException(
+                    String.Format("'{0}' call counter would overflow", this.GetType().Name)
+                );
+        } while (Interlocked.CompareExchange(ref _callCounter, count + 1, count) != count);
+    }
+
+    private void DecrementCallCounter()
+    {
+        // This decrement always matches the increment we performed above.
+        if (Interlocked.Decrement(ref _callCounter) == 0)
+        {
+            FreeRustArcPtr();
+        }
+    }
+
+    internal void CallWithPointer(Action<ulong> action)
+    {
+        IncrementCallCounter();
+        try
+        {
+            action(CloneRustArcPtr());
+        }
+        finally
+        {
+            DecrementCallCounter();
+        }
+    }
+
+    internal T CallWithPointer<T>(Func<ulong, T> func)
+    {
+        IncrementCallCounter();
+        try
+        {
+            return func(CloneRustArcPtr());
+        }
+        finally
+        {
+            DecrementCallCounter();
+        }
+    }
+
+    /// <summary>
+    /// Runs the clone operation and consumes this builder.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    public async Task Build()
+    {
+        await _UniFFIAsync.UniffiRustCallAsync(
+            // Get rust future
+            CallWithPointer(thisPtr =>
+            {
+                return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_clonebuilder_build(thisPtr);
+            }),
+            // Poll
+            (ulong future, IntPtr continuation, ulong data) =>
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_poll_void(future, continuation, data),
+            // Complete
+            (ulong future, ref UniffiRustCallStatus status) =>
+            {
+                _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_complete_void(future, ref status);
+            },
+            // Free
+            (ulong future) => _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_void(future),
+            // Error
+            FfiConverterTypeError.INSTANCE
+        );
+    }
+
+    /// <exception cref="Exception"></exception>
+    public void WithClonePath(string @clonePath)
+    {
+        CallWithPointer(thisPtr =>
+            _UniffiHelpers.RustCallWithError(
+                FfiConverterTypeError.INSTANCE,
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_clonebuilder_with_clone_path(
+                        thisPtr,
+                        FfiConverterString.INSTANCE.Lower(@clonePath),
+                        ref _status
+                    )
+            )
+        );
+    }
+
+    /// <exception cref="Exception"></exception>
+    public void WithObjectStore(ObjectStore @objectStore)
+    {
+        CallWithPointer(thisPtr =>
+            _UniffiHelpers.RustCallWithError(
+                FfiConverterTypeError.INSTANCE,
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_clonebuilder_with_object_store(
+                        thisPtr,
+                        FfiConverterTypeObjectStore.INSTANCE.Lower(@objectStore),
+                        ref _status
+                    )
+            )
+        );
+    }
+
+    /// <exception cref="Exception"></exception>
+    public void WithProjectionRange(KeyRange? @projectionRange)
+    {
+        CallWithPointer(thisPtr =>
+            _UniffiHelpers.RustCallWithError(
+                FfiConverterTypeError.INSTANCE,
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_clonebuilder_with_projection_range(
+                        thisPtr,
+                        FfiConverterOptionalTypeKeyRange.INSTANCE.Lower(@projectionRange),
+                        ref _status
+                    )
+            )
+        );
+    }
+
+    /// <exception cref="Exception"></exception>
+    public void WithSeed(ulong @seed)
+    {
+        CallWithPointer(thisPtr =>
+            _UniffiHelpers.RustCallWithError(
+                FfiConverterTypeError.INSTANCE,
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_clonebuilder_with_seed(
+                        thisPtr,
+                        FfiConverterUInt64.INSTANCE.Lower(@seed),
+                        ref _status
+                    )
+            )
+        );
+    }
+
+    /// <exception cref="Exception"></exception>
+    public void WithSource(CloneSourceSpec @source)
+    {
+        CallWithPointer(thisPtr =>
+            _UniffiHelpers.RustCallWithError(
+                FfiConverterTypeError.INSTANCE,
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_clonebuilder_with_source(
+                        thisPtr,
+                        FfiConverterTypeCloneSourceSpec.INSTANCE.Lower(@source),
+                        ref _status
+                    )
+            )
+        );
+    }
+
+    /// <exception cref="Exception"></exception>
+    public void WithWalObjectStore(ObjectStore @walObjectStore)
+    {
+        CallWithPointer(thisPtr =>
+            _UniffiHelpers.RustCallWithError(
+                FfiConverterTypeError.INSTANCE,
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_clonebuilder_with_wal_object_store(
+                        thisPtr,
+                        FfiConverterTypeObjectStore.INSTANCE.Lower(@walObjectStore),
+                        ref _status
+                    )
+            )
+        );
+    }
+}
+
+class FfiConverterTypeCloneBuilder : FfiConverter<CloneBuilder, ulong>
+{
+    public static FfiConverterTypeCloneBuilder INSTANCE = new FfiConverterTypeCloneBuilder();
+
+    public override ulong Lower(CloneBuilder value)
+    {
+        return value.CallWithPointer(thisPtr => thisPtr);
+    }
+
+    public override CloneBuilder Lift(ulong value)
+    {
+        return new CloneBuilder(value);
+    }
+
+    public override CloneBuilder Read(BigEndianStream stream)
+    {
+        return Lift(stream.ReadULong());
+    }
+
+    public override int AllocationSize(CloneBuilder value)
+    {
+        return 8;
+    }
+
+    public override void Write(CloneBuilder value, BigEndianStream stream)
     {
         stream.WriteULong(Lower(value));
     }
@@ -9001,16 +9909,21 @@ internal interface IDb
     Task<DbIterator> Scan(KeyRange @range);
 
     /// <summary>
-    /// Scans rows whose keys start with `prefix`.
+    /// Scans rows whose keys start with `prefix`, restricted to `subrange`.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    Task<DbIterator> ScanPrefix(byte[] @prefix);
+    Task<DbIterator> ScanPrefix(byte[] @prefix, KeyRange @subrange);
 
     /// <summary>
-    /// Scans rows whose keys start with `prefix` using custom scan options.
+    /// Scans rows whose keys start with `prefix`, restricted to `subrange`,
+    /// using custom scan options.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    Task<DbIterator> ScanPrefixWithOptions(byte[] @prefix, ScanOptions @options);
+    Task<DbIterator> ScanPrefixWithOptions(
+        byte[] @prefix,
+        KeyRange @subrange,
+        ScanOptions @options
+    );
 
     /// <summary>
     /// Scans rows inside `range` using custom scan options.
@@ -9031,7 +9944,8 @@ internal interface IDb
     Task<DbSnapshot> Snapshot();
 
     /// <summary>
-    /// Returns the latest database status snapshot.
+    /// Returns the latest database status snapshot, including the segment
+    /// prefixes (RFC-0024) live as of the snapshot (see [`DbStatus::segments`]).
     /// </summary>
     DbStatus Status();
 
@@ -9758,10 +10672,10 @@ internal class Db : IDb, IDisposable
     }
 
     /// <summary>
-    /// Scans rows whose keys start with `prefix`.
+    /// Scans rows whose keys start with `prefix`, restricted to `subrange`.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<DbIterator> ScanPrefix(byte[] @prefix)
+    public async Task<DbIterator> ScanPrefix(byte[] @prefix, KeyRange @subrange)
     {
         return await _UniFFIAsync.UniffiRustCallAsync(
             // Get rust future
@@ -9769,7 +10683,8 @@ internal class Db : IDb, IDisposable
             {
                 return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_db_scan_prefix(
                     thisPtr,
-                    FfiConverterByteArray.INSTANCE.Lower(@prefix)
+                    FfiConverterByteArray.INSTANCE.Lower(@prefix),
+                    FfiConverterTypeKeyRange.INSTANCE.Lower(@subrange)
                 );
             }),
             // Poll
@@ -9793,10 +10708,15 @@ internal class Db : IDb, IDisposable
     }
 
     /// <summary>
-    /// Scans rows whose keys start with `prefix` using custom scan options.
+    /// Scans rows whose keys start with `prefix`, restricted to `subrange`,
+    /// using custom scan options.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<DbIterator> ScanPrefixWithOptions(byte[] @prefix, ScanOptions @options)
+    public async Task<DbIterator> ScanPrefixWithOptions(
+        byte[] @prefix,
+        KeyRange @subrange,
+        ScanOptions @options
+    )
     {
         return await _UniFFIAsync.UniffiRustCallAsync(
             // Get rust future
@@ -9805,6 +10725,7 @@ internal class Db : IDb, IDisposable
                 return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_db_scan_prefix_with_options(
                     thisPtr,
                     FfiConverterByteArray.INSTANCE.Lower(@prefix),
+                    FfiConverterTypeKeyRange.INSTANCE.Lower(@subrange),
                     FfiConverterTypeScanOptions.INSTANCE.Lower(@options)
                 );
             }),
@@ -9924,7 +10845,8 @@ internal class Db : IDb, IDisposable
     }
 
     /// <summary>
-    /// Returns the latest database status snapshot.
+    /// Returns the latest database status snapshot, including the segment
+    /// prefixes (RFC-0024) live as of the snapshot (see [`DbStatus::segments`]).
     /// </summary>
     public DbStatus Status()
     {
@@ -10143,6 +11065,15 @@ internal interface IDbBuilder
     /// </summary>
     /// <exception cref="Exception"></exception>
     void WithSeed(ulong @seed);
+
+    /// <summary>
+    /// Sets the segment extractor (RFC-0024). When configured, every write is
+    /// routed through the extractor and the database tracks per-segment LSM
+    /// state. The extractor must be configured at database creation time and
+    /// cannot be changed thereafter.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    void WithSegmentExtractor(PrefixExtractor @extractor);
 
     /// <summary>
     /// Applies a [`crate::Settings`] object to the builder.
@@ -10437,6 +11368,28 @@ internal class DbBuilder : IDbBuilder, IDisposable
                     _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbbuilder_with_seed(
                         thisPtr,
                         FfiConverterUInt64.INSTANCE.Lower(@seed),
+                        ref _status
+                    )
+            )
+        );
+    }
+
+    /// <summary>
+    /// Sets the segment extractor (RFC-0024). When configured, every write is
+    /// routed through the extractor and the database tracks per-segment LSM
+    /// state. The extractor must be configured at database creation time and
+    /// cannot be changed thereafter.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    public void WithSegmentExtractor(PrefixExtractor @extractor)
+    {
+        CallWithPointer(thisPtr =>
+            _UniffiHelpers.RustCallWithError(
+                FfiConverterTypeError.INSTANCE,
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbbuilder_with_segment_extractor(
+                        thisPtr,
+                        FfiConverterTypePrefixExtractor.INSTANCE.Lower(@extractor),
                         ref _status
                     )
             )
@@ -11047,16 +12000,21 @@ internal interface IDbReader
     Task<DbIterator> Scan(KeyRange @range);
 
     /// <summary>
-    /// Scans rows whose keys start with `prefix`.
+    /// Scans rows whose keys start with `prefix`, restricted to `subrange`.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    Task<DbIterator> ScanPrefix(byte[] @prefix);
+    Task<DbIterator> ScanPrefix(byte[] @prefix, KeyRange @subrange);
 
     /// <summary>
-    /// Scans rows whose keys start with `prefix` using custom scan options.
+    /// Scans rows whose keys start with `prefix`, restricted to `subrange`,
+    /// using custom scan options.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    Task<DbIterator> ScanPrefixWithOptions(byte[] @prefix, ScanOptions @options);
+    Task<DbIterator> ScanPrefixWithOptions(
+        byte[] @prefix,
+        KeyRange @subrange,
+        ScanOptions @options
+    );
 
     /// <summary>
     /// Scans rows inside `range` using custom scan options.
@@ -11431,10 +12389,10 @@ internal class DbReader : IDbReader, IDisposable
     }
 
     /// <summary>
-    /// Scans rows whose keys start with `prefix`.
+    /// Scans rows whose keys start with `prefix`, restricted to `subrange`.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<DbIterator> ScanPrefix(byte[] @prefix)
+    public async Task<DbIterator> ScanPrefix(byte[] @prefix, KeyRange @subrange)
     {
         return await _UniFFIAsync.UniffiRustCallAsync(
             // Get rust future
@@ -11442,7 +12400,8 @@ internal class DbReader : IDbReader, IDisposable
             {
                 return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbreader_scan_prefix(
                     thisPtr,
-                    FfiConverterByteArray.INSTANCE.Lower(@prefix)
+                    FfiConverterByteArray.INSTANCE.Lower(@prefix),
+                    FfiConverterTypeKeyRange.INSTANCE.Lower(@subrange)
                 );
             }),
             // Poll
@@ -11466,10 +12425,15 @@ internal class DbReader : IDbReader, IDisposable
     }
 
     /// <summary>
-    /// Scans rows whose keys start with `prefix` using custom scan options.
+    /// Scans rows whose keys start with `prefix`, restricted to `subrange`,
+    /// using custom scan options.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<DbIterator> ScanPrefixWithOptions(byte[] @prefix, ScanOptions @options)
+    public async Task<DbIterator> ScanPrefixWithOptions(
+        byte[] @prefix,
+        KeyRange @subrange,
+        ScanOptions @options
+    )
     {
         return await _UniFFIAsync.UniffiRustCallAsync(
             // Get rust future
@@ -11478,6 +12442,7 @@ internal class DbReader : IDbReader, IDisposable
                 return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbreader_scan_prefix_with_options(
                     thisPtr,
                     FfiConverterByteArray.INSTANCE.Lower(@prefix),
+                    FfiConverterTypeKeyRange.INSTANCE.Lower(@subrange),
                     FfiConverterTypeScanOptions.INSTANCE.Lower(@options)
                 );
             }),
@@ -11694,6 +12659,14 @@ internal interface IDbReaderBuilder
     /// </summary>
     /// <exception cref="Exception"></exception>
     void WithOptions(ReaderOptions @options);
+
+    /// <summary>
+    /// Sets the segment extractor (RFC-0024). A reader opening a segmented
+    /// database must configure an extractor matching the one the database
+    /// was created with.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    void WithSegmentExtractor(PrefixExtractor @extractor);
 
     /// <summary>
     /// Uses a separate object store for WAL files.
@@ -11971,6 +12944,27 @@ internal class DbReaderBuilder : IDbReaderBuilder, IDisposable
     }
 
     /// <summary>
+    /// Sets the segment extractor (RFC-0024). A reader opening a segmented
+    /// database must configure an extractor matching the one the database
+    /// was created with.
+    /// </summary>
+    /// <exception cref="Exception"></exception>
+    public void WithSegmentExtractor(PrefixExtractor @extractor)
+    {
+        CallWithPointer(thisPtr =>
+            _UniffiHelpers.RustCallWithError(
+                FfiConverterTypeError.INSTANCE,
+                (ref UniffiRustCallStatus _status) =>
+                    _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbreaderbuilder_with_segment_extractor(
+                        thisPtr,
+                        FfiConverterTypePrefixExtractor.INSTANCE.Lower(@extractor),
+                        ref _status
+                    )
+            )
+        );
+    }
+
+    /// <summary>
     /// Uses a separate object store for WAL files.
     /// </summary>
     /// <exception cref="Exception"></exception>
@@ -12056,16 +13050,22 @@ internal interface IDbSnapshot
     Task<DbIterator> Scan(KeyRange @range);
 
     /// <summary>
-    /// Scans rows whose keys start with `prefix` as of this snapshot.
+    /// Scans rows whose keys start with `prefix` as of this snapshot,
+    /// restricted to `subrange`.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    Task<DbIterator> ScanPrefix(byte[] @prefix);
+    Task<DbIterator> ScanPrefix(byte[] @prefix, KeyRange @subrange);
 
     /// <summary>
-    /// Scans rows whose keys start with `prefix` as of this snapshot using custom options.
+    /// Scans rows whose keys start with `prefix` as of this snapshot,
+    /// restricted to `subrange`, using custom options.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    Task<DbIterator> ScanPrefixWithOptions(byte[] @prefix, ScanOptions @options);
+    Task<DbIterator> ScanPrefixWithOptions(
+        byte[] @prefix,
+        KeyRange @subrange,
+        ScanOptions @options
+    );
 
     /// <summary>
     /// Scans rows inside `range` as of this snapshot using custom scan options.
@@ -12387,10 +13387,11 @@ internal class DbSnapshot : IDbSnapshot, IDisposable
     }
 
     /// <summary>
-    /// Scans rows whose keys start with `prefix` as of this snapshot.
+    /// Scans rows whose keys start with `prefix` as of this snapshot,
+    /// restricted to `subrange`.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<DbIterator> ScanPrefix(byte[] @prefix)
+    public async Task<DbIterator> ScanPrefix(byte[] @prefix, KeyRange @subrange)
     {
         return await _UniFFIAsync.UniffiRustCallAsync(
             // Get rust future
@@ -12398,7 +13399,8 @@ internal class DbSnapshot : IDbSnapshot, IDisposable
             {
                 return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbsnapshot_scan_prefix(
                     thisPtr,
-                    FfiConverterByteArray.INSTANCE.Lower(@prefix)
+                    FfiConverterByteArray.INSTANCE.Lower(@prefix),
+                    FfiConverterTypeKeyRange.INSTANCE.Lower(@subrange)
                 );
             }),
             // Poll
@@ -12422,10 +13424,15 @@ internal class DbSnapshot : IDbSnapshot, IDisposable
     }
 
     /// <summary>
-    /// Scans rows whose keys start with `prefix` as of this snapshot using custom options.
+    /// Scans rows whose keys start with `prefix` as of this snapshot,
+    /// restricted to `subrange`, using custom options.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<DbIterator> ScanPrefixWithOptions(byte[] @prefix, ScanOptions @options)
+    public async Task<DbIterator> ScanPrefixWithOptions(
+        byte[] @prefix,
+        KeyRange @subrange,
+        ScanOptions @options
+    )
     {
         return await _UniFFIAsync.UniffiRustCallAsync(
             // Get rust future
@@ -12434,6 +13441,7 @@ internal class DbSnapshot : IDbSnapshot, IDisposable
                 return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbsnapshot_scan_prefix_with_options(
                     thisPtr,
                     FfiConverterByteArray.INSTANCE.Lower(@prefix),
+                    FfiConverterTypeKeyRange.INSTANCE.Lower(@subrange),
                     FfiConverterTypeScanOptions.INSTANCE.Lower(@options)
                 );
             }),
@@ -12626,16 +13634,22 @@ internal interface IDbTransaction
     Task<DbIterator> Scan(KeyRange @range);
 
     /// <summary>
-    /// Scans rows whose keys start with `prefix` as visible to this transaction.
+    /// Scans rows whose keys start with `prefix` as visible to this transaction,
+    /// restricted to `subrange`.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    Task<DbIterator> ScanPrefix(byte[] @prefix);
+    Task<DbIterator> ScanPrefix(byte[] @prefix, KeyRange @subrange);
 
     /// <summary>
-    /// Scans rows whose keys start with `prefix` as visible to this transaction using custom options.
+    /// Scans rows whose keys start with `prefix` as visible to this transaction,
+    /// restricted to `subrange`, using custom options.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    Task<DbIterator> ScanPrefixWithOptions(byte[] @prefix, ScanOptions @options);
+    Task<DbIterator> ScanPrefixWithOptions(
+        byte[] @prefix,
+        KeyRange @subrange,
+        ScanOptions @options
+    );
 
     /// <summary>
     /// Scans rows inside `range` as visible to this transaction using custom options.
@@ -13288,10 +14302,11 @@ internal class DbTransaction : IDbTransaction, IDisposable
     }
 
     /// <summary>
-    /// Scans rows whose keys start with `prefix` as visible to this transaction.
+    /// Scans rows whose keys start with `prefix` as visible to this transaction,
+    /// restricted to `subrange`.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<DbIterator> ScanPrefix(byte[] @prefix)
+    public async Task<DbIterator> ScanPrefix(byte[] @prefix, KeyRange @subrange)
     {
         return await _UniFFIAsync.UniffiRustCallAsync(
             // Get rust future
@@ -13299,7 +14314,8 @@ internal class DbTransaction : IDbTransaction, IDisposable
             {
                 return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_scan_prefix(
                     thisPtr,
-                    FfiConverterByteArray.INSTANCE.Lower(@prefix)
+                    FfiConverterByteArray.INSTANCE.Lower(@prefix),
+                    FfiConverterTypeKeyRange.INSTANCE.Lower(@subrange)
                 );
             }),
             // Poll
@@ -13323,10 +14339,15 @@ internal class DbTransaction : IDbTransaction, IDisposable
     }
 
     /// <summary>
-    /// Scans rows whose keys start with `prefix` as visible to this transaction using custom options.
+    /// Scans rows whose keys start with `prefix` as visible to this transaction,
+    /// restricted to `subrange`, using custom options.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<DbIterator> ScanPrefixWithOptions(byte[] @prefix, ScanOptions @options)
+    public async Task<DbIterator> ScanPrefixWithOptions(
+        byte[] @prefix,
+        KeyRange @subrange,
+        ScanOptions @options
+    )
     {
         return await _UniFFIAsync.UniffiRustCallAsync(
             // Get rust future
@@ -13335,6 +14356,7 @@ internal class DbTransaction : IDbTransaction, IDisposable
                 return _UniFFILib.uniffi_slatedb_csharp_ffi_fn_method_dbtransaction_scan_prefix_with_options(
                     thisPtr,
                     FfiConverterByteArray.INSTANCE.Lower(@prefix),
+                    FfiConverterTypeKeyRange.INSTANCE.Lower(@subrange),
                     FfiConverterTypeScanOptions.INSTANCE.Lower(@options)
                 );
             }),
@@ -17220,7 +18242,7 @@ internal interface IWalFile
     /// Reads object-store metadata for this WAL file.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    Task<WalFileMetadata> Metadata();
+    Task<IdentifiedObjectMetadata> Metadata();
 
     /// <summary>
     /// Returns a handle for the next WAL file ID without checking existence.
@@ -17402,7 +18424,7 @@ internal class WalFile : IWalFile, IDisposable
     /// Reads object-store metadata for this WAL file.
     /// </summary>
     /// <exception cref="Exception"></exception>
-    public async Task<WalFileMetadata> Metadata()
+    public async Task<IdentifiedObjectMetadata> Metadata()
     {
         return await _UniFFIAsync.UniffiRustCallAsync(
             // Get rust future
@@ -17429,7 +18451,7 @@ internal class WalFile : IWalFile, IDisposable
             (ulong future) =>
                 _UniFFILib.ffi_slatedb_csharp_ffi_rust_future_free_rust_buffer(future),
             // Lift
-            (result) => FfiConverterTypeWalFileMetadata.INSTANCE.Lift(result),
+            (result) => FfiConverterTypeIdentifiedObjectMetadata.INSTANCE.Lift(result),
             // Error
             FfiConverterTypeError.INSTANCE
         );
@@ -18371,6 +19393,168 @@ class FfiConverterTypeCheckpoint : FfiConverterRustBuffer<Checkpoint>
     }
 }
 
+/// <param name="Id">
+/// The id of the created checkpoint.
+/// </param>
+/// <param name="ManifestId">
+/// The manifest id referenced by the created checkpoint.
+/// </param>
+internal record CheckpointCreateResult(
+    /// <summary>
+    /// The id of the created checkpoint.
+    /// </summary>
+    string Id,
+    /// <summary>
+    /// The manifest id referenced by the created checkpoint.
+    /// </summary>
+    ulong ManifestId
+) { }
+
+class FfiConverterTypeCheckpointCreateResult : FfiConverterRustBuffer<CheckpointCreateResult>
+{
+    public static FfiConverterTypeCheckpointCreateResult INSTANCE =
+        new FfiConverterTypeCheckpointCreateResult();
+
+    public override CheckpointCreateResult Read(BigEndianStream stream)
+    {
+        return new CheckpointCreateResult(
+            Id: FfiConverterString.INSTANCE.Read(stream),
+            ManifestId: FfiConverterUInt64.INSTANCE.Read(stream)
+        );
+    }
+
+    public override int AllocationSize(CheckpointCreateResult value)
+    {
+        return 0
+            + FfiConverterString.INSTANCE.AllocationSize(value.Id)
+            + FfiConverterUInt64.INSTANCE.AllocationSize(value.ManifestId);
+    }
+
+    public override void Write(CheckpointCreateResult value, BigEndianStream stream)
+    {
+        FfiConverterString.INSTANCE.Write(value.Id, stream);
+        FfiConverterUInt64.INSTANCE.Write(value.ManifestId, stream);
+    }
+}
+
+/// <summary>
+/// Specify options to provide when creating a checkpoint.
+/// </summary>
+/// <param name="LifetimeMs">
+/// Optionally specifies the lifetime of the checkpoint to create. The expire time will be
+/// set to the current wallclock time plus the specified lifetime. If lifetime is None, then
+/// the checkpoint is created without an expiry time.
+/// </param>
+/// <param name="Source">
+/// Optionally specifies an existing checkpoint to use as the source for this checkpoint. This
+/// is useful for users to establish checkpoints from existing checkpoints, but with a different
+/// lifecycle and/or metadata.
+/// </param>
+/// <param name="Name">
+/// Optionally specifies a name for the checkpoint. Can be used to list the checkpoints.
+/// </param>
+internal record CheckpointOptions(
+    /// <summary>
+    /// Optionally specifies the lifetime of the checkpoint to create. The expire time will be
+    /// set to the current wallclock time plus the specified lifetime. If lifetime is None, then
+    /// the checkpoint is created without an expiry time.
+    /// </summary>
+    ulong? LifetimeMs,
+    /// <summary>
+    /// Optionally specifies an existing checkpoint to use as the source for this checkpoint. This
+    /// is useful for users to establish checkpoints from existing checkpoints, but with a different
+    /// lifecycle and/or metadata.
+    /// </summary>
+    string? Source,
+    /// <summary>
+    /// Optionally specifies a name for the checkpoint. Can be used to list the checkpoints.
+    /// </summary>
+    string? Name
+) { }
+
+class FfiConverterTypeCheckpointOptions : FfiConverterRustBuffer<CheckpointOptions>
+{
+    public static FfiConverterTypeCheckpointOptions INSTANCE =
+        new FfiConverterTypeCheckpointOptions();
+
+    public override CheckpointOptions Read(BigEndianStream stream)
+    {
+        return new CheckpointOptions(
+            LifetimeMs: FfiConverterOptionalUInt64.INSTANCE.Read(stream),
+            Source: FfiConverterOptionalString.INSTANCE.Read(stream),
+            Name: FfiConverterOptionalString.INSTANCE.Read(stream)
+        );
+    }
+
+    public override int AllocationSize(CheckpointOptions value)
+    {
+        return 0
+            + FfiConverterOptionalUInt64.INSTANCE.AllocationSize(value.LifetimeMs)
+            + FfiConverterOptionalString.INSTANCE.AllocationSize(value.Source)
+            + FfiConverterOptionalString.INSTANCE.AllocationSize(value.Name);
+    }
+
+    public override void Write(CheckpointOptions value, BigEndianStream stream)
+    {
+        FfiConverterOptionalUInt64.INSTANCE.Write(value.LifetimeMs, stream);
+        FfiConverterOptionalString.INSTANCE.Write(value.Source, stream);
+        FfiConverterOptionalString.INSTANCE.Write(value.Name, stream);
+    }
+}
+
+/// <param name="Path">
+/// Path to the source database.
+/// </param>
+/// <param name="Checkpoint">
+/// Optional checkpoint UUID string; when `None` the latest state is used.
+/// </param>
+/// <param name="ProjectionRange">
+/// Optional key range to restrict the visible keys from this source.
+/// </param>
+internal record CloneSourceSpec(
+    /// <summary>
+    /// Path to the source database.
+    /// </summary>
+    string Path,
+    /// <summary>
+    /// Optional checkpoint UUID string; when `None` the latest state is used.
+    /// </summary>
+    string? Checkpoint,
+    /// <summary>
+    /// Optional key range to restrict the visible keys from this source.
+    /// </summary>
+    KeyRange? ProjectionRange
+) { }
+
+class FfiConverterTypeCloneSourceSpec : FfiConverterRustBuffer<CloneSourceSpec>
+{
+    public static FfiConverterTypeCloneSourceSpec INSTANCE = new FfiConverterTypeCloneSourceSpec();
+
+    public override CloneSourceSpec Read(BigEndianStream stream)
+    {
+        return new CloneSourceSpec(
+            Path: FfiConverterString.INSTANCE.Read(stream),
+            Checkpoint: FfiConverterOptionalString.INSTANCE.Read(stream),
+            ProjectionRange: FfiConverterOptionalTypeKeyRange.INSTANCE.Read(stream)
+        );
+    }
+
+    public override int AllocationSize(CloneSourceSpec value)
+    {
+        return 0
+            + FfiConverterString.INSTANCE.AllocationSize(value.Path)
+            + FfiConverterOptionalString.INSTANCE.AllocationSize(value.Checkpoint)
+            + FfiConverterOptionalTypeKeyRange.INSTANCE.AllocationSize(value.ProjectionRange);
+    }
+
+    public override void Write(CloneSourceSpec value, BigEndianStream stream)
+    {
+        FfiConverterString.INSTANCE.Write(value.Path, stream);
+        FfiConverterOptionalString.INSTANCE.Write(value.Checkpoint, stream);
+        FfiConverterOptionalTypeKeyRange.INSTANCE.Write(value.ProjectionRange, stream);
+    }
+}
+
 /// <summary>
 /// Canonical compaction record.
 /// </summary>
@@ -18583,6 +19767,12 @@ class FfiConverterTypeCompactorStateView : FfiConverterRustBuffer<CompactorState
 /// <param name="CloseReason">
 /// Present once the handle has been closed.
 /// </param>
+/// <param name="Segments">
+/// All segment prefixes (RFC-0024) as of this snapshot: those in the
+/// current manifest unioned with those touched in this handle's memtables
+/// but not yet flushed. Sorted ascending by prefix and deduplicated; empty
+/// when no segment extractor is configured.
+/// </param>
 internal record DbStatus(
     /// <summary>
     /// Highest durable sequence number observed by this handle.
@@ -18591,7 +19781,14 @@ internal record DbStatus(
     /// <summary>
     /// Present once the handle has been closed.
     /// </summary>
-    CloseReason? CloseReason
+    CloseReason? CloseReason,
+    /// <summary>
+    /// All segment prefixes (RFC-0024) as of this snapshot: those in the
+    /// current manifest unioned with those touched in this handle's memtables
+    /// but not yet flushed. Sorted ascending by prefix and deduplicated; empty
+    /// when no segment extractor is configured.
+    /// </summary>
+    SegmentPrefix[] Segments
 ) { }
 
 class FfiConverterTypeDbStatus : FfiConverterRustBuffer<DbStatus>
@@ -18602,7 +19799,8 @@ class FfiConverterTypeDbStatus : FfiConverterRustBuffer<DbStatus>
     {
         return new DbStatus(
             DurableSeq: FfiConverterUInt64.INSTANCE.Read(stream),
-            CloseReason: FfiConverterOptionalTypeCloseReason.INSTANCE.Read(stream)
+            CloseReason: FfiConverterOptionalTypeCloseReason.INSTANCE.Read(stream),
+            Segments: FfiConverterSequenceTypeSegmentPrefix.INSTANCE.Read(stream)
         );
     }
 
@@ -18610,13 +19808,15 @@ class FfiConverterTypeDbStatus : FfiConverterRustBuffer<DbStatus>
     {
         return 0
             + FfiConverterUInt64.INSTANCE.AllocationSize(value.DurableSeq)
-            + FfiConverterOptionalTypeCloseReason.INSTANCE.AllocationSize(value.CloseReason);
+            + FfiConverterOptionalTypeCloseReason.INSTANCE.AllocationSize(value.CloseReason)
+            + FfiConverterSequenceTypeSegmentPrefix.INSTANCE.AllocationSize(value.Segments);
     }
 
     public override void Write(DbStatus value, BigEndianStream stream)
     {
         FfiConverterUInt64.INSTANCE.Write(value.DurableSeq, stream);
         FfiConverterOptionalTypeCloseReason.INSTANCE.Write(value.CloseReason, stream);
+        FfiConverterSequenceTypeSegmentPrefix.INSTANCE.Write(value.Segments, stream);
     }
 }
 
@@ -18835,6 +20035,53 @@ class FfiConverterTypeHistogramMetricValue : FfiConverterRustBuffer<HistogramMet
         FfiConverterDouble.INSTANCE.Write(value.Max, stream);
         FfiConverterSequenceDouble.INSTANCE.Write(value.Boundaries, stream);
         FfiConverterSequenceUInt64.INSTANCE.Write(value.BucketCounts, stream);
+    }
+}
+
+/// <summary>
+/// Metadata for an object plus the domain identifier parsed from its path.
+/// </summary>
+/// <param name="Id">
+/// Parsed domain identifier for the object.
+/// </param>
+/// <param name="Metadata">
+/// Object-store metadata.
+/// </param>
+internal record IdentifiedObjectMetadata(
+    /// <summary>
+    /// Parsed domain identifier for the object.
+    /// </summary>
+    ulong Id,
+    /// <summary>
+    /// Object-store metadata.
+    /// </summary>
+    ObjectMetadata Metadata
+) { }
+
+class FfiConverterTypeIdentifiedObjectMetadata : FfiConverterRustBuffer<IdentifiedObjectMetadata>
+{
+    public static FfiConverterTypeIdentifiedObjectMetadata INSTANCE =
+        new FfiConverterTypeIdentifiedObjectMetadata();
+
+    public override IdentifiedObjectMetadata Read(BigEndianStream stream)
+    {
+        return new IdentifiedObjectMetadata(
+            Id: FfiConverterUInt64.INSTANCE.Read(stream),
+            Metadata: FfiConverterTypeObjectMetadata.INSTANCE.Read(stream)
+        );
+    }
+
+    public override int AllocationSize(IdentifiedObjectMetadata value)
+    {
+        return 0
+            + FfiConverterUInt64.INSTANCE.AllocationSize(value.Id)
+            + FfiConverterTypeObjectMetadata.INSTANCE.AllocationSize(value.Metadata);
+    }
+
+    public override void Write(IdentifiedObjectMetadata value, BigEndianStream stream)
+    {
+        FfiConverterUInt64.INSTANCE.Write(value.Id, stream);
+        FfiConverterTypeObjectMetadata.INSTANCE.Write(value.Metadata, stream);
     }
 }
 
@@ -19247,6 +20494,92 @@ class FfiConverterTypeMokaCacheOptions : FfiConverterRustBuffer<MokaCacheOptions
 }
 
 /// <summary>
+/// Metadata describing an object in object storage.
+/// </summary>
+/// <param name="LastModifiedSeconds">
+/// Last-modified timestamp seconds component.
+/// </param>
+/// <param name="LastModifiedNanos">
+/// Last-modified timestamp nanoseconds component.
+/// </param>
+/// <param name="Size">
+/// Object size in bytes.
+/// </param>
+/// <param name="Location">
+/// Object-store location.
+/// </param>
+/// <param name="ETag">
+/// The object's ETag, when the object store provides one.
+/// </param>
+/// <param name="Version">
+/// The object version, when the object store provides one.
+/// </param>
+internal record ObjectMetadata(
+    /// <summary>
+    /// Last-modified timestamp seconds component.
+    /// </summary>
+    long LastModifiedSeconds,
+    /// <summary>
+    /// Last-modified timestamp nanoseconds component.
+    /// </summary>
+    uint LastModifiedNanos,
+    /// <summary>
+    /// Object size in bytes.
+    /// </summary>
+    ulong Size,
+    /// <summary>
+    /// Object-store location.
+    /// </summary>
+    string Location,
+    /// <summary>
+    /// The object's ETag, when the object store provides one.
+    /// </summary>
+    string? ETag,
+    /// <summary>
+    /// The object version, when the object store provides one.
+    /// </summary>
+    string? Version
+) { }
+
+class FfiConverterTypeObjectMetadata : FfiConverterRustBuffer<ObjectMetadata>
+{
+    public static FfiConverterTypeObjectMetadata INSTANCE = new FfiConverterTypeObjectMetadata();
+
+    public override ObjectMetadata Read(BigEndianStream stream)
+    {
+        return new ObjectMetadata(
+            LastModifiedSeconds: FfiConverterInt64.INSTANCE.Read(stream),
+            LastModifiedNanos: FfiConverterUInt32.INSTANCE.Read(stream),
+            Size: FfiConverterUInt64.INSTANCE.Read(stream),
+            Location: FfiConverterString.INSTANCE.Read(stream),
+            ETag: FfiConverterOptionalString.INSTANCE.Read(stream),
+            Version: FfiConverterOptionalString.INSTANCE.Read(stream)
+        );
+    }
+
+    public override int AllocationSize(ObjectMetadata value)
+    {
+        return 0
+            + FfiConverterInt64.INSTANCE.AllocationSize(value.LastModifiedSeconds)
+            + FfiConverterUInt32.INSTANCE.AllocationSize(value.LastModifiedNanos)
+            + FfiConverterUInt64.INSTANCE.AllocationSize(value.Size)
+            + FfiConverterString.INSTANCE.AllocationSize(value.Location)
+            + FfiConverterOptionalString.INSTANCE.AllocationSize(value.ETag)
+            + FfiConverterOptionalString.INSTANCE.AllocationSize(value.Version);
+    }
+
+    public override void Write(ObjectMetadata value, BigEndianStream stream)
+    {
+        FfiConverterInt64.INSTANCE.Write(value.LastModifiedSeconds, stream);
+        FfiConverterUInt32.INSTANCE.Write(value.LastModifiedNanos, stream);
+        FfiConverterUInt64.INSTANCE.Write(value.Size, stream);
+        FfiConverterString.INSTANCE.Write(value.Location, stream);
+        FfiConverterOptionalString.INSTANCE.Write(value.ETag, stream);
+        FfiConverterOptionalString.INSTANCE.Write(value.Version, stream);
+    }
+}
+
+/// <summary>
 /// Options applied to a put operation.
 /// </summary>
 /// <param name="Ttl">
@@ -19289,7 +20622,8 @@ class FfiConverterTypePutOptions : FfiConverterRustBuffer<PutOptions>
 /// Whether uncommitted dirty data may be returned.
 /// </param>
 /// <param name="CacheBlocks">
-/// Whether fetched blocks should be inserted into the block cache.
+/// Whether fetched data blocks should be inserted into the block cache.
+/// SST metadata is cached independently.
 /// </param>
 /// <param name="FilterContext">
 /// Optional context forwarded to custom filter policies; ignored by
@@ -19305,7 +20639,8 @@ internal record ReadOptions(
     /// </summary>
     bool Dirty,
     /// <summary>
-    /// Whether fetched blocks should be inserted into the block cache.
+    /// Whether fetched data blocks should be inserted into the block cache.
+    /// SST metadata is cached independently.
     /// </summary>
     bool CacheBlocks,
     /// <summary>
@@ -19512,7 +20847,8 @@ class FfiConverterTypeRowEntry : FfiConverterRustBuffer<RowEntry>
 /// Number of bytes to read ahead while scanning.
 /// </param>
 /// <param name="CacheBlocks">
-/// Whether fetched blocks should be inserted into the block cache.
+/// Whether fetched data blocks should be inserted into the block cache.
+/// SST metadata is cached independently.
 /// </param>
 /// <param name="MaxFetchTasks">
 /// Maximum number of concurrent fetch tasks used by the scan.
@@ -19538,7 +20874,8 @@ internal record ScanOptions(
     /// </summary>
     ulong ReadAheadBytes,
     /// <summary>
-    /// Whether fetched blocks should be inserted into the block cache.
+    /// Whether fetched data blocks should be inserted into the block cache.
+    /// SST metadata is cached independently.
     /// </summary>
     bool CacheBlocks,
     /// <summary>
@@ -19594,6 +20931,40 @@ class FfiConverterTypeScanOptions : FfiConverterRustBuffer<ScanOptions>
         FfiConverterUInt64.INSTANCE.Write(value.MaxFetchTasks, stream);
         FfiConverterOptionalTypeIterationOrder.INSTANCE.Write(value.Order, stream);
         FfiConverterOptionalTypeFilterContext.INSTANCE.Write(value.FilterContext, stream);
+    }
+}
+
+/// <summary>
+/// A segment (RFC-0024), identified by the key prefix it owns; the segment
+/// spans the key interval `[prefix, prefix++)`.
+/// </summary>
+/// <param name="Prefix">
+/// The key prefix owned by the segment.
+/// </param>
+internal record SegmentPrefix(
+    /// <summary>
+    /// The key prefix owned by the segment.
+    /// </summary>
+    byte[] Prefix
+) { }
+
+class FfiConverterTypeSegmentPrefix : FfiConverterRustBuffer<SegmentPrefix>
+{
+    public static FfiConverterTypeSegmentPrefix INSTANCE = new FfiConverterTypeSegmentPrefix();
+
+    public override SegmentPrefix Read(BigEndianStream stream)
+    {
+        return new SegmentPrefix(Prefix: FfiConverterByteArray.INSTANCE.Read(stream));
+    }
+
+    public override int AllocationSize(SegmentPrefix value)
+    {
+        return 0 + FfiConverterByteArray.INSTANCE.AllocationSize(value.Prefix);
+    }
+
+    public override void Write(SegmentPrefix value, BigEndianStream stream)
+    {
+        FfiConverterByteArray.INSTANCE.Write(value.Prefix, stream);
     }
 }
 
@@ -20158,72 +21529,6 @@ class FfiConverterTypeVersionedManifest : FfiConverterRustBuffer<VersionedManife
 }
 
 /// <summary>
-/// Metadata describing a WAL file in object storage.
-/// </summary>
-/// <param name="LastModifiedSeconds">
-/// Last-modified timestamp seconds component.
-/// </param>
-/// <param name="LastModifiedNanos">
-/// Last-modified timestamp nanoseconds component.
-/// </param>
-/// <param name="SizeBytes">
-/// File size in bytes.
-/// </param>
-/// <param name="Location">
-/// Object-store location of the file.
-/// </param>
-internal record WalFileMetadata(
-    /// <summary>
-    /// Last-modified timestamp seconds component.
-    /// </summary>
-    long LastModifiedSeconds,
-    /// <summary>
-    /// Last-modified timestamp nanoseconds component.
-    /// </summary>
-    uint LastModifiedNanos,
-    /// <summary>
-    /// File size in bytes.
-    /// </summary>
-    ulong SizeBytes,
-    /// <summary>
-    /// Object-store location of the file.
-    /// </summary>
-    string Location
-) { }
-
-class FfiConverterTypeWalFileMetadata : FfiConverterRustBuffer<WalFileMetadata>
-{
-    public static FfiConverterTypeWalFileMetadata INSTANCE = new FfiConverterTypeWalFileMetadata();
-
-    public override WalFileMetadata Read(BigEndianStream stream)
-    {
-        return new WalFileMetadata(
-            LastModifiedSeconds: FfiConverterInt64.INSTANCE.Read(stream),
-            LastModifiedNanos: FfiConverterUInt32.INSTANCE.Read(stream),
-            SizeBytes: FfiConverterUInt64.INSTANCE.Read(stream),
-            Location: FfiConverterString.INSTANCE.Read(stream)
-        );
-    }
-
-    public override int AllocationSize(WalFileMetadata value)
-    {
-        return 0
-            + FfiConverterInt64.INSTANCE.AllocationSize(value.LastModifiedSeconds)
-            + FfiConverterUInt32.INSTANCE.AllocationSize(value.LastModifiedNanos)
-            + FfiConverterUInt64.INSTANCE.AllocationSize(value.SizeBytes)
-            + FfiConverterString.INSTANCE.AllocationSize(value.Location);
-    }
-
-    public override void Write(WalFileMetadata value, BigEndianStream stream)
-    {
-        FfiConverterInt64.INSTANCE.Write(value.LastModifiedSeconds, stream);
-        FfiConverterUInt32.INSTANCE.Write(value.LastModifiedNanos, stream);
-        FfiConverterUInt64.INSTANCE.Write(value.SizeBytes, stream);
-        FfiConverterString.INSTANCE.Write(value.Location, stream);
-    }
-}
-
-/// <summary>
 /// Metadata returned by a successful write.
 /// </summary>
 /// <param name="Seqnum">
@@ -20497,6 +21802,7 @@ class FfiConverterTypeCloseReason : FfiConverterRustBuffer<CloseReason>
 internal enum CompactionStatus : int
 {
     Submitted,
+    Scheduled,
     Running,
     Completed,
     Failed,
@@ -20516,12 +21822,14 @@ class FfiConverterTypeCompactionStatus : FfiConverterRustBuffer<CompactionStatus
             case 1:
                 return CompactionStatus.Submitted;
             case 2:
-                return CompactionStatus.Running;
+                return CompactionStatus.Scheduled;
             case 3:
-                return CompactionStatus.Completed;
+                return CompactionStatus.Running;
             case 4:
-                return CompactionStatus.Failed;
+                return CompactionStatus.Completed;
             case 5:
+                return CompactionStatus.Failed;
+            case 6:
                 return CompactionStatus.Compacted;
             default:
                 throw new InternalException(
@@ -20545,17 +21853,20 @@ class FfiConverterTypeCompactionStatus : FfiConverterRustBuffer<CompactionStatus
             case CompactionStatus.Submitted:
                 stream.WriteInt(1);
                 break;
-            case CompactionStatus.Running:
+            case CompactionStatus.Scheduled:
                 stream.WriteInt(2);
                 break;
-            case CompactionStatus.Completed:
+            case CompactionStatus.Running:
                 stream.WriteInt(3);
                 break;
-            case CompactionStatus.Failed:
+            case CompactionStatus.Completed:
                 stream.WriteInt(4);
                 break;
-            case CompactionStatus.Compacted:
+            case CompactionStatus.Failed:
                 stream.WriteInt(5);
+                break;
+            case CompactionStatus.Compacted:
+                stream.WriteInt(6);
                 break;
             default:
                 throw new InternalException(
@@ -20935,8 +22246,7 @@ class FfiConverterTypeError : FfiConverterRustBuffer<Exception>, CallStatusError
 internal record FilterContext
 {
     /// <summary>
-    /// Fixed 64-byte inline payload. Maps to [`slatedb::FilterContext::Inline`];
-    /// the payload must be exactly 64 bytes.
+    /// Variable-length payload. Maps to [`slatedb::FilterContext::Bytes`].
     /// </summary>
     public record Bytes(byte[] Payload) : FilterContext { }
 }
@@ -23510,6 +24820,58 @@ class FfiConverterSequenceTypeMetricLabel : FfiConverterRustBuffer<MetricLabel[]
 
         stream.WriteInt(value.Length);
         var writerFn = FfiConverterTypeMetricLabel.INSTANCE.Write;
+        value.ForEach(item => writerFn(item, stream));
+    }
+}
+
+class FfiConverterSequenceTypeSegmentPrefix : FfiConverterRustBuffer<SegmentPrefix[]>
+{
+    public static FfiConverterSequenceTypeSegmentPrefix INSTANCE =
+        new FfiConverterSequenceTypeSegmentPrefix();
+
+    public override SegmentPrefix[] Read(BigEndianStream stream)
+    {
+        var length = stream.ReadInt();
+        if (length == 0)
+        {
+            return [];
+        }
+
+        var result = new SegmentPrefix[length];
+        var readFn = FfiConverterTypeSegmentPrefix.INSTANCE.Read;
+        for (int i = 0; i < length; i++)
+        {
+            result[i] = readFn(stream);
+        }
+        return result;
+    }
+
+    public override int AllocationSize(SegmentPrefix[] value)
+    {
+        var sizeForLength = 4;
+
+        // details/1-empty-list-as-default-method-parameter.md
+        if (value == null)
+        {
+            return sizeForLength;
+        }
+
+        var allocationSizeFn = FfiConverterTypeSegmentPrefix.INSTANCE.AllocationSize;
+        var sizeForItems = value.Sum(item => allocationSizeFn(item));
+        return sizeForLength + sizeForItems;
+    }
+
+    public override void Write(SegmentPrefix[] value, BigEndianStream stream)
+    {
+        // details/1-empty-list-as-default-method-parameter.md
+        if (value == null)
+        {
+            stream.WriteInt(0);
+            return;
+        }
+
+        stream.WriteInt(value.Length);
+        var writerFn = FfiConverterTypeSegmentPrefix.INSTANCE.Write;
         value.ForEach(item => writerFn(item, stream));
     }
 }

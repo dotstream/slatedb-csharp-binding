@@ -112,12 +112,13 @@ public sealed partial class SlateDb<K, V>
         try
         {
             var interopOptions = Interop.OptionsConverters.ToInterop(options);
+            var subrange = new Interop.KeyRange(null, true, null, true);
 
             var iterator = _mode == SlateDbMode.Readwrite
                 ? (_dbHandle ?? throw new SlateDbException("Database handle is null"))
-                    .ScanPrefixWithOptions(prefix, interopOptions).GetAwaiter().GetResult()
+                    .ScanPrefixWithOptions(prefix, subrange, interopOptions).GetAwaiter().GetResult()
                 : (_readerHandle ?? throw new SlateDbException("Reader handle is null"))
-                    .ScanPrefixWithOptions(prefix, interopOptions).GetAwaiter().GetResult();
+                    .ScanPrefixWithOptions(prefix, subrange, interopOptions).GetAwaiter().GetResult();
 
             return new SlateDbEnumerable<K, V>(iterator, _keyConverter, _valueConverter);
         }
@@ -223,15 +224,16 @@ public sealed partial class SlateDb<K, V>
         options ??= ScanOptions.Default;
 
         var interopOptions = Interop.OptionsConverters.ToInterop(options);
+        var subrange = new Interop.KeyRange(null, true, null, true);
 
         Interop.DbIterator iterator;
         try
         {
             iterator = _mode == SlateDbMode.Readwrite
                 ? await (_dbHandle ?? throw new SlateDbException("Database handle is null"))
-                    .ScanPrefixWithOptions(prefix, interopOptions)
+                    .ScanPrefixWithOptions(prefix, subrange, interopOptions)
                 : await (_readerHandle ?? throw new SlateDbException("Reader handle is null"))
-                    .ScanPrefixWithOptions(prefix, interopOptions);
+                    .ScanPrefixWithOptions(prefix, subrange, interopOptions);
         }
         catch (Exception ex) when (ex is not SlateDbException)
         {

@@ -7,7 +7,15 @@ namespace SlateDb.Wal;
 /// <param name="fileMetadataLastModifiedNanos">Last-modified timestamp, nanoseconds component.</param>
 /// <param name="fileMetadataSizeBytes">File size, in bytes.</param>
 /// <param name="location">Object-store location of the file.</param>
-public class WalFileMetadata(long fileMetadataLastModifiedSecs, uint fileMetadataLastModifiedNanos, ulong fileMetadataSizeBytes, string location)
+/// <param name="eTag">The object's ETag, when the object store provides one.</param>
+/// <param name="version">The object version, when the object store provides one.</param>
+public class WalFileMetadata(
+    long fileMetadataLastModifiedSecs,
+    uint fileMetadataLastModifiedNanos,
+    ulong fileMetadataSizeBytes,
+    string location,
+    string? eTag = null,
+    string? version = null)
 {
     /// <summary>Last-modified timestamp, seconds component.</summary>
     public long FileMetadataLastModifiedSecs => fileMetadataLastModifiedSecs;
@@ -20,4 +28,10 @@ public class WalFileMetadata(long fileMetadataLastModifiedSecs, uint fileMetadat
 
     /// <summary>Object-store location of the file.</summary>
     public string Location => location;
+
+    /// <summary>The object's ETag, when the object store provides one.</summary>
+    public string? ETag => eTag;
+
+    /// <summary>The object version, when the object store provides one.</summary>
+    public string? Version => version;
 }
