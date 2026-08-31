@@ -59,7 +59,16 @@ dotnet test
 | SlateDb Version (Rust) | Binding Version (C#) | Status |
 | --- | --- | --- |
 | [0.10.1](https://github.com/slatedb/slatedb/releases/tag/v0.10.1) | 0.10.1 | **DONE** |
-| 0.11.2 | 0.11.2 | **DONE** |
+| [0.11.1](https://github.com/slatedb/slatedb/releases/tag/v0.11.1) | 0.11.1 | **DONE** |
+| [0.11.2](https://github.com/slatedb/slatedb/releases/tag/v0.11.2) | 0.11.2 | **DONE** |
+| [0.12.0](https://github.com/slatedb/slatedb/releases/tag/v0.12.0) | 0.12.0 | **DONE** |
+| [0.12.1](https://github.com/slatedb/slatedb/releases/tag/v0.12.1) | 0.12.1 | **DONE** |
+| [0.13.0](https://github.com/slatedb/slatedb/releases/tag/v0.13.0) | 0.13.0 | **DONE** |
+| [0.13.1](https://github.com/slatedb/slatedb/releases/tag/v0.13.1) | 0.13.1 | **DONE** |
+| 0.14.0 | 0.14.0 | **PENDING** |
+| 0.14.1 | 0.14.1 | **PENDING** |
+| 0.15.0 | 0.15.0 | **PENDING** |
+| 0.16.0 | 0.16.0 | **PENDING** |
 
 ## License
 
