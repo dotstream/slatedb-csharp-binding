@@ -16,4 +16,7 @@ public record ReadOptions
 
     /// <summary>Whether fetched blocks should be inserted into the block cache.</summary>
     public bool CacheBlocks { get; init; } = true;
+
+    /// <summary>Optional context forwarded to custom filter policies; ignored by built-in filters.</summary>
+    public FilterContext? FilterContext { get; init; }
 }

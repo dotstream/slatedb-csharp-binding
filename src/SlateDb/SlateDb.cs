@@ -155,7 +155,8 @@ public sealed partial class SlateDb<K,V> : IDisposable, IAsyncDisposable
         string checkpointId,
         ISlateDbConverter<K>? keyConverter = null,
         ISlateDbConverter<V>? valueConverter = null,
-        ReaderOptions? readerOptions = null)
+        ReaderOptions? readerOptions = null,
+        IReadOnlyList<SlateDbFilterPolicy>? filterPolicies = null)
     {
         _mode = SlateDbMode.Readonly;
         _keyConverter = keyConverter;
@@ -163,7 +164,7 @@ public sealed partial class SlateDb<K,V> : IDisposable, IAsyncDisposable
 
         try
         {
-            using var builder = CreateDbReaderBuilder(path, configuration, checkpointId, readerOptions);
+            using var builder = CreateDbReaderBuilder(path, configuration, checkpointId, readerOptions, filterPolicies);
             _readerHandle = builder.Build().GetAwaiter().GetResult();
         }
         catch (Exception ex) when (ex is not SlateDbException)
@@ -221,6 +222,9 @@ public sealed partial class SlateDb<K,V> : IDisposable, IAsyncDisposable
         else if (options.DbCache != null)
             builder.WithDbCache(options.DbCache.Inner);
 
+        if (options.FilterPolicies != null)
+            builder.WithFilterPolicies(options.FilterPolicies.Select(p => p.Inner).ToArray());
+
         mergeOperatorAdapter = null;
         if (options.MergeOperator != null)
         {
@@ -235,7 +239,8 @@ public sealed partial class SlateDb<K,V> : IDisposable, IAsyncDisposable
         string path,
         AbstractSlateDbConfig configuration,
         string checkpointId,
-        ReaderOptions? readerOptions)
+        ReaderOptions? readerOptions,
+        IReadOnlyList<SlateDbFilterPolicy>? filterPolicies = null)
     {
         using var objectStore = Interop.UniffiHelpers.CreateObjectStore(configuration);
         var builder = new Interop.DbReaderBuilder(path, objectStore);
@@ -245,6 +250,9 @@ public sealed partial class SlateDb<K,V> : IDisposable, IAsyncDisposable
 
         if (readerOptions != null)
             builder.WithOptions(Interop.OptionsConverters.ToInterop(readerOptions));
+
+        if (filterPolicies != null)
+            builder.WithFilterPolicies(filterPolicies.Select(p => p.Inner).ToArray());
 
         return builder;
     }
@@ -274,11 +282,12 @@ public sealed partial class SlateDb<K,V> : IDisposable, IAsyncDisposable
         string checkpointId,
         ISlateDbConverter<K>? keyConverter = null,
         ISlateDbConverter<V>? valueConverter = null,
-        ReaderOptions? readerOptions = null)
+        ReaderOptions? readerOptions = null,
+        IReadOnlyList<SlateDbFilterPolicy>? filterPolicies = null)
     {
         try
         {
-            using var builder = CreateDbReaderBuilder(path, configuration, checkpointId, readerOptions);
+            using var builder = CreateDbReaderBuilder(path, configuration, checkpointId, readerOptions, filterPolicies);
             var readerHandle = await builder.Build();
             return new SlateDb<K, V>(readerHandle, keyConverter, valueConverter);
         }

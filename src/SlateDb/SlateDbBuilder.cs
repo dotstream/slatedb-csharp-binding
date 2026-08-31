@@ -34,6 +34,9 @@ public class SlateDbBuilder<K, V>
     private SlateDbCache? _dbCache;
     private bool _disableDbCache;
 
+    /// <summary>Filter policies applied when opening the database; <c>null</c> keeps SlateDB's default.</summary>
+    protected List<SlateDbFilterPolicy>? FilterPolicies;
+
     internal SlateDbBuilder(string path)
     {
         Path = path;
@@ -106,6 +109,17 @@ public class SlateDbBuilder<K, V>
         return this;
     }
 
+    /// <summary>
+    /// Sets the filter policies used for SST filter construction and evaluation.
+    /// Pass an empty collection to disable filters entirely; when never called,
+    /// SlateDB defaults to a single bloom filter with 10 bits per key.
+    /// </summary>
+    public SlateDbBuilder<K, V> WithFilterPolicies(IEnumerable<SlateDbFilterPolicy> filterPolicies)
+    {
+        FilterPolicies = filterPolicies.ToList();
+        return this;
+    }
+
     /// <summary>Sets the converter used to serialize/deserialize keys.</summary>
     public SlateDbBuilder<K, V> WithKeyConverter(
         ISlateDbConverter<K> converter)
@@ -146,7 +160,7 @@ public class SlateDbBuilder<K, V>
         return new SlateDb<K, V>(
             Path,
             Configuration,
-            new SlateDbOptions<K, V>(_slateDbSettings,  _sstBlockSize, _mergeOperator, _freeMergeResultFn, _dbCache, _disableDbCache),
+            new SlateDbOptions<K, V>(_slateDbSettings,  _sstBlockSize, _mergeOperator, _freeMergeResultFn, _dbCache, _disableDbCache, FilterPolicies),
             KeyConverter,
             ValueConverter);
     }
@@ -163,7 +177,7 @@ public class SlateDbBuilder<K, V>
         return SlateDb<K, V>.CreateAsync(
             Path,
             Configuration,
-            new SlateDbOptions<K, V>(_slateDbSettings,  _sstBlockSize, _mergeOperator, _freeMergeResultFn, _dbCache, _disableDbCache),
+            new SlateDbOptions<K, V>(_slateDbSettings,  _sstBlockSize, _mergeOperator, _freeMergeResultFn, _dbCache, _disableDbCache, FilterPolicies),
             KeyConverter,
             ValueConverter);
     }
@@ -209,7 +223,8 @@ public class SlateDbReaderBuilder<K, V> : SlateDbBuilder<K, V>
             _checkpointId,
             KeyConverter,
             ValueConverter,
-            _readerOptions);
+            _readerOptions,
+            FilterPolicies);
     }
 
     /// <inheritdoc/>
@@ -227,6 +242,7 @@ public class SlateDbReaderBuilder<K, V> : SlateDbBuilder<K, V>
             _checkpointId,
             KeyConverter,
             ValueConverter,
-            _readerOptions);
+            _readerOptions,
+            FilterPolicies);
     }
 }

@@ -30,7 +30,8 @@ internal static class OptionsConverters
     };
 
     public static ReadOptions ToInterop(Options.ReadOptions options) =>
-        new(ToInterop(options.DurabilityFilter), options.Dirty, options.CacheBlocks);
+        new(ToInterop(options.DurabilityFilter), options.Dirty, options.CacheBlocks,
+            options.FilterContext is null ? null : ToInterop(options.FilterContext));
 
     public static WriteOptions ToInterop(Options.WriteOptions options) =>
         new(options.AwaitDurable);
@@ -43,7 +44,8 @@ internal static class OptionsConverters
 
     public static ScanOptions ToInterop(Options.ScanOptions options) =>
         new(ToInterop(options.DurabilityFilter), options.Dirty, options.ReadAheadBytes, options.CacheBlocks,
-            options.MaxFetchTasks, IterationOrder.Ascending);
+            options.MaxFetchTasks, IterationOrder.Ascending,
+            options.FilterContext is null ? null : ToInterop(options.FilterContext));
 
     public static FlushOptions ToInterop(Options.FlushOptions options) => options switch
     {
@@ -82,6 +84,22 @@ internal static class OptionsConverters
 
     public static FoyerCacheOptions ToInterop(Options.FoyerCacheOptions options) =>
         new(options.MaxCapacity, options.Shards);
+
+    public static BloomFilterOptions ToInterop(Options.BloomFilterOptions options) =>
+        new(options.BitsPerKey, options.WholeKeyFiltering);
+
+    public static FilterContext ToInterop(Options.FilterContext context) => context switch
+    {
+        Options.FilterContext.Bytes bytes => new FilterContext.Bytes(bytes.Payload),
+        _ => throw new ArgumentOutOfRangeException(nameof(context))
+    };
+
+    public static Options.PrefixTarget ToPublic(PrefixTarget target) => target switch
+    {
+        PrefixTarget.Point point => new Options.PrefixTarget.Point(point.Key),
+        PrefixTarget.Prefix prefix => new Options.PrefixTarget.Prefix(prefix.PrefixValue),
+        _ => throw new ArgumentOutOfRangeException(nameof(target))
+    };
 
     public static Options.LogLevel ToPublic(LogLevel level) => level switch
     {
