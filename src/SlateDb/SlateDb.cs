@@ -54,6 +54,10 @@ public static class SlateDb
         where K : class
         => new(path, checkpointId);
 
+    /// <summary>Creates a builder for an administrative <see cref="SlateDbAdmin"/> handle at <paramref name="path"/>.</summary>
+    /// <param name="path">Database path within the configured object store.</param>
+    public static SlateDbAdminBuilder CreateAdmin(string path) => new(path);
+
     /// <summary>
     /// Initializes SlateDB's global tracing subscriber at the given level, if it hasn't been
     /// initialized already. Safe to call multiple times; subsequent calls are no-ops.
@@ -152,11 +156,13 @@ public sealed partial class SlateDb<K,V> : IDisposable, IAsyncDisposable
     internal SlateDb(
         string path,
         AbstractSlateDbConfig configuration,
-        string checkpointId,
+        ReaderMode? readerMode,
         ISlateDbConverter<K>? keyConverter = null,
         ISlateDbConverter<V>? valueConverter = null,
         ReaderOptions? readerOptions = null,
-        IReadOnlyList<SlateDbFilterPolicy>? filterPolicies = null)
+        IReadOnlyList<SlateDbFilterPolicy>? filterPolicies = null,
+        IPrefixExtractor? segmentExtractor = null,
+        Interop.MetricsRecorder? metricsRecorder = null)
     {
         _mode = SlateDbMode.Readonly;
         _keyConverter = keyConverter;
@@ -164,7 +170,7 @@ public sealed partial class SlateDb<K,V> : IDisposable, IAsyncDisposable
 
         try
         {
-            using var builder = CreateDbReaderBuilder(path, configuration, checkpointId, readerOptions, filterPolicies);
+            using var builder = CreateDbReaderBuilder(path, configuration, readerMode, readerOptions, filterPolicies, segmentExtractor, metricsRecorder);
             _readerHandle = builder.Build().GetAwaiter().GetResult();
         }
         catch (Exception ex) when (ex is not SlateDbException)
@@ -225,6 +231,12 @@ public sealed partial class SlateDb<K,V> : IDisposable, IAsyncDisposable
         if (options.FilterPolicies != null)
             builder.WithFilterPolicies(options.FilterPolicies.Select(p => p.Inner).ToArray());
 
+        if (options.SegmentExtractor != null)
+            builder.WithSegmentExtractor(new Interop.PrefixExtractorAdapter(options.SegmentExtractor));
+
+        if (options.MetricsRecorder != null)
+            builder.WithMetricsRecorder(options.MetricsRecorder);
+
         mergeOperatorAdapter = null;
         if (options.MergeOperator != null)
         {
@@ -238,21 +250,29 @@ public sealed partial class SlateDb<K,V> : IDisposable, IAsyncDisposable
     private static Interop.DbReaderBuilder CreateDbReaderBuilder(
         string path,
         AbstractSlateDbConfig configuration,
-        string checkpointId,
+        ReaderMode? readerMode,
         ReaderOptions? readerOptions,
-        IReadOnlyList<SlateDbFilterPolicy>? filterPolicies = null)
+        IReadOnlyList<SlateDbFilterPolicy>? filterPolicies = null,
+        IPrefixExtractor? segmentExtractor = null,
+        Interop.MetricsRecorder? metricsRecorder = null)
     {
         using var objectStore = Interop.UniffiHelpers.CreateObjectStore(configuration);
         var builder = new Interop.DbReaderBuilder(path, objectStore);
 
-        if (!string.IsNullOrEmpty(checkpointId))
-            builder.WithCheckpointId(checkpointId);
+        if (readerMode != null)
+            builder.WithReaderMode(Interop.OptionsConverters.ToInterop(readerMode));
 
         if (readerOptions != null)
             builder.WithOptions(Interop.OptionsConverters.ToInterop(readerOptions));
 
         if (filterPolicies != null)
             builder.WithFilterPolicies(filterPolicies.Select(p => p.Inner).ToArray());
+
+        if (segmentExtractor != null)
+            builder.WithSegmentExtractor(new Interop.PrefixExtractorAdapter(segmentExtractor));
+
+        if (metricsRecorder != null)
+            builder.WithMetricsRecorder(metricsRecorder);
 
         return builder;
     }
@@ -279,15 +299,17 @@ public sealed partial class SlateDb<K,V> : IDisposable, IAsyncDisposable
     internal static async Task<SlateDb<K, V>> CreateReaderAsync(
         string path,
         AbstractSlateDbConfig configuration,
-        string checkpointId,
+        ReaderMode? readerMode,
         ISlateDbConverter<K>? keyConverter = null,
         ISlateDbConverter<V>? valueConverter = null,
         ReaderOptions? readerOptions = null,
-        IReadOnlyList<SlateDbFilterPolicy>? filterPolicies = null)
+        IReadOnlyList<SlateDbFilterPolicy>? filterPolicies = null,
+        IPrefixExtractor? segmentExtractor = null,
+        Interop.MetricsRecorder? metricsRecorder = null)
     {
         try
         {
-            using var builder = CreateDbReaderBuilder(path, configuration, checkpointId, readerOptions, filterPolicies);
+            using var builder = CreateDbReaderBuilder(path, configuration, readerMode, readerOptions, filterPolicies, segmentExtractor, metricsRecorder);
             var readerHandle = await builder.Build();
             return new SlateDb<K, V>(readerHandle, keyConverter, valueConverter);
         }
@@ -507,4 +529,5 @@ public sealed partial class SlateDb<K,V> : IDisposable, IAsyncDisposable
             throw new SlateDbException("SlateDb is in READONLY mode whereas you attempt to use write operations");
         }
     }
+
 }

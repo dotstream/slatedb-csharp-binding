@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using SlateDb.Configuration;
 using SlateDb.Converter;
+using SlateDb.Metrics;
 using SlateDb.Options;
 
 namespace SlateDb;
@@ -36,6 +37,12 @@ public class SlateDbBuilder<K, V>
 
     /// <summary>Filter policies applied when opening the database; <c>null</c> keeps SlateDB's default.</summary>
     protected List<SlateDbFilterPolicy>? FilterPolicies;
+
+    /// <summary>Segment extractor (RFC-0024) applied when opening the database, or <c>null</c> to leave segmentation disabled.</summary>
+    protected IPrefixExtractor? SegmentExtractor;
+
+    // Internal (Interop) type, so this can only be `private protected`, not `protected`.
+    private protected Interop.MetricsRecorder? MetricsRecorderHandle;
 
     internal SlateDbBuilder(string path)
     {
@@ -120,6 +127,34 @@ public class SlateDbBuilder<K, V>
         return this;
     }
 
+    /// <summary>
+    /// Sets the segment extractor (RFC-0024). When configured, every write is routed through
+    /// the extractor and the database tracks per-segment LSM state. The extractor must be
+    /// configured at database creation time and remain configured thereafter; its name must
+    /// remain stable, and its implementation may only evolve in ways that preserve routing for
+    /// every existing key schema and keep segment prefixes an antichain (no prefix may be a
+    /// proper prefix of another).
+    /// </summary>
+    public SlateDbBuilder<K, V> WithSegmentExtractor(IPrefixExtractor extractor)
+    {
+        SegmentExtractor = extractor;
+        return this;
+    }
+
+    /// <summary>Installs an application-defined metrics recorder.</summary>
+    public SlateDbBuilder<K, V> WithMetricsRecorder(IMetricsRecorder metricsRecorder)
+    {
+        MetricsRecorderHandle = new Interop.MetricsRecorderAdapter(metricsRecorder);
+        return this;
+    }
+
+    /// <summary>Installs the built-in <see cref="DefaultMetricsRecorder"/>.</summary>
+    public SlateDbBuilder<K, V> WithMetricsRecorder(DefaultMetricsRecorder metricsRecorder)
+    {
+        MetricsRecorderHandle = new Interop.DefaultMetricsRecorderAdapter(metricsRecorder.Inner);
+        return this;
+    }
+
     /// <summary>Sets the converter used to serialize/deserialize keys.</summary>
     public SlateDbBuilder<K, V> WithKeyConverter(
         ISlateDbConverter<K> converter)
@@ -160,7 +195,7 @@ public class SlateDbBuilder<K, V>
         return new SlateDb<K, V>(
             Path,
             Configuration,
-            new SlateDbOptions<K, V>(_slateDbSettings,  _sstBlockSize, _mergeOperator, _freeMergeResultFn, _dbCache, _disableDbCache, FilterPolicies),
+            new SlateDbOptions<K, V>(_slateDbSettings,  _sstBlockSize, _mergeOperator, _freeMergeResultFn, _dbCache, _disableDbCache, FilterPolicies, SegmentExtractor, MetricsRecorderHandle),
             KeyConverter,
             ValueConverter);
     }
@@ -177,7 +212,7 @@ public class SlateDbBuilder<K, V>
         return SlateDb<K, V>.CreateAsync(
             Path,
             Configuration,
-            new SlateDbOptions<K, V>(_slateDbSettings,  _sstBlockSize, _mergeOperator, _freeMergeResultFn, _dbCache, _disableDbCache, FilterPolicies),
+            new SlateDbOptions<K, V>(_slateDbSettings,  _sstBlockSize, _mergeOperator, _freeMergeResultFn, _dbCache, _disableDbCache, FilterPolicies, SegmentExtractor, MetricsRecorderHandle),
             KeyConverter,
             ValueConverter);
     }
@@ -192,6 +227,7 @@ public class SlateDbReaderBuilder<K, V> : SlateDbBuilder<K, V>
 {
     private readonly string _checkpointId;
     private ReaderOptions _readerOptions;
+    private ReaderMode? _readerMode;
 
     internal SlateDbReaderBuilder(string path, string checkpointId)
         : base(path)
@@ -208,6 +244,19 @@ public class SlateDbReaderBuilder<K, V> : SlateDbBuilder<K, V>
         return this;
     }
 
+    /// <summary>
+    /// Sets how the reader chooses and refreshes database state. Overrides any checkpoint ID
+    /// passed to <see cref="SlateDb.CreateReader{K,V}(string,string)"/>.
+    /// </summary>
+    public SlateDbReaderBuilder<K, V> WithReaderMode(ReaderMode mode)
+    {
+        _readerMode = mode;
+        return this;
+    }
+
+    private ReaderMode? EffectiveReaderMode =>
+        _readerMode ?? (string.IsNullOrEmpty(_checkpointId) ? null : new ReaderMode.Checkpoint(_checkpointId));
+
     /// <inheritdoc/>
     public override SlateDb<K, V> Build()
     {
@@ -220,11 +269,13 @@ public class SlateDbReaderBuilder<K, V> : SlateDbBuilder<K, V>
         return new SlateDb<K, V>(
             Path,
             Configuration,
-            _checkpointId,
+            EffectiveReaderMode,
             KeyConverter,
             ValueConverter,
             _readerOptions,
-            FilterPolicies);
+            FilterPolicies,
+            SegmentExtractor,
+            MetricsRecorderHandle);
     }
 
     /// <inheritdoc/>
@@ -239,10 +290,12 @@ public class SlateDbReaderBuilder<K, V> : SlateDbBuilder<K, V>
         return SlateDb<K, V>.CreateReaderAsync(
             Path,
             Configuration,
-            _checkpointId,
+            EffectiveReaderMode,
             KeyConverter,
             ValueConverter,
             _readerOptions,
-            FilterPolicies);
+            FilterPolicies,
+            SegmentExtractor,
+            MetricsRecorderHandle);
     }
 }

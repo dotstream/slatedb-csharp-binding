@@ -101,6 +101,34 @@ internal static class OptionsConverters
         _ => throw new ArgumentOutOfRangeException(nameof(target))
     };
 
+    public static ReaderMode ToInterop(Options.ReaderMode mode) => mode switch
+    {
+        Options.ReaderMode.ManagedCheckpoint => new ReaderMode.ManagedCheckpoint(),
+        Options.ReaderMode.Checkpoint checkpoint => new ReaderMode.Checkpoint(checkpoint.CheckpointId),
+        Options.ReaderMode.FollowLatest => new ReaderMode.FollowLatest(),
+        _ => throw new ArgumentOutOfRangeException(nameof(mode))
+    };
+
+    public static SsTableId ToInterop(Options.SsTableId sstId) => sstId switch
+    {
+        Options.SsTableId.Wal wal => new SsTableId.Wal(wal.Id),
+        Options.SsTableId.Compacted compacted => new SsTableId.Compacted(compacted.Id),
+        _ => throw new ArgumentOutOfRangeException(nameof(sstId))
+    };
+
+    public static CacheTarget ToInterop(Options.CacheTarget target) => target switch
+    {
+        Options.CacheTarget.Filters => new CacheTarget.Filters(),
+        Options.CacheTarget.Index => new CacheTarget.Index(),
+        Options.CacheTarget.Stats => new CacheTarget.Stats(),
+        Options.CacheTarget.Data data => new CacheTarget.Data(new KeyRange(
+            data.Start,
+            data.StartBound == SlateDbRangeBound.INCLUDED,
+            data.End,
+            data.EndBound == SlateDbRangeBound.INCLUDED)),
+        _ => throw new ArgumentOutOfRangeException(nameof(target))
+    };
+
     public static Options.LogLevel ToPublic(LogLevel level) => level switch
     {
         LogLevel.Off => Options.LogLevel.Off,
