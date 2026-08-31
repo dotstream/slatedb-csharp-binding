@@ -126,7 +126,7 @@ public class SlateDb_FilterPolicyTest
     }
 
     [Test]
-    public void Get_WithExact64ByteFilterContext_DoesNotThrow()
+    public void Get_With64ByteFilterContext_DoesNotThrow()
     {
         using var db = SlateDb.SlateDb
             .Create<string, string>("db")
@@ -142,7 +142,7 @@ public class SlateDb_FilterPolicyTest
     }
 
     [Test]
-    public void Get_WithNonExact64ByteFilterContext_ThrowsSlateDbException()
+    public void Get_WithArbitraryLengthFilterContext_DoesNotThrow()
     {
         using var db = SlateDb.SlateDb
             .Create<string, string>("db")
@@ -153,11 +153,12 @@ public class SlateDb_FilterPolicyTest
 
         var options = new ReadOptions { FilterContext = new FilterContext.Bytes(new byte[10]) };
 
-        Assert.Throws<SlateDbException>(() => db.Get("key1", options));
+        Assert.That(() => db.Get("key1", options), Throws.Nothing);
+        Assert.That(db.Get("key1", options), Is.EqualTo("value1"));
     }
 
     [Test]
-    public void ScanPrefix_WithNonExact64ByteFilterContext_ThrowsSlateDbException()
+    public void ScanPrefix_WithArbitraryLengthFilterContext_DoesNotThrow()
     {
         using var db = SlateDb.SlateDb
             .Create<string, string>("db")
@@ -168,6 +169,6 @@ public class SlateDb_FilterPolicyTest
 
         var options = new ScanOptions { FilterContext = new FilterContext.Bytes(new byte[10]) };
 
-        Assert.Throws<SlateDbException>(() => db.ScanPrefix("ca:", options).ToList());
+        Assert.That(() => db.ScanPrefix("ca:", options).ToList(), Throws.Nothing);
     }
 }

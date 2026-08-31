@@ -57,13 +57,15 @@ public sealed class WalFile<K, V> : IDisposable
 
         try
         {
-            var metadata = _handle.Metadata().GetAwaiter().GetResult();
+            var metadata = _handle.Metadata().GetAwaiter().GetResult().Metadata;
 
             return new WalFileMetadata(
                 metadata.LastModifiedSeconds,
                 metadata.LastModifiedNanos,
-                metadata.SizeBytes,
-                metadata.Location
+                metadata.Size,
+                metadata.Location,
+                metadata.ETag,
+                metadata.Version
             );
         }
         catch (Exception ex) when (ex is not SlateDbException)
