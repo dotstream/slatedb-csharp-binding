@@ -572,7 +572,9 @@ public sealed class SlateDbTransaction<K, V> : IDisposable
 
         try
         {
-            _handle.CommitWithOptions(Interop.OptionsConverters.ToInterop(options)).GetAwaiter().GetResult();
+            var handle = _handle.CommitWithOptions(Interop.OptionsConverters.ToInterop(options)).GetAwaiter().GetResult();
+            if (handle != null)
+                Interop.UniffiHelpers.HandleWriteResult(handle, options.AwaitDurable);
         }
         catch (Exception ex) when (ex is not SlateDbException)
         {
@@ -596,7 +598,9 @@ public sealed class SlateDbTransaction<K, V> : IDisposable
 
         try
         {
-            await _handle.CommitWithOptions(Interop.OptionsConverters.ToInterop(options));
+            var handle = await _handle.CommitWithOptions(Interop.OptionsConverters.ToInterop(options));
+            if (handle != null)
+                await Interop.UniffiHelpers.HandleWriteResultAsync(handle, options.AwaitDurable);
         }
         catch (Exception ex) when (ex is not SlateDbException)
         {

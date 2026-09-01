@@ -16,7 +16,8 @@ public enum WalEntryKind
 }
 
 /// <summary>
-/// A single raw row entry read from a WAL file via <see cref="WalFile{K,V}.All"/>.
+/// A single raw row entry read from a WAL file, part of a <see cref="WalRows{K,V}"/> batch
+/// returned by <see cref="WalIterator{K,V}.Next"/>.
 /// </summary>
 /// <param name="key">The entry's key.</param>
 /// <param name="value">The entry's value, or <c>null</c> when <paramref name="kind"/> is <see cref="WalEntryKind.Tombstone"/>.</param>

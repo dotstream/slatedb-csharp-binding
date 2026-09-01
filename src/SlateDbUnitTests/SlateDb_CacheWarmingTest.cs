@@ -36,12 +36,7 @@ public class SlateDb_CacheWarmingTest
             .WithObjectConfiguration(new LocalStoreConfig(_path))
             .Build();
 
-        var files = walReader.All().ToList();
-        var id = files.Select(f => f.Id).Max();
-        foreach (var file in files)
-            file.Dispose();
-
-        return id;
+        return walReader.LastWalFileId(0);
     }
 
     [Test]

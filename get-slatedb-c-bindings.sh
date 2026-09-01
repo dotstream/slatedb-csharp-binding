@@ -1,6 +1,6 @@
 #!/bin/bash
 
-version="0.15.0"
+version="0.16.0"
 bindingversion="bindings/go/v${version}"
 
 rm -rf rust/slatedb-ffi/src/*.rs

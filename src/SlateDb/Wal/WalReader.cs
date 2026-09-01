@@ -1,11 +1,10 @@
-using SlateDb.Configuration;
 using SlateDb.Converter;
 
 namespace SlateDb.Wal;
 
 /// <summary>
-/// Entry point for reading raw WAL files stored under a database path, independent of a
-/// running <see cref="SlateDb{K,V}"/> instance.
+/// Entry point for reading a database's WAL as a change stream, independent of a running
+/// <see cref="SlateDb{K,V}"/> instance.
 /// </summary>
 public static class WalReader
 {
@@ -17,7 +16,7 @@ public static class WalReader
 }
 
 /// <summary>
-/// Reader for WAL files stored under a database path, created via <see cref="WalReader.Create{K,V}"/>.
+/// CDC reader backed by SlateDB's native live WAL reader, created via <see cref="WalReader.Create{K,V}"/>.
 /// </summary>
 public sealed class WalReader<K, V> : IDisposable
     where V : class
@@ -25,20 +24,63 @@ public sealed class WalReader<K, V> : IDisposable
 {
     private readonly ISlateDbConverter<K>? _keyConverter;
     private readonly ISlateDbConverter<V>? _valueConverter;
-    private readonly Interop.WalReader _handle;
+    private readonly Interop.SlateDbWalReader _handle;
     private bool _disposed;
 
-    /// <summary>Creates a WAL reader for <paramref name="path"/>, using the given object store configuration.</summary>
-    public WalReader(string path,
-        AbstractSlateDbConfig configuration,
-        ISlateDbConverter<K>? keyConverter = null,
-        ISlateDbConverter<V>? valueConverter = null)
+    internal WalReader(Interop.SlateDbWalReader handle, ISlateDbConverter<K>? keyConverter, ISlateDbConverter<V>? valueConverter)
     {
+        _handle = handle;
         _keyConverter = keyConverter;
         _valueConverter = valueConverter;
+    }
 
-        using var objectStore = Interop.UniffiHelpers.CreateObjectStore(configuration);
-        _handle = new Interop.WalReader(path, objectStore);
+    /// <summary>
+    /// Returns a snapshot of the current WAL tail after <paramref name="replayAfterWalId"/>, or
+    /// the supplied ID when no later WAL file exists.
+    /// </summary>
+    public ulong LastWalFileId(ulong replayAfterWalId) => LastWalFileIdAsync(replayAfterWalId).GetAwaiter().GetResult();
+
+    /// <summary>
+    /// Returns a snapshot of the current WAL tail after <paramref name="replayAfterWalId"/>,
+    /// asynchronously, or the supplied ID when no later WAL file exists.
+    /// </summary>
+    public async Task<ulong> LastWalFileIdAsync(ulong replayAfterWalId)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        try
+        {
+            return await _handle.LastWalFileId(replayAfterWalId);
+        }
+        catch (Exception ex) when (ex is not SlateDbException)
+        {
+            throw new SlateDbException($"WalReader.LastWalFileId failed: {ex.Message}", ex);
+        }
+    }
+
+    /// <summary>
+    /// Opens a live iterator starting at <paramref name="startWalFileId"/>. The iterator waits
+    /// and polls internally when it reaches the current WAL tail.
+    /// </summary>
+    public WalIterator<K, V> Iterator(ulong startWalFileId) => IteratorAsync(startWalFileId).GetAwaiter().GetResult();
+
+    /// <summary>
+    /// Opens a live iterator starting at <paramref name="startWalFileId"/>, asynchronously. The
+    /// iterator waits and polls internally when it reaches the current WAL tail.
+    /// </summary>
+    public async Task<WalIterator<K, V>> IteratorAsync(ulong startWalFileId)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        try
+        {
+            var iterator = await _handle.Iterator(startWalFileId);
+            return new WalIterator<K, V>(iterator, _keyConverter, _valueConverter);
+        }
+        catch (Exception ex) when (ex is not SlateDbException)
+        {
+            throw new SlateDbException($"WalReader.Iterator failed: {ex.Message}", ex);
+        }
     }
 
     /// <inheritdoc/>
@@ -48,61 +90,6 @@ public sealed class WalReader<K, V> : IDisposable
         {
             _handle.Dispose();
             _disposed = true;
-        }
-    }
-
-    /// <summary>Lists all WAL files, in ascending ID order.</summary>
-    public IReadOnlyList<WalFile<K, V>> All()
-    {
-        return List(null, null);
-    }
-
-    /// <summary>Lists WAL files with IDs in <c>[startId, endId]</c>, in ascending ID order.</summary>
-    public IReadOnlyList<WalFile<K, V>> List(ulong startId, ulong endId)
-        => List(startId, endId, SlateDbRangeBound.INCLUDED, SlateDbRangeBound.INCLUDED);
-
-    /// <summary>Lists WAL files with IDs in the given range, in ascending ID order.</summary>
-    /// <param name="startId">Range start.</param>
-    /// <param name="endId">Range end.</param>
-    /// <param name="startKeyRangeBound">Whether <paramref name="startId"/> is included in the range.</param>
-    /// <param name="endKeyRangeBound">Whether <paramref name="endId"/> is included in the range.</param>
-    public IReadOnlyList<WalFile<K, V>> List(ulong startId, ulong endId, SlateDbRangeBound startKeyRangeBound,
-        SlateDbRangeBound endKeyRangeBound)
-    {
-        // For bounded range, map to nullable parameters
-        ulong? start = startKeyRangeBound != SlateDbRangeBound.EXCLUDED ? startId : (ulong?)null;
-        ulong? end = endKeyRangeBound != SlateDbRangeBound.EXCLUDED ? endId : (ulong?)null;
-        return List(start, end);
-    }
-
-    private IReadOnlyList<WalFile<K, V>> List(ulong? startId, ulong? endId)
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-
-        try
-        {
-            var files = _handle.List(startId, endId).GetAwaiter().GetResult();
-            return files.Select(file => new WalFile<K, V>(file, _keyConverter, _valueConverter)).ToList();
-        }
-        catch (Exception ex) when (ex is not SlateDbException)
-        {
-            throw new SlateDbException($"WalReader.List failed: {ex.Message}", ex);
-        }
-    }
-
-    /// <summary>Returns a handle for the WAL file with the given ID.</summary>
-    public WalFile<K, V> Get(ulong id)
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-
-        try
-        {
-            var file = _handle.Get(id);
-            return new WalFile<K, V>(file, _keyConverter, _valueConverter);
-        }
-        catch (Exception ex) when (ex is not SlateDbException)
-        {
-            throw new SlateDbException($"WalReader.Get failed: {ex.Message}", ex);
         }
     }
 }

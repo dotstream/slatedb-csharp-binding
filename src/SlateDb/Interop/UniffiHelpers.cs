@@ -32,4 +32,37 @@ internal static class UniffiHelpers
         var json = SlateDbSettingsSerializer.ToJson(settings);
         return Settings.FromJsonString(json);
     }
+
+    /// <summary>
+    /// Disposes <paramref name="handle"/>, first awaiting durability if <paramref name="awaitDurable"/>
+    /// is set. Every write method (Put/Delete/Merge/Write/transaction Commit) returns a
+    /// <see cref="WriteHandle"/> that must be disposed; this centralizes that plus the optional
+    /// durability wait.
+    /// </summary>
+    public static void HandleWriteResult(WriteHandle handle, bool awaitDurable)
+    {
+        try
+        {
+            if (awaitDurable)
+                handle.AwaitDurable().GetAwaiter().GetResult();
+        }
+        finally
+        {
+            handle.Dispose();
+        }
+    }
+
+    /// <summary>Asynchronous counterpart of <see cref="HandleWriteResult"/>.</summary>
+    public static async Task HandleWriteResultAsync(WriteHandle handle, bool awaitDurable)
+    {
+        try
+        {
+            if (awaitDurable)
+                await handle.AwaitDurable();
+        }
+        finally
+        {
+            handle.Dispose();
+        }
+    }
 }

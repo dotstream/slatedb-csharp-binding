@@ -31,7 +31,8 @@ public sealed partial class SlateDb<K,V>
 
         try
         {
-            _dbHandle.DeleteWithOptions(key, Interop.OptionsConverters.ToInterop(options)).GetAwaiter().GetResult();
+            var handle = _dbHandle.DeleteWithOptions(key, Interop.OptionsConverters.ToInterop(options)).GetAwaiter().GetResult();
+            Interop.UniffiHelpers.HandleWriteResult(handle, options.AwaitDurable);
         }
         catch (Exception ex) when (ex is not SlateDbException)
         {
@@ -65,7 +66,8 @@ public sealed partial class SlateDb<K,V>
 
         try
         {
-            await _dbHandle.DeleteWithOptions(key, Interop.OptionsConverters.ToInterop(options));
+            var handle = await _dbHandle.DeleteWithOptions(key, Interop.OptionsConverters.ToInterop(options));
+            await Interop.UniffiHelpers.HandleWriteResultAsync(handle, options.AwaitDurable);
         }
         catch (Exception ex) when (ex is not SlateDbException)
         {
