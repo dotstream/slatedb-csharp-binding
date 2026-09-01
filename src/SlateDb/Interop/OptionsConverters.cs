@@ -25,7 +25,7 @@ internal static class OptionsConverters
     {
         Options.TtlType.Default => new Ttl.Default(),
         Options.TtlType.NoExpiry => new Ttl.NoExpiry(),
-        Options.TtlType.ExpireAfter => new Ttl.ExpireAfterTicks((ulong)ttlValue.TotalMilliseconds),
+        Options.TtlType.ExpireAfter => new Ttl.ExpireAfterMillis((ulong)ttlValue.TotalMilliseconds),
         _ => throw new ArgumentOutOfRangeException(nameof(ttlType))
     };
 
@@ -34,7 +34,7 @@ internal static class OptionsConverters
             options.FilterContext is null ? null : ToInterop(options.FilterContext));
 
     public static WriteOptions ToInterop(Options.WriteOptions options) =>
-        new(options.AwaitDurable);
+        new();
 
     public static PutOptions ToInterop(Options.PutOptions options) =>
         new(ToInterop(options.TtlType, options.TtlValue));

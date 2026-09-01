@@ -8,7 +8,7 @@ namespace SlateDbUnitTests;
 public class WalReaderTest
 {
     private string path;
-    
+
     [SetUp]
     public void Setup()
     {
@@ -29,117 +29,85 @@ public class WalReaderTest
             .Create<string, string>("db")
             .WithObjectConfiguration(new LocalStoreConfig(path))
             .Build();
-        
-        for(int i = 0; i < 100; i++)
-            slateDb.Put("key"+i, "value"+i, new PutOptions(){TtlType = TtlType.NoExpiry}, new WriteOptions(){AwaitDurable = false});
-        
+
+        for (int i = 0; i < 100; i++)
+            slateDb.Put("key" + i, "value" + i, new PutOptions() { TtlType = TtlType.NoExpiry }, new WriteOptions() { AwaitDurable = false });
+
         slateDb.Flush(FlushOptions.SlatedbFlushTypeWal);
         slateDb.Dispose();
     }
-    
+
     [Test]
     public void CreateWalReader()
     {
         using var wal = WalReader.Create<string, string>("db")
             .WithObjectConfiguration(new MemoryStoreConfig()).Build();
-        
+
         Assert.That(wal, Is.Not.Null);
     }
-    
+
     [Test]
-    public void TestWalReaderListingAndNavigation()
+    public void LastWalFileId_BeyondCurrentTail_ReturnsSuppliedId()
     {
         using var walReader = WalReader.Create<string, string>("db")
             .WithObjectConfiguration(new LocalStoreConfig(path))
             .Build();
 
-        var files = walReader.All().ToList();
-        
-        var ids = new List<ulong>();
-        for (int i = 0; i < files.Count; i++)
-        {
-            ulong id = files[i].Id;
-            ids.Add(id);
-            if (i > 0) {
-                Assert.That(id > ids[i - 1], Is.True);
-            }
-        }
-        CloseAllFiles(files);
-        
-        var filesBounded = walReader
-            .List(ids.First(), ids.Last(), SlateDbRangeBound.INCLUDED, SlateDbRangeBound.EXCLUDED)
-            .ToList();
+        var tailId = walReader.LastWalFileId(0);
+        var beyondTail = tailId + 1000;
 
-        Assert.That(filesBounded[0].Id, Is.EqualTo(ids[0]));
-        CloseAllFiles(filesBounded);
-
-
-        using var first = walReader.Get(ids[0]);
-        Assert.That(first.Id, Is.EqualTo(ids[0]));
-        Assert.That(first.NextId, Is.EqualTo(ids[1]));
-
-        using var nexFile = first.NextFile();
-        Assert.That(nexFile.Id, Is.EqualTo(ids[1]));
+        Assert.That(walReader.LastWalFileId(beyondTail), Is.EqualTo(beyondTail));
     }
 
     [Test]
-    public void TestWalReaderMetadataAndRows()
+    public async Task Iterator_StartingAtTail_ReturnsOnlyTheTailBatch()
     {
         using var walReader = WalReader.Create<string, string>("db")
             .WithObjectConfiguration(new LocalStoreConfig(path))
             .Build();
-        
+
+        var tailId = await walReader.LastWalFileIdAsync(0);
+        Assert.That(tailId, Is.GreaterThan(0));
+
+        using var iterator = await walReader.IteratorAsync(tailId);
+        var batch = await iterator.NextAsync();
+
+        Assert.That(batch, Is.Not.Null);
+        Assert.That(batch!.LastConsumedWalFileId, Is.EqualTo(tailId));
+    }
+
+    [Test]
+    public async Task Iterator_ConsumedUpToCurrentTail_ReturnsAllSeededRows()
+    {
+        using var walReader = WalReader.Create<string, string>("db")
+            .WithObjectConfiguration(new LocalStoreConfig(path))
+            .Build();
+
+        var tailId = await walReader.LastWalFileIdAsync(0);
+        using var iterator = await walReader.IteratorAsync(1);
+
         var allRows = new List<WalEntry<string, string>>();
+        var lastConsumed = 0UL;
 
-        var files = walReader.All().ToList();
-        var totalSizeBytes = 0UL;
-        foreach (WalFile<string, string> file in files)
+        // Only consume up to the tail snapshotted above: past that, Next() waits for a WAL
+        // file that will never arrive in this test rather than ending.
+        while (lastConsumed < tailId)
         {
-            WalFileMetadata metadata = file.GetMetadata();
-            Assert.That(metadata, Is.Not.Null);
-            Assert.That(metadata.Location, Is.Not.Empty);
-            totalSizeBytes += metadata.FileMetadataSizeBytes;
-            var rows = file.All().ToList();
-            allRows.AddRange(rows);
+            var batch = await iterator.NextAsync();
+            Assert.That(batch, Is.Not.Null);
+            allRows.AddRange(batch!.Rows);
+            lastConsumed = batch.LastConsumedWalFileId;
         }
 
-        // An early WAL segment can legitimately be empty (e.g. rotated before any
-        // writes landed in it), so assert on the aggregate rather than per-file.
-        Assert.That(totalSizeBytes, Is.GreaterThan(0));
-        Assert.That(allRows.Count, Is.EqualTo(100));
-        for(int j = 0; j < allRows.Count; j++)
-            AssertWalEntryRow(allRows[j], WalEntryKind.Value, "key"+j,  "value"+j);
+        Assert.That(allRows, Has.Count.EqualTo(100));
+        for (int j = 0; j < allRows.Count; j++)
+            AssertWalEntryRow(allRows[j], WalEntryKind.Value, "key" + j, "value" + j);
     }
 
-    [Test]
-    public void TestWalReaderMissingFile()  {
-        using var walReader = WalReader.Create<string, string>("db")
-            .WithObjectConfiguration(new LocalStoreConfig(path))
-            .Build();
-        
-        var files = walReader.All().ToList();
-        Assert.That(files.Count, Is.GreaterThan(0));
-           
-        ulong missingId = files.Last().Id + 1000L;
-
-        using var file = walReader.Get(missingId);
-        Assert.Throws<SlateDbException>(()=> file.GetMetadata());
-    }
-        
     private void AssertWalEntryRow(WalEntry<string, string> row, WalEntryKind kind, string key, string value)
     {
         Assert.That(kind, Is.EqualTo(row.Kind));
         Assert.That(key, Is.EqualTo(row.Key));
         Assert.That(value, Is.EqualTo(row.Value));
-    }
-
-    private static void CloseAllFiles<K, V>(List<WalFile<K, V>> files)
-        where V : class
-        where K : class
-    {
-        foreach (var file in files)
-        {
-            file.Dispose();
-        }
     }
 }

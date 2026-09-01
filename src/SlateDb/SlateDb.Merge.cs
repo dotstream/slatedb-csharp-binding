@@ -125,17 +125,20 @@ public sealed partial class SlateDb<K,V>
 
         try
         {
+            Interop.WriteHandle handle;
             if (mergeOptions.TtlType == TtlType.NoExpiry && !writeOptions.AwaitDurable)
             {
-                _dbHandle.Merge(key, operand).GetAwaiter().GetResult();
+                handle = _dbHandle.Merge(key, operand).GetAwaiter().GetResult();
             }
             else
             {
-                _dbHandle.MergeWithOptions(
+                handle = _dbHandle.MergeWithOptions(
                     key, operand,
                     Interop.OptionsConverters.ToInterop(mergeOptions),
                     Interop.OptionsConverters.ToInterop(writeOptions)).GetAwaiter().GetResult();
             }
+
+            Interop.UniffiHelpers.HandleWriteResult(handle, writeOptions.AwaitDurable);
         }
         catch (Exception ex) when (ex is not SlateDbException)
         {
@@ -167,17 +170,20 @@ public sealed partial class SlateDb<K,V>
 
         try
         {
+            Interop.WriteHandle handle;
             if (mergeOptions.TtlType == TtlType.NoExpiry && !writeOptions.AwaitDurable)
             {
-                await _dbHandle.Merge(key, operand);
+                handle = await _dbHandle.Merge(key, operand);
             }
             else
             {
-                await _dbHandle.MergeWithOptions(
+                handle = await _dbHandle.MergeWithOptions(
                     key, operand,
                     Interop.OptionsConverters.ToInterop(mergeOptions),
                     Interop.OptionsConverters.ToInterop(writeOptions));
             }
+
+            await Interop.UniffiHelpers.HandleWriteResultAsync(handle, writeOptions.AwaitDurable);
         }
         catch (Exception ex) when (ex is not SlateDbException)
         {

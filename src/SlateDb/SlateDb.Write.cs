@@ -29,10 +29,11 @@ public sealed partial class SlateDb<K,V>
 
         try
         {
-            _dbHandle.PutWithOptions(
+            var handle = _dbHandle.PutWithOptions(
                 key, value,
                 Interop.OptionsConverters.ToInterop(putOptions),
                 Interop.OptionsConverters.ToInterop(writeOptions)).GetAwaiter().GetResult();
+            Interop.UniffiHelpers.HandleWriteResult(handle, writeOptions.AwaitDurable);
         }
         catch (Exception ex) when (ex is not SlateDbException)
         {
@@ -64,10 +65,11 @@ public sealed partial class SlateDb<K,V>
 
         try
         {
-            await _dbHandle.PutWithOptions(
+            var handle = await _dbHandle.PutWithOptions(
                 key, value,
                 Interop.OptionsConverters.ToInterop(putOptions),
                 Interop.OptionsConverters.ToInterop(writeOptions));
+            await Interop.UniffiHelpers.HandleWriteResultAsync(handle, writeOptions.AwaitDurable);
         }
         catch (Exception ex) when (ex is not SlateDbException)
         {

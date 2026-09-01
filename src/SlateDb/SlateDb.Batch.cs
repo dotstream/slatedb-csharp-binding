@@ -147,14 +147,11 @@ public sealed partial class SlateDb<K, V>
 
         try
         {
-            if (options.AwaitDurable)
-            {
-                _dbHandle.WriteWithOptions(batch.NativeHandle, Interop.OptionsConverters.ToInterop(options)).GetAwaiter().GetResult();
-            }
-            else
-            {
-                _dbHandle.Write(batch.NativeHandle).GetAwaiter().GetResult();
-            }
+            var handle = options.AwaitDurable
+                ? _dbHandle.WriteWithOptions(batch.NativeHandle, Interop.OptionsConverters.ToInterop(options)).GetAwaiter().GetResult()
+                : _dbHandle.Write(batch.NativeHandle).GetAwaiter().GetResult();
+
+            Interop.UniffiHelpers.HandleWriteResult(handle, options.AwaitDurable);
         }
         catch (Exception ex) when (ex is not SlateDbException)
         {
@@ -179,14 +176,11 @@ public sealed partial class SlateDb<K, V>
 
         try
         {
-            if (options.AwaitDurable)
-            {
-                await _dbHandle.WriteWithOptions(batch.NativeHandle, Interop.OptionsConverters.ToInterop(options));
-            }
-            else
-            {
-                await _dbHandle.Write(batch.NativeHandle);
-            }
+            var handle = options.AwaitDurable
+                ? await _dbHandle.WriteWithOptions(batch.NativeHandle, Interop.OptionsConverters.ToInterop(options))
+                : await _dbHandle.Write(batch.NativeHandle);
+
+            await Interop.UniffiHelpers.HandleWriteResultAsync(handle, options.AwaitDurable);
         }
         catch (Exception ex) when (ex is not SlateDbException)
         {
