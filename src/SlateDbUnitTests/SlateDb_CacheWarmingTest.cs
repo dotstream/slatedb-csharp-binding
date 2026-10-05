@@ -21,28 +21,29 @@ public class SlateDb_CacheWarmingTest
         Directory.Delete(_path, true);
     }
 
-    private ulong SeedAndGetWalSstId()
+    private SsTableId SeedAndGetL0SstId()
     {
-        using var db = SlateDb.SlateDb
+        using (var db = SlateDb.SlateDb
             .Create<string, string>("db")
             .WithObjectConfiguration(new LocalStoreConfig(_path))
-            .Build();
+            .Build())
+        {
+            for (var i = 0; i < 50; i++)
+                db.Put("key" + i, "value" + i);
+            db.Flush(FlushOptions.SlatedbFlushTypeMemtable);
+        }
 
-        for (var i = 0; i < 50; i++)
-            db.Put("key" + i, "value" + i);
-        db.Flush();
-
-        using var walReader = SlateDb.Wal.WalReader.Create<string, string>("db")
+        using var admin = SlateDb.SlateDb.CreateAdmin("db")
             .WithObjectConfiguration(new LocalStoreConfig(_path))
             .Build();
 
-        return walReader.LastWalFileId(0);
+        return admin.ReadManifest()!.L0.First().Sst.Id;
     }
 
     [Test]
     public void WarmSst_WriteMode_DoesNotThrow()
     {
-        var sstId = SeedAndGetWalSstId();
+        var sstId = SeedAndGetL0SstId();
 
         using var db = SlateDb.SlateDb
             .Create<string, string>("db")
@@ -50,14 +51,14 @@ public class SlateDb_CacheWarmingTest
             .Build();
 
         Assert.That(
-            () => db.WarmSst(new SsTableId.Wal(sstId), [new CacheTarget.Filters(), new CacheTarget.Index(), new CacheTarget.Stats()]),
+            () => db.WarmSst(sstId, [new CacheTarget.Filters(), new CacheTarget.Index(), new CacheTarget.Stats()]),
             Throws.Nothing);
     }
 
     [Test]
     public void WarmSst_WriteMode_WithDataRange_DoesNotThrow()
     {
-        var sstId = SeedAndGetWalSstId();
+        var sstId = SeedAndGetL0SstId();
 
         using var db = SlateDb.SlateDb
             .Create<string, string>("db")
@@ -65,27 +66,27 @@ public class SlateDb_CacheWarmingTest
             .Build();
 
         Assert.That(
-            () => db.WarmSst(new SsTableId.Wal(sstId), [new CacheTarget.Data("key0"u8.ToArray(), "key9"u8.ToArray())]),
+            () => db.WarmSst(sstId, [new CacheTarget.Data("key0"u8.ToArray(), "key9"u8.ToArray())]),
             Throws.Nothing);
     }
 
     [Test]
     public void EvictCachedSst_WriteMode_DoesNotThrow()
     {
-        var sstId = SeedAndGetWalSstId();
+        var sstId = SeedAndGetL0SstId();
 
         using var db = SlateDb.SlateDb
             .Create<string, string>("db")
             .WithObjectConfiguration(new LocalStoreConfig(_path))
             .Build();
 
-        Assert.That(() => db.EvictCachedSst(new SsTableId.Wal(sstId)), Throws.Nothing);
+        Assert.That(() => db.EvictCachedSst(sstId), Throws.Nothing);
     }
 
     [Test]
     public void WarmSst_ReaderMode_UnreachableId_IsNoOp()
     {
-        SeedAndGetWalSstId();
+        SeedAndGetL0SstId();
 
         using var reader = SlateDb.SlateDb
             .CreateReader<string, string>("db")
@@ -93,34 +94,91 @@ public class SlateDb_CacheWarmingTest
             .Build();
 
         Assert.That(
-            () => reader.WarmSst(new SsTableId.Wal(999999), [new CacheTarget.Filters()]),
+            () => reader.WarmSst(new SsTableId("01ARZ3NDEKTSV4RRFFQ69G5FAV"), [new CacheTarget.Filters()]),
             Throws.Nothing);
     }
 
     [Test]
     public void EvictCachedSst_ReaderMode_RealId_DoesNotThrow()
     {
-        var sstId = SeedAndGetWalSstId();
+        var sstId = SeedAndGetL0SstId();
 
         using var reader = SlateDb.SlateDb
             .CreateReader<string, string>("db")
             .WithObjectConfiguration(new LocalStoreConfig(_path))
             .Build();
 
-        Assert.That(() => reader.EvictCachedSst(new SsTableId.Wal(sstId)), Throws.Nothing);
+        Assert.That(() => reader.EvictCachedSst(sstId), Throws.Nothing);
     }
 
     [Test]
     public async Task WarmSstAsync_And_EvictCachedSstAsync_ReaderMode_DoNotThrow()
     {
-        var sstId = SeedAndGetWalSstId();
+        var sstId = SeedAndGetL0SstId();
 
         using var reader = SlateDb.SlateDb
             .CreateReader<string, string>("db")
             .WithObjectConfiguration(new LocalStoreConfig(_path))
             .Build();
 
-        await reader.WarmSstAsync(new SsTableId.Wal(sstId), [new CacheTarget.Index()]);
-        await reader.EvictCachedSstAsync(new SsTableId.Wal(sstId));
+        await reader.WarmSstAsync(sstId, [new CacheTarget.Index()]);
+        await reader.EvictCachedSstAsync(sstId);
+    }
+
+    [Test]
+    public async Task FlushCacheToDisk_WriteMode_DoesNotThrow()
+    {
+        using var db = SlateDb.SlateDb
+            .Create<string, string>("db")
+            .WithObjectConfiguration(new LocalStoreConfig(_path))
+            .Build();
+
+        db.Put("key", "value");
+
+        Assert.That(() => db.FlushCacheToDisk(), Throws.Nothing);
+        await db.FlushCacheToDiskAsync();
+    }
+
+    [Test]
+    public async Task FlushCacheToDisk_ReaderMode_DoesNotThrow()
+    {
+        SeedAndGetL0SstId();
+
+        using var reader = SlateDb.SlateDb
+            .CreateReader<string, string>("db")
+            .WithObjectConfiguration(new LocalStoreConfig(_path))
+            .Build();
+
+        Assert.That(() => reader.FlushCacheToDisk(), Throws.Nothing);
+        await reader.FlushCacheToDiskAsync();
+    }
+
+    [Test]
+    public void Reader_WithDbCache_ReadsData()
+    {
+        SeedAndGetL0SstId();
+        using var cache = SlateDbCache.CreateMoka(new MokaCacheOptions());
+
+        using var reader = SlateDb.SlateDb
+            .CreateReader<string, string>("db")
+            .WithObjectConfiguration(new LocalStoreConfig(_path))
+            .WithDbCache(cache, 42)
+            .Build();
+
+        Assert.That(reader.Get("key1"), Is.EqualTo("value1"));
+    }
+
+    [Test]
+    public void Reader_WithDbCacheDisabled_ReadsData()
+    {
+        SeedAndGetL0SstId();
+
+        using var reader = SlateDb.SlateDb
+            .CreateReader<string, string>("db")
+            .WithObjectConfiguration(new LocalStoreConfig(_path))
+            .WithDbCacheDisabled()
+            .Build();
+
+        Assert.That(reader.Get("key1"), Is.EqualTo("value1"));
     }
 }

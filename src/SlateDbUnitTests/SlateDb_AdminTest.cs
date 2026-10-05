@@ -164,4 +164,28 @@ public class SlateDb_AdminTest
         Assert.That(clonedReader.Get("key0"), Is.EqualTo("value0"));
         Assert.That(clonedReader.Get("key19"), Is.EqualTo("value19"));
     }
+
+    [Test]
+    public void DeleteDb_WithoutConfirm_IsDryRun()
+    {
+        using var admin = OpenAdmin();
+
+        var paths = admin.DeleteDb(confirm: false);
+
+        Assert.That(paths, Is.Not.Empty);
+        Assert.That(admin.ReadManifest(), Is.Not.Null);
+    }
+
+    [Test]
+    public async Task DeleteDbAsync_WithConfirm_RemovesDatabase()
+    {
+        using var admin = OpenAdmin();
+        var expected = await admin.DeleteDbAsync(confirm: false);
+
+        var deleted = await admin.DeleteDbAsync(confirm: true);
+
+        Assert.That(deleted, Is.SupersetOf(expected));
+        Assert.That(admin.ReadManifest(), Is.Null);
+        Assert.That(() => admin.DeleteDb(confirm: true), Throws.Nothing);
+    }
 }

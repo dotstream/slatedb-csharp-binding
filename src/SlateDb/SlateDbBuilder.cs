@@ -32,8 +32,10 @@ public class SlateDbBuilder<K, V>
     private SstBlockSize? _sstBlockSize;
     private SlatedbMergeOperatorFn? _mergeOperator;
     private SlateDbFreeMergeResultFn? _freeMergeResultFn;
-    private SlateDbCache? _dbCache;
-    private bool _disableDbCache;
+    // `private protected` so SlateDbReaderBuilder can forward the cache settings to the reader.
+    private protected SlateDbCache? _dbCache;
+    private protected ulong _dbCacheId;
+    private protected bool _disableDbCache;
 
     /// <summary>Filter policies applied when opening the database; <c>null</c> keeps SlateDB's default.</summary>
     protected List<SlateDbFilterPolicy>? FilterPolicies;
@@ -101,9 +103,15 @@ public class SlateDbBuilder<K, V>
     }
 
     /// <summary>Sets the DB cache used to store SST blocks and metadata blocks in memory.</summary>
-    public SlateDbBuilder<K, V> WithDbCache(SlateDbCache dbCache)
+    /// <param name="dbCache">The cache to use.</param>
+    /// <param name="dbCacheId">
+    /// Isolates this database's entries from any other database sharing the same cache. The caller is
+    /// responsible for its uniqueness and stability across reopens.
+    /// </param>
+    public SlateDbBuilder<K, V> WithDbCache(SlateDbCache dbCache, ulong dbCacheId)
     {
         _dbCache = dbCache;
+        _dbCacheId = dbCacheId;
         _disableDbCache = false;
         return this;
     }
@@ -195,7 +203,7 @@ public class SlateDbBuilder<K, V>
         return new SlateDb<K, V>(
             Path,
             Configuration,
-            new SlateDbOptions<K, V>(_slateDbSettings,  _sstBlockSize, _mergeOperator, _freeMergeResultFn, _dbCache, _disableDbCache, FilterPolicies, SegmentExtractor, MetricsRecorderHandle),
+            new SlateDbOptions<K, V>(_slateDbSettings,  _sstBlockSize, _mergeOperator, _freeMergeResultFn, _dbCache, _dbCacheId, _disableDbCache, FilterPolicies, SegmentExtractor, MetricsRecorderHandle),
             KeyConverter,
             ValueConverter);
     }
@@ -212,7 +220,7 @@ public class SlateDbBuilder<K, V>
         return SlateDb<K, V>.CreateAsync(
             Path,
             Configuration,
-            new SlateDbOptions<K, V>(_slateDbSettings,  _sstBlockSize, _mergeOperator, _freeMergeResultFn, _dbCache, _disableDbCache, FilterPolicies, SegmentExtractor, MetricsRecorderHandle),
+            new SlateDbOptions<K, V>(_slateDbSettings,  _sstBlockSize, _mergeOperator, _freeMergeResultFn, _dbCache, _dbCacheId, _disableDbCache, FilterPolicies, SegmentExtractor, MetricsRecorderHandle),
             KeyConverter,
             ValueConverter);
     }
@@ -275,7 +283,10 @@ public class SlateDbReaderBuilder<K, V> : SlateDbBuilder<K, V>
             _readerOptions,
             FilterPolicies,
             SegmentExtractor,
-            MetricsRecorderHandle);
+            MetricsRecorderHandle,
+            _dbCache,
+            _dbCacheId,
+            _disableDbCache);
     }
 
     /// <inheritdoc/>
@@ -296,6 +307,9 @@ public class SlateDbReaderBuilder<K, V> : SlateDbBuilder<K, V>
             _readerOptions,
             FilterPolicies,
             SegmentExtractor,
-            MetricsRecorderHandle);
+            MetricsRecorderHandle,
+            _dbCache,
+            _dbCacheId,
+            _disableDbCache);
     }
 }

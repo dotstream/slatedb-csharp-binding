@@ -42,10 +42,8 @@ internal class SlateDbEnumerator<K, V> : IEnumerator<SlateDbKeyValue<K, V>>
     }
 
     public void Reset()
-    {
-        _iterator.SeekToBeginning().GetAwaiter().GetResult();
-    }
-
+        => throw new NotImplementedException("SlateDb Enumerator doesn't support Reset yet.");
+    
     SlateDbKeyValue<K, V> IEnumerator<SlateDbKeyValue<K, V>>.Current => _current!;
 
     object? IEnumerator.Current => _current;

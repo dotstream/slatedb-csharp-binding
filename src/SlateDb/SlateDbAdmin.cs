@@ -289,6 +289,32 @@ public sealed class SlateDbAdmin : IDisposable
         }
     }
 
+    /// <summary>
+    /// Deletes the database: releases the checkpoints it pinned in the databases it was cloned from,
+    /// then removes every object under its path.
+    /// </summary>
+    /// <param name="confirm">
+    /// When <c>false</c>, nothing is deleted and the paths that would be deleted are returned (dry run).
+    /// When <c>true</c>, the deleted paths are returned.
+    /// </param>
+    /// <remarks>A path that holds objects but no SlateDB manifest is refused. The operation is idempotent.</remarks>
+    public IReadOnlyList<string> DeleteDb(bool confirm) => DeleteDbAsync(confirm).GetAwaiter().GetResult();
+
+    /// <summary>Deletes the database asynchronously. See <see cref="DeleteDb"/>.</summary>
+    public async Task<IReadOnlyList<string>> DeleteDbAsync(bool confirm)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        try
+        {
+            return await _handle.DeleteDb(confirm);
+        }
+        catch (Exception ex) when (ex is not SlateDbException)
+        {
+            throw new SlateDbException($"Admin.DeleteDb failed: {ex.Message}", ex);
+        }
+    }
+
     /// <summary>Creates a builder for cloning a database from <paramref name="source"/>.</summary>
     public SlateDbCloneBuilder CreateCloneBuilderFromSource(CloneSourceSpec source)
     {

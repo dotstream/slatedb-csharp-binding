@@ -14,12 +14,7 @@ internal static class AdminConverters
 
     // ---- SsTableId / CompressionCodec (reverse direction of the OptionsConverters.ToInterop overloads) ----
 
-    public static Options.SsTableId ToPublic(SsTableId sstId) => sstId switch
-    {
-        SsTableId.Wal wal => new Options.SsTableId.Wal(wal.V1),
-        SsTableId.Compacted compacted => new Options.SsTableId.Compacted(compacted.V1),
-        _ => throw new ArgumentOutOfRangeException(nameof(sstId))
-    };
+    public static Options.SsTableId ToPublic(SsTableId sstId) => new(sstId.Value);
 
     public static Options.CompressionCodec ToPublic(CompressionCodec codec) => codec switch
     {

@@ -18,11 +18,16 @@ internal static class UniffiHelpers
         AwsStoreConfig aws => BuildObjectStore(ObjectStoreType.S3, aws.BuildStoreConfig()),
         AzureStoreConfig azure => BuildObjectStore(ObjectStoreType.Azure, azure.BuildStoreConfig()),
         GoogleStoreConfig google => BuildObjectStore(ObjectStoreType.Gcs, google.BuildStoreConfig()),
-        _ => throw new NotSupportedException($"Configuration type {config.GetType().Name} not supported")
+        _ => throw new NotSupportedException($"Configuration type {config.GetType().Name} not supported yet.")
     };
 
-    private static ObjectStore BuildObjectStore(ObjectStoreType storeType, IDictionary<string, string> config) =>
-        new ObjectStoreBuilder(storeType, new Dictionary<string, string>(config)).Build();
+    private static ObjectStore BuildObjectStore(ObjectStoreType storeType, IDictionary<string, string> config)
+    {
+        using var builder = new ObjectStoreBuilder(storeType);
+        foreach (var (key, value) in config)
+            builder.WithConfig(key, value);
+        return builder.Build();
+    }
 
     /// <summary>
     /// Creates a Settings object from a SlateDbSettings instance

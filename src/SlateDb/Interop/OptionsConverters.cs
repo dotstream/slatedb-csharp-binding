@@ -109,12 +109,7 @@ internal static class OptionsConverters
         _ => throw new ArgumentOutOfRangeException(nameof(mode))
     };
 
-    public static SsTableId ToInterop(Options.SsTableId sstId) => sstId switch
-    {
-        Options.SsTableId.Wal wal => new SsTableId.Wal(wal.Id),
-        Options.SsTableId.Compacted compacted => new SsTableId.Compacted(compacted.Id),
-        _ => throw new ArgumentOutOfRangeException(nameof(sstId))
-    };
+    public static SsTableId ToInterop(Options.SsTableId sstId) => new(sstId.Id);
 
     public static CacheTarget ToInterop(Options.CacheTarget target) => target switch
     {

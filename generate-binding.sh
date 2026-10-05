@@ -8,7 +8,7 @@ all="${1:-false}"
 generate_bindings="${2:-true}"
 
 RUNTIMES_DIR="src/SlateDb/runtimes"
-SLATEDB_RUST_TOOLCHAIN="${SLATEDB_RUST_TOOLCHAIN:-1.91.1}"
+SLATEDB_RUST_TOOLCHAIN="${SLATEDB_RUST_TOOLCHAIN:-1.98.1}"
 
 # Cleaning runtimes directory
 mkdir -p "$RUNTIMES_DIR"
@@ -88,7 +88,7 @@ if [ "$all" = true ] && [ "$HAS_ZIGBUILD" = false ]; then
     exit 1
 fi
 
-cargo install uniffi-bindgen-cs --git https://github.com/NordSecurity/uniffi-bindgen-cs --tag v0.11.0+v0.31.0
+cargo install --locked uniffi-bindgen-cs --git https://github.com/NordSecurity/uniffi-bindgen-cs --tag v0.11.0+v0.31.0
 
 # uniffi-bindgen-cs shells out to csharpier to format the generated bindings
 export PATH="$PATH:$HOME/.dotnet/tools"
