@@ -68,6 +68,12 @@ public record CompactorOptions
     /// <summary>Maximum number of compactions that may run concurrently.</summary>
     public ulong? MaxConcurrentCompactions { get; init; }
 
+    /// <summary>
+    /// Lifetime of the checkpoints the compactor creates to pin the state it compacts from.
+    /// Defaults to 15 minutes.
+    /// </summary>
+    public TimeSpan? CheckpointLifetime { get; init; }
+
     /// <summary>Options controlling which SSTables the compaction scheduler selects.</summary>
     public CompactionSchedulerOptions? SchedulerOptions { get; init; }
 }
@@ -86,6 +92,16 @@ public record CompactionSchedulerOptions
 
     /// <summary>Size ratio threshold used to decide whether an SSTable is included in a compaction.</summary>
     public float? IncludeSizeThreshold { get; init; }
+
+    /// <summary>
+    /// Projected sorted-run count above which fallback consolidation starts for each tree.
+    /// <c>0</c> (the default) disables the trigger; enabled values must be at least <c>2</c>
+    /// (other values are rejected with a warning and disable the fallback). This is not a hard limit.
+    /// When normal scheduling finds no work, the fallback ignores <see cref="MinCompactionSources"/>
+    /// and <see cref="IncludeSizeThreshold"/> but respects <see cref="MaxCompactionSources"/>.
+    /// Low thresholds can cause frequent merges and extra storage I/O.
+    /// </summary>
+    public ulong? SortedRunConsolidationThreshold { get; init; }
 }
 
 /// <summary>

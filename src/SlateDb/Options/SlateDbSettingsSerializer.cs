@@ -62,6 +62,7 @@ internal static class SlateDbSettingsSerializer
          ManifestUpdateTimeout = co.ManifestUpdateTimeout,
          MaxSstSize = co.MaxSstSize,
          MaxConcurrentCompactions = co.MaxConcurrentCompactions,
+         CheckpointLifetime = co.CheckpointLifetime,
          SchedulerOptions = co.SchedulerOptions is { } so ? ToDto(so) : null,
      };
 
@@ -74,6 +75,8 @@ internal static class SlateDbSettingsSerializer
              dict["max_compaction_sources"] = max.ToString();
          if (so.IncludeSizeThreshold is { } threshold)
              dict["include_size_threshold"] = threshold.ToString("G");
+         if (so.SortedRunConsolidationThreshold is { } consolidation)
+             dict["sorted_run_consolidation_threshold"] = consolidation.ToString();
          return dict.Count > 0 ? dict : null!;
      }
 
@@ -150,6 +153,7 @@ internal static class SlateDbSettingsSerializer
          public TimeSpan? ManifestUpdateTimeout { get; init; }
          public ulong? MaxSstSize { get; init; }
          public ulong? MaxConcurrentCompactions { get; init; }
+         public TimeSpan? CheckpointLifetime { get; init; }
          public Dictionary<string, string>? SchedulerOptions { get; init; }
      }
 

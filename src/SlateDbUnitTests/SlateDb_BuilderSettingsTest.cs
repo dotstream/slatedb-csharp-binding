@@ -120,4 +120,41 @@ public class SlateDb_BuilderSettingsTest
 
         Assert.Throws<SlateDbException>(() => readerBuilder.Build());
     }
+
+    [Test]
+    public void CompactorSettings_New017Options_AreSerialized()
+    {
+        var json = System.Text.Json.Nodes.JsonNode.Parse(SlateDbSettingsSerializer.ToJson(new SlateDbSettings
+        {
+            CompactorOptions = new CompactorOptions
+            {
+                CheckpointLifetime = TimeSpan.FromSeconds(42),
+                SchedulerOptions = new CompactionSchedulerOptions { SortedRunConsolidationThreshold = 8 },
+            },
+        }))!;
+
+        var compactor = json["compactor_options"]!;
+        Assert.That(compactor["checkpoint_lifetime"]!.GetValue<string>(), Is.EqualTo("42s"));
+        Assert.That(compactor["scheduler_options"]!["sorted_run_consolidation_threshold"]!.GetValue<string>(), Is.EqualTo("8"));
+    }
+
+    [Test]
+    public void CompactorSettings_New017Options_DatabaseOpens()
+    {
+        using var db = SlateDb.SlateDb
+            .Create<string, string>("db")
+            .WithObjectConfiguration(new LocalStoreConfig(_path))
+            .WithSettings(new SlateDbSettings
+            {
+                CompactorOptions = new CompactorOptions
+                {
+                    CheckpointLifetime = TimeSpan.FromMinutes(5),
+                    SchedulerOptions = new CompactionSchedulerOptions { SortedRunConsolidationThreshold = 4 },
+                },
+            })
+            .Build();
+
+        db.Put("key", "value");
+        Assert.That(db.Get("key"), Is.EqualTo("value"));
+    }
 }

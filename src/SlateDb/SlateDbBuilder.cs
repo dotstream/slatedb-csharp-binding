@@ -32,9 +32,10 @@ public class SlateDbBuilder<K, V>
     private SstBlockSize? _sstBlockSize;
     private SlatedbMergeOperatorFn? _mergeOperator;
     private SlateDbFreeMergeResultFn? _freeMergeResultFn;
-    private SlateDbCache? _dbCache;
-    private ulong _dbCacheId;
-    private bool _disableDbCache;
+    // `private protected` so SlateDbReaderBuilder can forward the cache settings to the reader.
+    private protected SlateDbCache? _dbCache;
+    private protected ulong _dbCacheId;
+    private protected bool _disableDbCache;
 
     /// <summary>Filter policies applied when opening the database; <c>null</c> keeps SlateDB's default.</summary>
     protected List<SlateDbFilterPolicy>? FilterPolicies;
@@ -282,7 +283,10 @@ public class SlateDbReaderBuilder<K, V> : SlateDbBuilder<K, V>
             _readerOptions,
             FilterPolicies,
             SegmentExtractor,
-            MetricsRecorderHandle);
+            MetricsRecorderHandle,
+            _dbCache,
+            _dbCacheId,
+            _disableDbCache);
     }
 
     /// <inheritdoc/>
@@ -303,6 +307,9 @@ public class SlateDbReaderBuilder<K, V> : SlateDbBuilder<K, V>
             _readerOptions,
             FilterPolicies,
             SegmentExtractor,
-            MetricsRecorderHandle);
+            MetricsRecorderHandle,
+            _dbCache,
+            _dbCacheId,
+            _disableDbCache);
     }
 }

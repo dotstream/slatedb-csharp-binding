@@ -124,4 +124,61 @@ public class SlateDb_CacheWarmingTest
         await reader.WarmSstAsync(sstId, [new CacheTarget.Index()]);
         await reader.EvictCachedSstAsync(sstId);
     }
+
+    [Test]
+    public async Task FlushCacheToDisk_WriteMode_DoesNotThrow()
+    {
+        using var db = SlateDb.SlateDb
+            .Create<string, string>("db")
+            .WithObjectConfiguration(new LocalStoreConfig(_path))
+            .Build();
+
+        db.Put("key", "value");
+
+        Assert.That(() => db.FlushCacheToDisk(), Throws.Nothing);
+        await db.FlushCacheToDiskAsync();
+    }
+
+    [Test]
+    public async Task FlushCacheToDisk_ReaderMode_DoesNotThrow()
+    {
+        SeedAndGetL0SstId();
+
+        using var reader = SlateDb.SlateDb
+            .CreateReader<string, string>("db")
+            .WithObjectConfiguration(new LocalStoreConfig(_path))
+            .Build();
+
+        Assert.That(() => reader.FlushCacheToDisk(), Throws.Nothing);
+        await reader.FlushCacheToDiskAsync();
+    }
+
+    [Test]
+    public void Reader_WithDbCache_ReadsData()
+    {
+        SeedAndGetL0SstId();
+        using var cache = SlateDbCache.CreateMoka(new MokaCacheOptions());
+
+        using var reader = SlateDb.SlateDb
+            .CreateReader<string, string>("db")
+            .WithObjectConfiguration(new LocalStoreConfig(_path))
+            .WithDbCache(cache, 42)
+            .Build();
+
+        Assert.That(reader.Get("key1"), Is.EqualTo("value1"));
+    }
+
+    [Test]
+    public void Reader_WithDbCacheDisabled_ReadsData()
+    {
+        SeedAndGetL0SstId();
+
+        using var reader = SlateDb.SlateDb
+            .CreateReader<string, string>("db")
+            .WithObjectConfiguration(new LocalStoreConfig(_path))
+            .WithDbCacheDisabled()
+            .Build();
+
+        Assert.That(reader.Get("key1"), Is.EqualTo("value1"));
+    }
 }

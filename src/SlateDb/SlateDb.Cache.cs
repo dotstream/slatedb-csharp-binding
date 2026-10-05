@@ -79,7 +79,8 @@ public sealed partial class SlateDb<K, V>
     /// <summary>
     /// Best-effort eviction of block-cache entries for one SST.
     ///
-    /// If no block cache is configured, this is a no-op.
+    /// If no block cache is configured, or if the SST is not reachable from the current manifest,
+    /// this is a no-op.
     /// </summary>
     public void EvictCachedSst(SsTableId sstId)
     {
@@ -113,7 +114,8 @@ public sealed partial class SlateDb<K, V>
     /// <summary>
     /// Best-effort eviction of block-cache entries for one SST asynchronously.
     ///
-    /// If no block cache is configured, this is a no-op.
+    /// If no block cache is configured, or if the SST is not reachable from the current manifest,
+    /// this is a no-op.
     /// </summary>
     public async Task EvictCachedSstAsync(SsTableId sstId)
     {
@@ -141,6 +143,48 @@ public sealed partial class SlateDb<K, V>
         catch (Exception ex) when (ex is not SlateDbException)
         {
             throw new SlateDbException($"EvictCachedSst failed: {ex.Message}", ex);
+        }
+    }
+
+    /// <summary>
+    /// Sends this database's cached data to disk.
+    ///
+    /// Moves data for this instance's cache scope id from memory to disk. It frees memory now, and
+    /// protects the data from an ungraceful process exit later. A later instance with the same
+    /// scope id can read the data back from disk. This affects the whole scope: if another
+    /// instance uses the same scope id, its data is flushed too.
+    ///
+    /// Does nothing if no block cache is set, or if the cache has no disk storage.
+    /// </summary>
+    public void FlushCacheToDisk() => FlushCacheToDiskAsync().GetAwaiter().GetResult();
+
+    /// <summary>
+    /// Sends this database's cached data to disk asynchronously. See <see cref="FlushCacheToDisk"/>.
+    /// </summary>
+    public async Task FlushCacheToDiskAsync()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        try
+        {
+            if (_mode == SlateDbMode.Readwrite)
+            {
+                if (_dbHandle == null)
+                    throw new SlateDbException("Database handle is null");
+
+                await _dbHandle.FlushCacheToDisk();
+            }
+            else
+            {
+                if (_readerHandle == null)
+                    throw new SlateDbException("Reader handle is null");
+
+                await _readerHandle.FlushCacheToDisk();
+            }
+        }
+        catch (Exception ex) when (ex is not SlateDbException)
+        {
+            throw new SlateDbException($"FlushCacheToDisk failed: {ex.Message}", ex);
         }
     }
 }

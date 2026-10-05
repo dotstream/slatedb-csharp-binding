@@ -162,7 +162,10 @@ public sealed partial class SlateDb<K,V> : IDisposable, IAsyncDisposable
         ReaderOptions? readerOptions = null,
         IReadOnlyList<SlateDbFilterPolicy>? filterPolicies = null,
         IPrefixExtractor? segmentExtractor = null,
-        Interop.MetricsRecorder? metricsRecorder = null)
+        Interop.MetricsRecorder? metricsRecorder = null,
+        SlateDbCache? dbCache = null,
+        ulong dbCacheId = 0,
+        bool disableDbCache = false)
     {
         _mode = SlateDbMode.Readonly;
         _keyConverter = keyConverter;
@@ -170,7 +173,7 @@ public sealed partial class SlateDb<K,V> : IDisposable, IAsyncDisposable
 
         try
         {
-            using var builder = CreateDbReaderBuilder(path, configuration, readerMode, readerOptions, filterPolicies, segmentExtractor, metricsRecorder);
+            using var builder = CreateDbReaderBuilder(path, configuration, readerMode, readerOptions, filterPolicies, segmentExtractor, metricsRecorder, dbCache, dbCacheId, disableDbCache);
             _readerHandle = builder.Build().GetAwaiter().GetResult();
         }
         catch (Exception ex) when (ex is not SlateDbException)
@@ -254,7 +257,10 @@ public sealed partial class SlateDb<K,V> : IDisposable, IAsyncDisposable
         ReaderOptions? readerOptions,
         IReadOnlyList<SlateDbFilterPolicy>? filterPolicies = null,
         IPrefixExtractor? segmentExtractor = null,
-        Interop.MetricsRecorder? metricsRecorder = null)
+        Interop.MetricsRecorder? metricsRecorder = null,
+        SlateDbCache? dbCache = null,
+        ulong dbCacheId = 0,
+        bool disableDbCache = false)
     {
         using var objectStore = Interop.UniffiHelpers.CreateObjectStore(configuration);
         var builder = new Interop.DbReaderBuilder(path, objectStore);
@@ -264,6 +270,11 @@ public sealed partial class SlateDb<K,V> : IDisposable, IAsyncDisposable
 
         if (readerOptions != null)
             builder.WithOptions(Interop.OptionsConverters.ToInterop(readerOptions));
+
+        if (disableDbCache)
+            builder.WithDbCacheDisabled();
+        else if (dbCache != null)
+            builder.WithDbCache(dbCache.Inner, dbCacheId);
 
         if (filterPolicies != null)
             builder.WithFilterPolicies(filterPolicies.Select(p => p.Inner).ToArray());
@@ -305,11 +316,14 @@ public sealed partial class SlateDb<K,V> : IDisposable, IAsyncDisposable
         ReaderOptions? readerOptions = null,
         IReadOnlyList<SlateDbFilterPolicy>? filterPolicies = null,
         IPrefixExtractor? segmentExtractor = null,
-        Interop.MetricsRecorder? metricsRecorder = null)
+        Interop.MetricsRecorder? metricsRecorder = null,
+        SlateDbCache? dbCache = null,
+        ulong dbCacheId = 0,
+        bool disableDbCache = false)
     {
         try
         {
-            using var builder = CreateDbReaderBuilder(path, configuration, readerMode, readerOptions, filterPolicies, segmentExtractor, metricsRecorder);
+            using var builder = CreateDbReaderBuilder(path, configuration, readerMode, readerOptions, filterPolicies, segmentExtractor, metricsRecorder, dbCache, dbCacheId, disableDbCache);
             var readerHandle = await builder.Build();
             return new SlateDb<K, V>(readerHandle, keyConverter, valueConverter);
         }
