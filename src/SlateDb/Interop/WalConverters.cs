@@ -6,7 +6,7 @@ namespace SlateDb.Interop;
 internal static class WalConverters
 {
     public static SlateDbWalReaderOptions ToInterop(WalReaderOptions options) =>
-        new(SstBatchSize: options.SstBatchSize, MaxFetchTasks: options.MaxFetchTasks, ReadAheadBytes: options.ReadAheadBytes);
+        new(MaxBufferedBytes: options.MaxBufferedBytes, MaxFetchTasks: options.MaxFetchTasks, ReadAheadBytes: options.ReadAheadBytes);
 
     public static WalEntry<K, V> ToPublic<K, V>(RowEntry entry, ISlateDbConverter<K>? keyConverter, ISlateDbConverter<V>? valueConverter)
         where V : class

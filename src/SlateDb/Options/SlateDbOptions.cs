@@ -6,6 +6,7 @@ internal class SlateDbOptions<K, V>(
     SlatedbMergeOperatorFn? mergeOperator,
     SlateDbFreeMergeResultFn? freeMergeResultFn,
     SlateDbCache? dbCache = null,
+    ulong dbCacheId = 0,
     bool disableDbCache = false,
     IReadOnlyList<SlateDbFilterPolicy>? filterPolicies = null,
     IPrefixExtractor? segmentExtractor = null,
@@ -16,6 +17,7 @@ internal class SlateDbOptions<K, V>(
     internal SlatedbMergeOperatorFn? MergeOperator {get; } = mergeOperator;
     internal SlateDbFreeMergeResultFn? FreeMergeResult { get; } = freeMergeResultFn;
     internal SlateDbCache? DbCache { get; } = dbCache;
+    internal ulong DbCacheId { get; } = dbCacheId;
     internal bool DisableDbCache { get; } = disableDbCache;
     internal IReadOnlyList<SlateDbFilterPolicy>? FilterPolicies { get; } = filterPolicies;
     internal IPrefixExtractor? SegmentExtractor { get; } = segmentExtractor;

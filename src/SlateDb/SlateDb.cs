@@ -226,7 +226,7 @@ public sealed partial class SlateDb<K,V> : IDisposable, IAsyncDisposable
         if (options.DisableDbCache)
             builder.WithDbCacheDisabled();
         else if (options.DbCache != null)
-            builder.WithDbCache(options.DbCache.Inner);
+            builder.WithDbCache(options.DbCache.Inner, options.DbCacheId);
 
         if (options.FilterPolicies != null)
             builder.WithFilterPolicies(options.FilterPolicies.Select(p => p.Inner).ToArray());

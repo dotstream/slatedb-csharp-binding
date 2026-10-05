@@ -33,6 +33,7 @@ public class SlateDbBuilder<K, V>
     private SlatedbMergeOperatorFn? _mergeOperator;
     private SlateDbFreeMergeResultFn? _freeMergeResultFn;
     private SlateDbCache? _dbCache;
+    private ulong _dbCacheId;
     private bool _disableDbCache;
 
     /// <summary>Filter policies applied when opening the database; <c>null</c> keeps SlateDB's default.</summary>
@@ -101,9 +102,15 @@ public class SlateDbBuilder<K, V>
     }
 
     /// <summary>Sets the DB cache used to store SST blocks and metadata blocks in memory.</summary>
-    public SlateDbBuilder<K, V> WithDbCache(SlateDbCache dbCache)
+    /// <param name="dbCache">The cache to use.</param>
+    /// <param name="dbCacheId">
+    /// Isolates this database's entries from any other database sharing the same cache. The caller is
+    /// responsible for its uniqueness and stability across reopens.
+    /// </param>
+    public SlateDbBuilder<K, V> WithDbCache(SlateDbCache dbCache, ulong dbCacheId)
     {
         _dbCache = dbCache;
+        _dbCacheId = dbCacheId;
         _disableDbCache = false;
         return this;
     }
@@ -195,7 +202,7 @@ public class SlateDbBuilder<K, V>
         return new SlateDb<K, V>(
             Path,
             Configuration,
-            new SlateDbOptions<K, V>(_slateDbSettings,  _sstBlockSize, _mergeOperator, _freeMergeResultFn, _dbCache, _disableDbCache, FilterPolicies, SegmentExtractor, MetricsRecorderHandle),
+            new SlateDbOptions<K, V>(_slateDbSettings,  _sstBlockSize, _mergeOperator, _freeMergeResultFn, _dbCache, _dbCacheId, _disableDbCache, FilterPolicies, SegmentExtractor, MetricsRecorderHandle),
             KeyConverter,
             ValueConverter);
     }
@@ -212,7 +219,7 @@ public class SlateDbBuilder<K, V>
         return SlateDb<K, V>.CreateAsync(
             Path,
             Configuration,
-            new SlateDbOptions<K, V>(_slateDbSettings,  _sstBlockSize, _mergeOperator, _freeMergeResultFn, _dbCache, _disableDbCache, FilterPolicies, SegmentExtractor, MetricsRecorderHandle),
+            new SlateDbOptions<K, V>(_slateDbSettings,  _sstBlockSize, _mergeOperator, _freeMergeResultFn, _dbCache, _dbCacheId, _disableDbCache, FilterPolicies, SegmentExtractor, MetricsRecorderHandle),
             KeyConverter,
             ValueConverter);
     }
