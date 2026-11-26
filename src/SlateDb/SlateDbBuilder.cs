@@ -46,6 +46,14 @@ public class SlateDbBuilder<K, V>
     // Internal (Interop) type, so this can only be `private protected`, not `protected`.
     private protected Interop.MetricsRecorder? MetricsRecorderHandle;
 
+    /// <summary>Clock the database reads wall time from, or <c>null</c> for the process clock.</summary>
+    protected SlateDbClock? SystemClock;
+
+    /// <summary>Block transformer applied to every SST block, or <c>null</c> for none.</summary>
+    protected IBlockTransformer? BlockTransformer;
+
+    private BlockCachePolicy? _blockCachePolicy;
+
     internal SlateDbBuilder(string path)
     {
         Path = path;
@@ -149,6 +157,37 @@ public class SlateDbBuilder<K, V>
         return this;
     }
 
+    /// <summary>
+    /// Sets the clock the database reads wall time from: TTL expiry, checkpoint lifetimes, flush and
+    /// poll ticks, retry backoffs. Use <see cref="SlateDbClock.Mock(DateTimeOffset)"/> to control
+    /// time in tests.
+    /// </summary>
+    public SlateDbBuilder<K, V> WithSystemClock(SlateDbClock clock)
+    {
+        SystemClock = clock ?? throw new ArgumentNullException(nameof(clock));
+        return this;
+    }
+
+    /// <summary>
+    /// Installs a reversible transform (e.g. encryption) applied to every SST block after
+    /// compression. Every writer and reader of the database must install the same transformer.
+    /// </summary>
+    public SlateDbBuilder<K, V> WithBlockTransformer(IBlockTransformer transformer)
+    {
+        BlockTransformer = transformer ?? throw new ArgumentNullException(nameof(transformer));
+        return this;
+    }
+
+    /// <summary>
+    /// Sets which blocks of newly written SSTs (from flushes and compactions) are inserted into the
+    /// DB cache as they are written. Writable databases only; ignored by readers.
+    /// </summary>
+    public SlateDbBuilder<K, V> WithBlockCachePolicy(BlockCachePolicy policy)
+    {
+        _blockCachePolicy = policy ?? throw new ArgumentNullException(nameof(policy));
+        return this;
+    }
+
     /// <summary>Installs an application-defined metrics recorder.</summary>
     public SlateDbBuilder<K, V> WithMetricsRecorder(IMetricsRecorder metricsRecorder)
     {
@@ -203,7 +242,7 @@ public class SlateDbBuilder<K, V>
         return new SlateDb<K, V>(
             Path,
             Configuration,
-            new SlateDbOptions<K, V>(_slateDbSettings,  _sstBlockSize, _mergeOperator, _freeMergeResultFn, _dbCache, _dbCacheId, _disableDbCache, FilterPolicies, SegmentExtractor, MetricsRecorderHandle),
+            new SlateDbOptions<K, V>(_slateDbSettings,  _sstBlockSize, _mergeOperator, _freeMergeResultFn, _dbCache, _dbCacheId, _disableDbCache, FilterPolicies, SegmentExtractor, MetricsRecorderHandle, SystemClock, BlockTransformer, _blockCachePolicy),
             KeyConverter,
             ValueConverter);
     }
@@ -220,7 +259,7 @@ public class SlateDbBuilder<K, V>
         return SlateDb<K, V>.CreateAsync(
             Path,
             Configuration,
-            new SlateDbOptions<K, V>(_slateDbSettings,  _sstBlockSize, _mergeOperator, _freeMergeResultFn, _dbCache, _dbCacheId, _disableDbCache, FilterPolicies, SegmentExtractor, MetricsRecorderHandle),
+            new SlateDbOptions<K, V>(_slateDbSettings,  _sstBlockSize, _mergeOperator, _freeMergeResultFn, _dbCache, _dbCacheId, _disableDbCache, FilterPolicies, SegmentExtractor, MetricsRecorderHandle, SystemClock, BlockTransformer, _blockCachePolicy),
             KeyConverter,
             ValueConverter);
     }
@@ -286,7 +325,9 @@ public class SlateDbReaderBuilder<K, V> : SlateDbBuilder<K, V>
             MetricsRecorderHandle,
             _dbCache,
             _dbCacheId,
-            _disableDbCache);
+            _disableDbCache,
+            SystemClock,
+            BlockTransformer);
     }
 
     /// <inheritdoc/>
@@ -310,6 +351,8 @@ public class SlateDbReaderBuilder<K, V> : SlateDbBuilder<K, V>
             MetricsRecorderHandle,
             _dbCache,
             _dbCacheId,
-            _disableDbCache);
+            _disableDbCache,
+            SystemClock,
+            BlockTransformer);
     }
 }

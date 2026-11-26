@@ -200,4 +200,31 @@ internal static class AdminConverters
         DetachOptions: options.DetachOptions is { } d ? ToInterop(d) : null,
         DisableBoundaryFiles: options.DisableBoundaryFiles,
         ObjectStoreMaxRetries: options.ObjectStoreMaxRetries);
+
+    // ---- Compactor / compaction worker ----
+
+    public static CompactionWorkerOptions ToInterop(AdminModel.CompactionWorkerOptions options) => new(
+        MaxConcurrentCompactions: options.MaxConcurrentCompactions,
+        CompactionsPollIntervalMs: options.CompactionsPollIntervalMs,
+        HeartbeatIntervalMs: options.HeartbeatIntervalMs,
+        MaxSstSize: options.MaxSstSize,
+        MaxFetchTasks: options.MaxFetchTasks,
+        BytesToFetch: options.BytesToFetch,
+        MaxSubcompactions: options.MaxSubcompactions,
+        MinFilterKeys: options.MinFilterKeys,
+        CompressionCodec: options.CompressionCodec is { } codec ? OptionsConverters.ToInterop(codec) : null);
+
+    public static CompactorOptions ToInterop(AdminModel.CompactorOptions options) => new(
+        Worker: options.Worker is { } worker ? ToInterop(worker) : null,
+        PollIntervalMs: options.PollIntervalMs,
+        ManifestUpdateTimeoutMs: options.ManifestUpdateTimeoutMs,
+        MaxConcurrentCompactions: options.MaxConcurrentCompactions,
+        EnableTrivialMove: options.EnableTrivialMove,
+        SchedulerOptions: options.SchedulerOptions is { } scheduler
+            ? new Dictionary<string, string>(scheduler)
+            : new Dictionary<string, string>(),
+        CommitCompactedIntervalMs: options.CommitCompactedIntervalMs,
+        CheckpointLifetimeMs: options.CheckpointLifetimeMs,
+        WorkerHeartbeatTimeoutMs: options.WorkerHeartbeatTimeoutMs,
+        ObjectStoreMaxRetries: options.ObjectStoreMaxRetries);
 }

@@ -194,6 +194,63 @@ public sealed class SlateDbAdmin : IDisposable
         }
     }
 
+    /// <summary>
+    /// Runs the garbage collector in the foreground until <paramref name="cancellationToken"/> is
+    /// cancelled, collecting on the intervals set in <paramref name="options"/>. When
+    /// <paramref name="options"/> is <c>null</c>, SlateDB's default garbage collector options are used.
+    /// </summary>
+    /// <remarks>
+    /// The returned task completes normally (without throwing <see cref="OperationCanceledException"/>)
+    /// once the loop has shut down after cancellation. A token that is already cancelled returns
+    /// without starting the loop.
+    /// </remarks>
+    public Task RunGcAsync(GarbageCollectorOptions? options = null, CancellationToken cancellationToken = default) =>
+        RunLoopAsync("RunGc", cancellationToken, token =>
+            _handle.RunGc(token, options is null ? null : Interop.AdminConverters.ToInterop(options)));
+
+    /// <summary>
+    /// Runs a compactor in the foreground until <paramref name="cancellationToken"/> is cancelled.
+    /// When <paramref name="options"/> is <c>null</c>, SlateDB's default compactor options are used
+    /// (including an embedded compaction worker).
+    /// </summary>
+    /// <remarks>
+    /// The returned task completes normally once the loop has shut down after cancellation. A token
+    /// that is already cancelled returns without starting the loop.
+    /// </remarks>
+    public Task RunCompactorAsync(CompactorOptions? options = null, CancellationToken cancellationToken = default) =>
+        RunLoopAsync("RunCompactor", cancellationToken, token =>
+            _handle.RunCompactor(token, options is null ? null : Interop.AdminConverters.ToInterop(options)));
+
+    /// <summary>
+    /// Runs a standalone compaction worker in the foreground until <paramref name="cancellationToken"/>
+    /// is cancelled, executing compactions scheduled by a compactor running elsewhere. When
+    /// <paramref name="options"/> is <c>null</c>, SlateDB's default worker options are used.
+    /// </summary>
+    /// <remarks>
+    /// The returned task completes normally once the loop has shut down after cancellation. A token
+    /// that is already cancelled returns without starting the loop.
+    /// </remarks>
+    public Task RunCompactionWorkerAsync(CompactionWorkerOptions? options = null, CancellationToken cancellationToken = default) =>
+        RunLoopAsync("RunCompactionWorker", cancellationToken, token =>
+            _handle.RunCompactionWorker(token, options is null ? null : Interop.AdminConverters.ToInterop(options)));
+
+    private async Task RunLoopAsync(string operation, CancellationToken cancellationToken, Func<Interop.CancellationToken, Task> run)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        using var nativeToken = new Interop.CancellationToken();
+        await using var registration = cancellationToken.Register(static state => ((Interop.CancellationToken)state!).Cancel(), nativeToken);
+
+        try
+        {
+            await run(nativeToken);
+        }
+        catch (Exception ex) when (ex is not SlateDbException)
+        {
+            throw new SlateDbException($"Admin.{operation} failed: {ex.Message}", ex);
+        }
+    }
+
     /// <summary>Looks up a timestamp for the provided sequence number.</summary>
     public long? GetTimestampForSequence(ulong seq, bool roundUp) =>
         GetTimestampForSequenceAsync(seq, roundUp).GetAwaiter().GetResult();

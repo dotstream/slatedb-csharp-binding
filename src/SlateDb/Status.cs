@@ -22,6 +22,12 @@ public class Status
     /// <summary>The error message, when <see cref="IsError"/> is <c>true</c>.</summary>
     public string? Message { get; private set; }
 
+    /// <summary>
+    /// Highest durable sequence number observed by the handle, or <c>null</c> when unknown
+    /// (e.g. when <see cref="IsError"/> is <c>true</c>).
+    /// </summary>
+    public ulong? DurableSeq { get; private init; }
+
     private Status(bool isRunning, bool isClosed, bool isError, string? reasonClosed, string? message)
     {
         IsRunning = isRunning;
@@ -41,4 +47,18 @@ public class Status
     /// <summary>Creates a status representing a failure to retrieve the database's status.</summary>
     /// <param name="errorMessage">Human-readable error message.</param>
     public static Status Error(string errorMessage) => new(false, false, true, null, errorMessage);
+
+    internal static Status FromInterop(Interop.DbStatus status)
+    {
+        var result = status.CloseReason switch
+        {
+            null => Running(),
+            Interop.CloseReason.Panic => Error("Panic"),
+            var reason => Closed(reason.ToString()!)
+        };
+        return new Status(result.IsRunning, result.IsClosed, result.IsError, result.ReasonClosed, result.Message)
+        {
+            DurableSeq = status.DurableSeq
+        };
+    }
 }

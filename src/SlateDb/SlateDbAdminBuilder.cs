@@ -12,6 +12,7 @@ public sealed class SlateDbAdminBuilder
     private AbstractSlateDbConfig _configuration = new MemoryStoreConfig();
     private AbstractSlateDbConfig? _walConfiguration;
     private ulong? _seed;
+    private SlateDbClock? _clock;
 
     internal SlateDbAdminBuilder(string path)
     {
@@ -39,6 +40,16 @@ public sealed class SlateDbAdminBuilder
         return this;
     }
 
+    /// <summary>
+    /// Sets the clock the admin handle (and the garbage collector, compactor and compaction worker it
+    /// runs) reads wall time from.
+    /// </summary>
+    public SlateDbAdminBuilder WithSystemClock(SlateDbClock clock)
+    {
+        _clock = clock ?? throw new ArgumentNullException(nameof(clock));
+        return this;
+    }
+
     /// <summary>Builds the admin handle.</summary>
     public SlateDbAdmin Build()
     {
@@ -58,6 +69,9 @@ public sealed class SlateDbAdminBuilder
 
             if (_seed != null)
                 builder.WithSeed(_seed.Value);
+
+            if (_clock != null)
+                builder.WithSystemClock(_clock.Inner);
 
             return new SlateDbAdmin(builder.Build());
         }

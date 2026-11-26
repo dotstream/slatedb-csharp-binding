@@ -165,7 +165,9 @@ public sealed partial class SlateDb<K,V> : IDisposable, IAsyncDisposable
         Interop.MetricsRecorder? metricsRecorder = null,
         SlateDbCache? dbCache = null,
         ulong dbCacheId = 0,
-        bool disableDbCache = false)
+        bool disableDbCache = false,
+        SlateDbClock? systemClock = null,
+        IBlockTransformer? blockTransformer = null)
     {
         _mode = SlateDbMode.Readonly;
         _keyConverter = keyConverter;
@@ -173,7 +175,7 @@ public sealed partial class SlateDb<K,V> : IDisposable, IAsyncDisposable
 
         try
         {
-            using var builder = CreateDbReaderBuilder(path, configuration, readerMode, readerOptions, filterPolicies, segmentExtractor, metricsRecorder, dbCache, dbCacheId, disableDbCache);
+            using var builder = CreateDbReaderBuilder(path, configuration, readerMode, readerOptions, filterPolicies, segmentExtractor, metricsRecorder, dbCache, dbCacheId, disableDbCache, systemClock, blockTransformer);
             _readerHandle = builder.Build().GetAwaiter().GetResult();
         }
         catch (Exception ex) when (ex is not SlateDbException)
@@ -240,6 +242,15 @@ public sealed partial class SlateDb<K,V> : IDisposable, IAsyncDisposable
         if (options.MetricsRecorder != null)
             builder.WithMetricsRecorder(options.MetricsRecorder);
 
+        if (options.SystemClock != null)
+            builder.WithSystemClock(options.SystemClock.Inner);
+
+        if (options.BlockTransformer != null)
+            builder.WithBlockTransformer(new Interop.BlockTransformerAdapter(options.BlockTransformer));
+
+        if (options.BlockCachePolicy != null)
+            builder.WithBlockCachePolicy(Interop.OptionsConverters.ToInterop(options.BlockCachePolicy));
+
         mergeOperatorAdapter = null;
         if (options.MergeOperator != null)
         {
@@ -260,7 +271,9 @@ public sealed partial class SlateDb<K,V> : IDisposable, IAsyncDisposable
         Interop.MetricsRecorder? metricsRecorder = null,
         SlateDbCache? dbCache = null,
         ulong dbCacheId = 0,
-        bool disableDbCache = false)
+        bool disableDbCache = false,
+        SlateDbClock? systemClock = null,
+        IBlockTransformer? blockTransformer = null)
     {
         using var objectStore = Interop.UniffiHelpers.CreateObjectStore(configuration);
         var builder = new Interop.DbReaderBuilder(path, objectStore);
@@ -284,6 +297,12 @@ public sealed partial class SlateDb<K,V> : IDisposable, IAsyncDisposable
 
         if (metricsRecorder != null)
             builder.WithMetricsRecorder(metricsRecorder);
+
+        if (systemClock != null)
+            builder.WithSystemClock(systemClock.Inner);
+
+        if (blockTransformer != null)
+            builder.WithBlockTransformer(new Interop.BlockTransformerAdapter(blockTransformer));
 
         return builder;
     }
@@ -319,11 +338,13 @@ public sealed partial class SlateDb<K,V> : IDisposable, IAsyncDisposable
         Interop.MetricsRecorder? metricsRecorder = null,
         SlateDbCache? dbCache = null,
         ulong dbCacheId = 0,
-        bool disableDbCache = false)
+        bool disableDbCache = false,
+        SlateDbClock? systemClock = null,
+        IBlockTransformer? blockTransformer = null)
     {
         try
         {
-            using var builder = CreateDbReaderBuilder(path, configuration, readerMode, readerOptions, filterPolicies, segmentExtractor, metricsRecorder, dbCache, dbCacheId, disableDbCache);
+            using var builder = CreateDbReaderBuilder(path, configuration, readerMode, readerOptions, filterPolicies, segmentExtractor, metricsRecorder, dbCache, dbCacheId, disableDbCache, systemClock, blockTransformer);
             var readerHandle = await builder.Build();
             return new SlateDb<K, V>(readerHandle, keyConverter, valueConverter);
         }
@@ -350,18 +371,34 @@ public sealed partial class SlateDb<K,V> : IDisposable, IAsyncDisposable
 
             try
             {
-                var status = _dbHandle.Status();
-                return status.CloseReason switch
-                {
-                    null => Status.Running(),
-                    Interop.CloseReason.Panic => Status.Error("Panic"),
-                    var reason => Status.Closed(reason.ToString()!)
-                };
+                return Status.FromInterop(_dbHandle.Status());
             }
             catch (Exception ex) when (ex is not SlateDbException)
             {
                 return Status.Error(ex.Message);
             }
+        }
+    }
+
+    /// <summary>
+    /// Subscribes to status changes (durability progress and close) of this database or reader.
+    /// Dispose the subscription when done.
+    /// </summary>
+    public SlateDbStatusSubscription Subscribe()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        try
+        {
+            if (_dbHandle != null)
+                return new SlateDbStatusSubscription(_dbHandle.Subscribe());
+            if (_readerHandle != null)
+                return new SlateDbStatusSubscription(_readerHandle.Subscribe());
+            throw new SlateDbException("Database handle is null");
+        }
+        catch (Exception ex) when (ex is not SlateDbException)
+        {
+            throw new SlateDbException($"Subscribe failed: {ex.Message}", ex);
         }
     }
 
