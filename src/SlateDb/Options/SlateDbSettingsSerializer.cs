@@ -48,7 +48,9 @@ internal static class SlateDbSettingsSerializer
              MaxUnflushedBytes = s.MaxUnflushedBytes,
              CompactorOptions = s.CompactorOptions is { } co ? ToDto(co) : null,
              CompressionCodec = s.CompressionCodec?.ToString(),
-             ObjectStoreCacheOptions = s.CacheOptions is { } cache ? ToCacheDto(cache) : null,
+ #pragma warning disable CS0618 // Deprecated upstream but still supported.
+            ObjectStoreCacheOptions = s.CacheOptions is { } cache ? ToCacheDto(cache) : null,
+#pragma warning restore CS0618
              GarbageCollectorOptions = s.GarbageCollectorOptions is { } gc ? ToDto(gc) : null,
              DefaultTtl = s.DefaultTtlMs,
          };

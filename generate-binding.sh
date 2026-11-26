@@ -88,10 +88,16 @@ if [ "$all" = true ] && [ "$HAS_ZIGBUILD" = false ]; then
     exit 1
 fi
 
-cargo install --locked uniffi-bindgen-cs --git https://github.com/NordSecurity/uniffi-bindgen-cs --tag v0.11.0+v0.31.0
+cargo install --locked uniffi-bindgen-cs --git https://github.com/NordSecurity/uniffi-bindgen-cs --tag v0.12.0+v0.32.0
 
 # uniffi-bindgen-cs shells out to csharpier to format the generated bindings
 export PATH="$PATH:$HOME/.dotnet/tools"
+# Global tools need DOTNET_ROOT when dotnet isn't in a default location (e.g. Homebrew);
+# otherwise csharpier exits with 131 and the bindings are left unformatted.
+if [ -z "${DOTNET_ROOT:-}" ] && command -v dotnet &>/dev/null; then
+    DOTNET_RUNTIME_DIR="$(dotnet --list-runtimes | awk '/Microsoft.NETCore.App/ {gsub(/[\[\]]/, "", $3); print $3; exit}')"
+    [ -n "$DOTNET_RUNTIME_DIR" ] && export DOTNET_ROOT="$(dirname "$(dirname "$DOTNET_RUNTIME_DIR")")"
+fi
 if ! command -v csharpier &>/dev/null; then
     dotnet tool install -g csharpier
 fi

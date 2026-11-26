@@ -41,7 +41,12 @@ public record SlateDbSettings
     /// <summary>Compression codec applied to newly written SSTable blocks.</summary>
     public CompressionCodec? CompressionCodec { get; init; }
 
-    /// <summary>Options controlling the local block cache.</summary>
+    /// <summary>Options controlling the local object-store (disk) cache.</summary>
+    /// <remarks>
+    /// Deprecated since SlateDB 0.18.1: the object-store cache is being replaced by a local object
+    /// mirror. For tiered caching, prefer a DB cache (<see cref="SlateDbBuilder{K,V}.WithDbCache"/>).
+    /// </remarks>
+    [Obsolete("SlateDB is replacing the object-store cache with a local object mirror. Prefer a DB cache (WithDbCache).")]
     public CacheOptions? CacheOptions { get; init; }
 
     /// <summary>Options controlling the background garbage collector.</summary>

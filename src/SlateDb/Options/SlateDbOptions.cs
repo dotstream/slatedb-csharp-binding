@@ -10,7 +10,10 @@ internal class SlateDbOptions<K, V>(
     bool disableDbCache = false,
     IReadOnlyList<SlateDbFilterPolicy>? filterPolicies = null,
     IPrefixExtractor? segmentExtractor = null,
-    Interop.MetricsRecorder? metricsRecorder = null)
+    Interop.MetricsRecorder? metricsRecorder = null,
+    SlateDbClock? systemClock = null,
+    IBlockTransformer? blockTransformer = null,
+    BlockCachePolicy? blockCachePolicy = null)
 {
     internal SlateDbSettings? SlateDbSettings { get; } = slateDbSettings;
     internal SstBlockSize? SstBlockSize { get; } = sstBlockSize;
@@ -22,9 +25,13 @@ internal class SlateDbOptions<K, V>(
     internal IReadOnlyList<SlateDbFilterPolicy>? FilterPolicies { get; } = filterPolicies;
     internal IPrefixExtractor? SegmentExtractor { get; } = segmentExtractor;
     internal Interop.MetricsRecorder? MetricsRecorder { get; } = metricsRecorder;
+    internal SlateDbClock? SystemClock { get; } = systemClock;
+    internal IBlockTransformer? BlockTransformer { get; } = blockTransformer;
+    internal BlockCachePolicy? BlockCachePolicy { get; } = blockCachePolicy;
 
     internal bool NeedSlateDbBuilderUsage =>
         SlateDbSettings is not null || SstBlockSize is not null ||  MergeOperator is not null
         || DbCache is not null || DisableDbCache || FilterPolicies is not null || SegmentExtractor is not null
-        || MetricsRecorder is not null;
+        || MetricsRecorder is not null || SystemClock is not null || BlockTransformer is not null
+        || BlockCachePolicy is not null;
 }

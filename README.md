@@ -69,6 +69,8 @@ dotnet test
 | [0.14.1](https://github.com/slatedb/slatedb/releases/tag/v0.14.1) | [0.14.1](https://www.nuget.org/packages/SlateDb.Net/0.14.1) | **✅** |
 | [0.15.0](https://github.com/slatedb/slatedb/releases/tag/v0.15.0) | [0.15.0](https://www.nuget.org/packages/SlateDb.Net/0.15.0) | **✅** |
 | [0.16.0](https://github.com/slatedb/slatedb/releases/tag/v0.16.0) | [0.16.0](https://www.nuget.org/packages/SlateDb.Net/0.16.0) | **✅** |
+| [0.17.0](https://github.com/slatedb/slatedb/releases/tag/v0.17.0) | [0.17.0](https://www.nuget.org/packages/SlateDb.Net/0.17.0) | **✅** |
+| [0.18.1](https://github.com/slatedb/slatedb/releases/tag/v0.18.1) | [0.18.1](https://www.nuget.org/packages/SlateDb.Net/0.16.0) | **🟨** |
 
 ## License
 

@@ -31,6 +31,7 @@ internal static class OptionsConverters
 
     public static ReadOptions ToInterop(Options.ReadOptions options) =>
         new(ToInterop(options.DurabilityFilter), options.Dirty, options.CacheBlocks,
+            options.MaxConcurrentSources,
             options.FilterContext is null ? null : ToInterop(options.FilterContext));
 
     public static WriteOptions ToInterop(Options.WriteOptions options) =>
@@ -59,7 +60,42 @@ internal static class OptionsConverters
             (ulong)options.ManifestPollInterval.TotalMilliseconds,
             (ulong)options.CheckpointLifetime.TotalMilliseconds,
             options.MaxMemtableBytes,
-            options.SkipWalReplay);
+            options.SkipWalReplay,
+            options.ObjectStoreMaxRetries,
+#pragma warning disable CS0618 // The object-store cache is deprecated upstream but still supported.
+            options.ObjectStoreCacheOptions is { } cache ? ToInterop(cache) : null);
+
+    public static ObjectStoreCacheOptions ToInterop(Options.ObjectStoreCacheOptions options) =>
+        new(
+            RootFolder: options.RootFolder,
+            MaxCacheSizeBytes: options.MaxCacheSizeBytes,
+            PartSizeBytes: options.PartSizeBytes,
+            CacheOnFlush: options.CacheOnFlush,
+            CacheOnCompaction: options.CacheOnCompaction,
+            PreloadDiskCacheOnStartup: options.PreloadDiskCacheOnStartup is { } level ? ToInterop(level) : null,
+            ScanIntervalMs: (ulong?)options.ScanInterval?.TotalMilliseconds,
+            MaxOpenFileHandles: options.MaxOpenFileHandles);
+#pragma warning restore CS0618
+
+    public static PreloadLevel ToInterop(Options.PreloadLevel level) => level switch
+    {
+        Options.PreloadLevel.L0Sst => PreloadLevel.L0Sst,
+        Options.PreloadLevel.AllSst => PreloadLevel.AllSst,
+        _ => throw new ArgumentOutOfRangeException(nameof(level))
+    };
+
+    public static CompressionCodec ToInterop(Options.CompressionCodec codec) => codec switch
+    {
+        Options.CompressionCodec.Snappy => CompressionCodec.Snappy,
+        Options.CompressionCodec.Zlib => CompressionCodec.Zlib,
+        Options.CompressionCodec.Lz4 => CompressionCodec.Lz4,
+        Options.CompressionCodec.Zstd => CompressionCodec.Zstd,
+        _ => throw new ArgumentOutOfRangeException(nameof(codec))
+    };
+
+    public static BlockCachePolicy ToInterop(Options.BlockCachePolicy policy) =>
+        new(policy.FlushTargets.Select(ToInterop).ToArray(),
+            policy.CompactionOutputTargets.Select(ToInterop).ToArray());
 
     public static LogLevel ToInterop(Options.LogLevel level) => level switch
     {
